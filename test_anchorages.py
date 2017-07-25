@@ -18,7 +18,7 @@ examples_msgs = [json.loads(x) for x in example_data.split("\n")]
 # Sabotage example message so that we can see some bad messages later
 examples_msgs[3]['lat'] = 361
 
-example_records = [anchorages.VesselLocationRecord_from_msg(x) for x in examples_msgs if anchorages.is_location_message(x)]
+example_records = [anchorages.Records_from_msg(x, [])[0][1] for x in examples_msgs if anchorages.is_location_message(x)]
 example_records.append
 
 
@@ -34,7 +34,8 @@ def test_is_not_bad_value():
 class TestVesselLocationRecord:
 
     def test_create(self):
-        assert anchorages.VesselLocationRecord_from_msg(examples_msgs[0]) == anchorages.VesselLocationRecord(
+        [(md, obj)] = anchorages.Records_from_msg(examples_msgs[0], [])
+        assert obj == anchorages.VesselLocationRecord(
                     timestamp=datetime.datetime(2016, 1, 1, 5, 20, 13), 
                     location=anchorages.LatLon(lat=55.2189674377, lon=9.2907962799), 
                     distance_from_shore=0.0, 
@@ -42,7 +43,7 @@ class TestVesselLocationRecord:
                     course=92.8000030518)
 
     def test_pickle(self):
-        obj = anchorages.VesselLocationRecord_from_msg(examples_msgs[0])
+        [(md, obj)] = anchorages.Records_from_msg(examples_msgs[0], [])
         assert pickle.loads(pickle.dumps(obj)) == obj
 
 
