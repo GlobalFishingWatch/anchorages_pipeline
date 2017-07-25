@@ -48,7 +48,6 @@ class InlandMask(object):
         lat, lon = loc
         i = (self.MAX_LAT - lat) // self.dlat
         j = (lon - self.MIN_LON) // self.dlon
-        print(i, j, self.mask[int(i), int(j)])
         return self.mask[int(i), int(j)]
 
 inland_mask = InlandMask()
@@ -136,31 +135,59 @@ def VesselMetadata_from_msg(msg):
 VesselLocationRecord = namedtuple('VesselLocationRecord',
             ['timestamp', 'location', 'distance_from_shore', 'speed', 'course'])
 
-def VesselLocationRecord_from_msg(msg):
-    return VesselLocationRecord(
-        datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ'), 
-        LatLon(msg['lat'], msg['lon']), 
-        msg['distance_from_shore'] / 1000.0,
-        round(msg['speed'], 1),
-        msg['course'])
+TaggedVesselLocationRecord = namedtuple('TaggedVesselLocationRecord',
+            ['destination', 'timestamp', 'location', 'distance_from_shore', 'speed', 'course'])
+
+VesselInfoRecord = namedtuple('VesselInfoRecord',
+            ['timestamp', 'destination'])
+
+
+def Records_from_msg(msg, blacklisted_mmsis):
+
+    mmsi = msg.get('mmsi')
+    if not isinstance(mmsi, int) or (mmsi in blacklisted_mmsis):
+        return []
+
+    metadata = VesselMetadata_from_msg(msg)
+
+    if is_location_message(msg):
+        return [(metadata, VesselLocationRecord(
+            datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ'), 
+            LatLon(msg['lat'], msg['lon']), 
+            msg['distance_from_shore'] / 1000.0,
+            round(msg['speed'], 1),
+            msg['course']))]
+    elif msg.get('destination') not in set(['', None]):
+        return [(metadata, VesselInfoRecord(
+            datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ'),
+            msg['destination']
+            ))]
+    else:
+        return []
+
 
 
 AnchoragePoint = namedtuple("AnchoragePoint", ['mean_location',
                                                'vessels',
                                                'mean_distance_from_shore',
-                                               'mean_drift_radius'])
+                                               'mean_drift_radius',
+                                               'top_destinations'])
+
+
 
 
 def is_location_message(msg):
-    return ('mmsi' in msg and isinstance(msg['mmsi'], int) and
-            'lat' in msg and 
-            'lon' in msg and
-            'speed' in msg and
-            'distance_from_shore' in msg and
-            'course' in msg)
+    return (
+                'lat' in msg and 
+                'lon' in msg and
+                'speed' in msg and
+                'distance_from_shore' in msg and
+                'course' in msg
+        )
+
 
 def is_not_bad_value(lr):
-    return (
+    return isinstance(lr, VesselInfoRecord) or (
     -90 <= lr.location.lat <= 90 and
     -180 <= lr.location.lon <= 180 and
     0 <= lr.distance_from_shore <= 20000 and
@@ -171,12 +198,20 @@ def is_not_bad_value(lr):
 def read_json_records(input, blacklisted_mmsis):
     return (input 
         | "Parse" >> beam.Map(json.loads)
-        | "SelectLocationMessages" >> beam.Filter(is_location_message)
-        | "CreateLocationRecords" >> beam.Map(lambda msg: (
-            VesselMetadata_from_msg(msg), VesselLocationRecord_from_msg(msg)))
-        | "FilterOutBlacklistedMMSI" >> beam.Filter(lambda (md, lr): md.mmsi not in blacklisted_mmsis)
+        | "CreateLocationRecords" >> beam.FlatMap(Records_from_msg, blacklisted_mmsis)
         | "FilterOutBadValues" >> beam.Filter(lambda (md, lr): is_not_bad_value(lr))
         )
+
+def tag_with_destination(records):
+    """filter out info messages and use them to tag subsequent records"""
+    dest = ''
+    new = []
+    for rcd in records:
+        if isinstance(rcd, VesselInfoRecord):
+            dest = rcd.destination
+        else:
+            new.append(TaggedVesselLocationRecord(dest, *rcd)) 
+    return new
 
 def dedup_by_timestamp(element):
     key, source = element
@@ -219,7 +254,8 @@ def distance(a, b):
     h = min(h, 1)
     return 2 * EARTH_RADIUS * math.asin(math.sqrt(h))
 
-StationaryPeriod = namedtuple("StationaryPeriod", ['location', 'duration', 'mean_distance_from_shore', 'mean_drift_radius'])
+StationaryPeriod = namedtuple("StationaryPeriod", ['location', 'duration', 'mean_distance_from_shore', 
+        'mean_drift_radius', 'destination'])
 
 LatLon = namedtuple("LatLon", ["lat", "lon"])
 
@@ -254,7 +290,8 @@ def remove_stationary_periods(records, stationary_period_min_duration, stationar
                     mean_drift_radius = sum(distance(x.location, mean_location) for x in current_period)
 
                     stationary_periods.append(StationaryPeriod(mean_location, duration, 
-                                                               mean_distance_from_shore, mean_drift_radius))
+                                                               mean_distance_from_shore, mean_drift_radius,
+                                                               first_vr.destination))
                 else:
                     without_stationary_periods.extend(current_period)
                 current_period = []
@@ -294,10 +331,8 @@ def LatLon_mean(seq):
     return LatLon(mean(x.lat for x in seq), mean(x.lon for x in seq))
 
 
-# def find_destinations(seq, limit):
-#     # TODO: ideally, we group by mmsi and take the first for each visit
-#     # Might need to dig into stationary periods code to do that right and add to metadata
-#     return Counter(x.destination for x in seq if x.destination not in set([''])).most_common(limit)
+def find_destinations(seq, limit):
+    return Counter(x.destination for x in seq if x.destination not in set([''])).most_common(limit)
 
 
 def find_anchorage_point_cells(input, min_unique_vessels_for_anchorage):
@@ -311,7 +346,7 @@ def find_anchorage_point_cells(input, min_unique_vessels_for_anchorage):
                 vessels = frozenset(md for (md, pl) in visits),
                 mean_distance_from_shore = mean(pl.mean_distance_from_shore for (md, pl) in visits),
                 mean_drift_radius = mean(pl.mean_drift_radius for (md, pl) in visits),    
-                # top_destinations = find_destinations((pl for (md, pl) in visits), limit=10)            
+                top_destinations = find_destinations((pl for (md, pl) in visits), limit=10)            
                 )
             )
         | beam.Filter(lambda x: len(x.vessels) >= min_unique_vessels_for_anchorage)
@@ -322,19 +357,6 @@ def anchorage_point_to_json(a_pt):
     return {'lat' : a_pt.mean_location.lat, 'lon': a_pt.mean_location.lon}
 
 
-# def anchorange_to_json(anchorage):
-#     n = 0
-#     lat = 0.0
-#     lon = 0.0
-#     # destinations = Counter()
-#     for ap in anchorage:
-#         lat += ap.mean_location.lat * len(ap.vessels)
-#         lon += ap.mean_location.lon * len(ap.vessels)
-#         # counter.update(dict(ap.top_destinations))
-#         n += len(ap.vessels)
-#     lat /= n
-#     lon /= n
-#     return {'lat' : lat, 'lon': lon}
 
 
 
@@ -370,8 +392,6 @@ def merge_adjacent_anchorage_points(anchorage_points):
 
 class Anchorages(object):
 
-
-
     @staticmethod
     def find_visits(input, anchorages, min_duration):
         anchorages =  pvalue.AsList(anchorages)   
@@ -381,15 +401,15 @@ class Anchorages(object):
         n = 0
         lat = 0.0
         lon = 0.0
-        # destinations = Counter()
+        destinations = Counter()
         for ap in anchorage:
             lat += ap.mean_location.lat * len(ap.vessels)
             lon += ap.mean_location.lon * len(ap.vessels)
-            # counter.update(dict(ap.top_destinations))
+            counter.update(dict(ap.top_destinations))
             n += len(ap.vessels)
         lat /= n
         lon /= n
-        return json.dumps({'lat' : lat, 'lon': lon})
+        return json.dumps({'lat' : lat, 'lon': lon, 'destinations': counter.most_common(10)})
 
 
  # def findAnchorageVisits(
@@ -473,8 +493,7 @@ def run(argv=None):
         --max_num_workers 100
 
     python -m anchorages \
-        --input-pattern gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-01-01/001-of-* \
-        --max_num_workers 10
+        --input-pattern gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-01-01/001-of-* 
 
 
     """
@@ -527,7 +546,10 @@ def run(argv=None):
 
     location_records = read_json_records(ais_input_data, blacklisted_mmsis)
 
-    grouped_records = location_records | "GroupByMmsi" >> beam.GroupByKey()
+    grouped_records = (location_records 
+        | "GroupByMmsi" >> beam.GroupByKey()
+        | "TagWithDestination" >> beam.Map(lambda (md, records): (md, tag_with_destination(records))))
+
 
     deduped_records = filter_duplicate_timestamps(grouped_records, min_required_positions)
 
