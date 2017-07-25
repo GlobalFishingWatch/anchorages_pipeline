@@ -9,6 +9,7 @@ import datetime
 from collections import namedtuple, Counter
 import itertools as it
 import math
+import pickle
 import s2sphere
 
 # TODO put unit reg in package if we refactor
@@ -31,26 +32,32 @@ from apache_beam.options.pipeline_options import SetupOptions
 # np.save("inland.npy", imarray == -10)
 
 
-class InlandMask(object):
-
-    MIN_LON = -180.0044166
-    MAX_LON = 180.0044166
-    MIN_LAT = -90.0022083
-    MAX_LAT = 90.0022083
+class SparseInlandMask(object):
 
     def __init__(self):
-        self.mask = np.load("inland.npy")
-        self.nlat, self.nlon = self.mask.shape
+        with open("sparse_inland.pickle") as f:
+            mask_info =pickle.load(f)
+        self.mask_data = mask_info['data']
+        self.nlat = mask_info['n_lat']
+        self.nlon = mask_info['n_lon']
+        self.MAX_LAT = mask_info['max_lat']
+        self.MIN_LAT = mask_info['min_lat']
+        self.MAX_LON = mask_info['max_lon']
+        self.MIN_LON = mask_info['min_lon']
         self.dlat = (self.MAX_LAT - self.MIN_LAT) / self.nlat
         self.dlon = (self.MAX_LON - self.MIN_LON) / self.nlon
 
     def __getitem__(self, loc):
         lat, lon = loc
-        i = (self.MAX_LAT - lat) // self.dlat
-        j = (lon - self.MIN_LON) // self.dlon
-        return self.mask[int(i), int(j)]
+        i = int((self.MAX_LAT - lat) // self.dlat)
+        j = int((lon - self.MIN_LON) // self.dlon)
+        # base is the value at MIN_LON and indices are pixels where it flips.
+        base, not_base, indices = self.mask_data[i]
+        ndx = np.searchsorted(indices, j, side='right')
+        # If we have an odd number of flips then reverse base
+        return not_base if (ndx & 1) else base
 
-inland_mask = InlandMask()
+inland_mask = SparseInlandMask()
 
 
 """UnionFind.py
