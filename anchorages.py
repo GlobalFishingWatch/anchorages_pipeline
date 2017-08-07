@@ -11,6 +11,7 @@ import itertools as it
 import math
 import pickle
 import s2sphere
+import bisect
 
 # TODO put unit reg in package if we refactor
 # import pint
@@ -24,6 +25,8 @@ from apache_beam.metrics.metric import MetricsFilter
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
+# TODO: Try? to switch to s2sphere LatLon
+
 
 
 # from skimage import io
@@ -36,26 +39,27 @@ class SparseInlandMask(object):
 
     def __init__(self):
         with open("sparse_inland.pickle") as f:
-            mask_info =pickle.load(f)
+            mask_info = pickle.load(f)
         self.mask_data = mask_info['data']
-        self.nlat = mask_info['n_lat']
-        self.nlon = mask_info['n_lon']
         self.MAX_LAT = mask_info['max_lat']
         self.MIN_LAT = mask_info['min_lat']
         self.MAX_LON = mask_info['max_lon']
         self.MIN_LON = mask_info['min_lon']
-        self.dlat = (self.MAX_LAT - self.MIN_LAT) / self.nlat
-        self.dlon = (self.MAX_LON - self.MIN_LON) / self.nlon
+        self._dlat = (self.MAX_LAT - self.MIN_LAT) / mask_info['n_lat']
+        self._dlon = (self.MAX_LON - self.MIN_LON) / mask_info['n_lon']
 
-    def __getitem__(self, loc):
+    def query(self, loc):
         lat, lon = loc
-        i = int((self.MAX_LAT - lat) // self.dlat)
-        j = int((lon - self.MIN_LON) // self.dlon)
-        # base is the value at MIN_LON and indices are pixels where it flips.
-        base, not_base, indices = self.mask_data[i]
-        ndx = np.searchsorted(indices, j, side='right')
-        # If we have an odd number of flips then reverse base
-        return not_base if (ndx & 1) else base
+        i = (self.MAX_LAT - lat) // self._dlat
+        j = (lon - self.MIN_LON) // self._dlon
+        ndx = bisect.bisect_right(self.mask_data[int(i)], j)
+        return ndx & 1
+
+    def checked_query(self, loc):
+        lat, lon = loc
+        assert self.MIN_LAT <= lat < self.MAX_LAT
+        assert self.MIN_LON <= lat < self.MAX_LON
+        return self.query(loc)
 
 inland_mask = SparseInlandMask()
 
@@ -339,7 +343,7 @@ def LatLon_mean(seq):
 
 
 def find_destinations(seq, limit):
-    return Counter(x.destination for x in seq if x.destination not in set([''])).most_common(limit)
+    return tuple(Counter(x.destination for x in seq if x.destination not in set([''])).most_common(limit))
 
 
 def find_anchorage_point_cells(input, min_unique_vessels_for_anchorage):
@@ -376,25 +380,29 @@ def merge_adjacent_anchorage_points(anchorage_points):
     union_find = UnionFind()
 
     for ap in anchorage_points:
-        # TODO: consider using get_all_neighbors
-        neighbors = S2_cell_ID(ap.mean_location).get_edge_neighbors()
-        for x in neighbors:
-            id = x.to_token()
-            if id in anchorages_by_id:
-                nc = anchorages_by_id[id]
+        neighbors = S2_cell_ID(ap.mean_location).get_all_neighbors(ANCHORAGES_S2_SCALE)
+        for n_id in neighbors:
+            if n_id in anchorages_by_id:
+                nc = anchorages_by_id[n_id]
                 union_find.union(ap, nc)
 
-    # Values must be sorted by key to use itertools groupby
-    anchorage_points = list(anchorage_points)
-    anchorage_points.sort(key=lambda x: union_find[x])
-    grouped = it.groupby(anchorage_points, key=lambda x: union_find[x])   
-    return [list(g) for (t, g) in grouped] 
+    # # Values must be sorted by key to use itertools groupby
+    # anchorage_points = list(anchorage_points)
+    # anchorage_points.sort(key=lambda x: union_find[x])
+    # grouped = it.groupby(anchorage_points, key=lambda x: union_find[x])   
+    # return [list(g) for (t, g) in grouped] 
 
+    grouped = {}
+    for ap in anchorage_points:
+        key = union_find[ap]
+        if key not in grouped:
+            grouped[key] = []
+        grouped[key].append(ap)
 
+    for v in grouped.values():
+        v.sort()
 
-
-
-
+    return grouped.values()
 
 
 class Anchorages(object):
@@ -412,22 +420,22 @@ class Anchorages(object):
         for ap in anchorage:
             lat += ap.mean_location.lat * len(ap.vessels)
             lon += ap.mean_location.lon * len(ap.vessels)
-            counter.update(dict(ap.top_destinations))
+            destinations.update(dict(ap.top_destinations))
             n += len(ap.vessels)
         lat /= n
         lon /= n
-        return json.dumps({'lat' : lat, 'lon': lon, 'destinations': counter.most_common(10)})
+        return json.dumps({'lat' : lat, 'lon': lon, 'destinations': destinations.most_common(10)})
 
 
- # def findAnchorageVisits(
- #      locationEvents: SCollection[(VesselMetadata, Seq[VesselLocationRecord])],
- #      anchorages: SCollection[Anchorage],
- #      minVisitDuration: Duration
- #  ): SCollection[(VesselMetadata, immutable.Seq[AnchorageVisit])] = {
- #    val si = anchorages.asListSideInput
- #    val anchoragePointIdToAnchorageCache = ValueCache[Map[String, Anchorage]]()
- #    val anchorageLookupCache = ValueCache[AdjacencyLookup[AnchoragePoint]]()
+def find_anchorage_visits(location_events, anchorages, min_visit_duration):
+    return location_events | beam.Map(find_visits_core, anchorages, min_visit_duration) 
 
+def find_visits_core((metadata, locations), anchorages):
+    pass
+
+
+
+        
  #    locationEvents
  #      .withSideInputs(si)
  #      .map {
@@ -491,9 +499,8 @@ def run(argv=None):
 
     python -m anchorages \
         --project world-fishing-827 \
-        --job_name test-anchorages \
+        --job_name test-anchorages4 \
         --runner DataflowRunner \
-        --input-pattern gs://p_p429_resampling_3/data-production/classify-pipeline/classify/*-*-*/*-of-* \
         --staging_location gs://world-fishing-827/scratch/timh/output/staging \
         --temp_location gs://world-fishing-827/scratch/timh/temp \
         --requirements_file requirements.txt \
@@ -506,25 +513,26 @@ def run(argv=None):
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('--input-patterns',
-                                        # default='gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2012-*-*/*-of-*,'
-                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2013-*-*/*-of-*,'
-                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2014-*-*/*-of-*,'
-                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2015-*-*/*-of-*,'
-                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-*-*/*-of-*,'
-                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2017-*-*/*-of-*',
                                         default=
-                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-01-*/*-of-*,'
-                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-02-*/*-of-*,'
-                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-03-*/*-of-*,'
-                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-04-*/*-of-*,'
-                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-05-*/*-of-*,'
-                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-06-*/*-of-*,'
-                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-07-*/*-of-*,'
-                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-08-*/*-of-*,'
-                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-09-*/*-of-*,'
-                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-10-*/*-of-*,'
-                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-11-*/*-of-*,'
-                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-12-*/*-of-*',
+                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2012-*-*/*-of-*,'
+                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2013-*-*/*-of-*,'
+                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2014-*-*/*-of-*,'
+                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2015-*-*/*-of-*,'
+                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-*-*/*-of-*,'
+                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2017-*-*/*-of-*',
+                                        # default=
+                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-01-*/*-of-*,'
+                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-02-*/*-of-*,'
+                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-03-*/*-of-*,'
+                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-04-*/*-of-*,'
+                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-05-*/*-of-*,'
+                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-06-*/*-of-*,'
+                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-07-*/*-of-*,'
+                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-08-*/*-of-*,'
+                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-09-*/*-of-*,'
+                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-10-*/*-of-*,'
+                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-11-*/*-of-*,'
+                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-12-*/*-of-*',
                                             help='Input file to patterns (comma separated) to process (glob)')
     parser.add_argument('--output',
                                             dest='output',
@@ -555,6 +563,7 @@ def run(argv=None):
 
     grouped_records = (location_records 
         | "GroupByMmsi" >> beam.GroupByKey()
+        | "OrderByTimestamp" >> beam.Map(lambda (md, records): (md, sorted(records, key=lambda x: x.timestamp)))
         | "TagWithDestination" >> beam.Map(lambda (md, records): (md, tag_with_destination(records))))
 
 
@@ -563,7 +572,7 @@ def run(argv=None):
     processed = filter_and_process_vessel_records(deduped_records, stationary_period_min_duration, stationary_period_max_distance)
 
     anchorage_points = (find_anchorage_point_cells(processed, min_unique_vessels_for_anchorage) |
-                        beam.Filter(lambda x: not inland_mask[x.mean_location]))
+                        beam.Filter(lambda x: not inland_mask.query(x.mean_location)))
 
 
     anchorages = (GroupAll(anchorage_points, "GroupAllAnchorages")
@@ -572,12 +581,12 @@ def run(argv=None):
 
     (anchorage_points 
         | beam.Map(lambda x: json.dumps(anchorage_point_to_json(x)))
-        | 'writeAnchorages' >> WriteToText(known_args.output + '_anchorages', file_name_suffix='.json')
+        | 'writeAnchoragesPoints' >> WriteToText(known_args.output + '_anchorages_points', file_name_suffix='.json')
     )
 
     (anchorages 
         | beam.Map(Anchorages.to_json)
-        | 'writeAnchoragePoints' >> WriteToText(known_args.output + '_anchorage_points', file_name_suffix='.json')
+        | 'writeAnchorage' >> WriteToText(known_args.output + '_anchorages', file_name_suffix='.json')
     )
 
     result = p.run()

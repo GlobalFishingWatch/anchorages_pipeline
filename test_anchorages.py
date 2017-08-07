@@ -3,6 +3,7 @@ import json
 import datetime
 import anchorages
 import pickle
+import s2sphere
 
 
 example_data = """
@@ -31,7 +32,7 @@ def test_is_not_bad_value():
     assert [anchorages.is_not_bad_value(x) for x in example_records] == [True, True, False]
 
 
-class TestVesselLocationRecord:
+class TestVesselLocationRecord(object):
 
     def test_create(self):
         [(md, obj)] = anchorages.Records_from_msg(examples_msgs[0], [])
@@ -47,7 +48,7 @@ class TestVesselLocationRecord:
         assert pickle.loads(pickle.dumps(obj)) == obj
 
 
-class TestVesselMetadata:
+class TestVesselMetadata(object):
 
     def test_create(self):
         assert [anchorages.VesselMetadata_from_msg(x) for x in examples_msgs[:2]] == [
@@ -78,13 +79,66 @@ inland_locations = {
 }
 
 
-
-class TestMask:
+class TestMask(object):
 
     def test_locations(self):
         for key in sorted(locations):
             is_inland  = key in inland_locations
-            assert anchorages.inland_mask[locations[key]] == is_inland, (key, locations[key], is_inland)
+            assert anchorages.inland_mask.query(locations[key]) == is_inland, (key, locations[key], is_inland)
+
+
+class TestAnchorages(object):
+
+    @staticmethod
+    def LatLon_from_S2Token(token):
+        s2id = s2sphere.CellId.from_token(unicode(token))
+        s2latlon = s2id.to_lat_lng()
+        return anchorages.LatLon(s2latlon.lat().degrees, s2latlon.lng().degrees)
+
+
+    def AnchoragePoint_from_S2Token(self, token, mmsis, mean_distance_from_shore=0, mean_drift_radius=0, 
+                                    top_destinations=()):
+        return anchorages.AnchoragePoint(self.LatLon_from_S2Token(token),
+                                         tuple(anchorages.VesselMetadata(x) for x in mmsis),
+                                         mean_distance_from_shore,
+                                         mean_drift_radius,
+                                         top_destinations)
+
+
+    @property
+    def anchorages(self):
+        return [
+              self.AnchoragePoint_from_S2Token("89c19c9c",
+                                            (1, 2, 3)),
+              self.AnchoragePoint_from_S2Token("89c19b64", (1, 2)),
+              self.AnchoragePoint_from_S2Token("89c1852c", [1]),
+              self.AnchoragePoint_from_S2Token("89c19b04",
+                                            (1, 2),
+                                            30.0),
+              self.AnchoragePoint_from_S2Token("89c19bac",
+                                            (1, 2),
+                                            20.0),
+              self.AnchoragePoint_from_S2Token("89c19bb4",
+                                            [1, 2],
+                                            10.0)
+        ]   
+
+
+    def test_merge(self):
+        anchs = self.anchorages
+
+        grouped_anchorages = anchorages.merge_adjacent_anchorage_points(anchs)
+
+        assert len(grouped_anchorages) == 3
+
+        print(grouped_anchorages)
+
+        expected = [[anchs[2]], 
+                    [anchs[0], anchs[1]], 
+                    [anchs[3], anchs[4], anchs[5]]]
+
+        assert sorted(grouped_anchorages) == sorted(expected)
+
 
 
 
