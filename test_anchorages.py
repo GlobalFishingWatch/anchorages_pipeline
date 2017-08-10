@@ -131,15 +131,128 @@ class TestAnchorages(object):
 
         assert len(grouped_anchorages) == 3
 
-        print(grouped_anchorages)
-
-        expected = [[anchs[2]], 
-                    [anchs[0], anchs[1]], 
-                    [anchs[3], anchs[4], anchs[5]]]
+        expected = [sorted([anchs[2]]), 
+                    sorted([anchs[0], anchs[1]]), 
+                    sorted([anchs[3], anchs[4], anchs[5]])]
 
         assert sorted(grouped_anchorages) == sorted(expected)
 
 
+
+class TestAnchorageVisits(object):
+
+    @staticmethod
+    def ts(timestamp):
+        return datetime.datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ')
+
+    @staticmethod
+    def vlr(timestamp = "1970-01-01T00:00:00Z",
+          lat = 0.0,
+          lon = 0.0,
+          distanceToShore = 500.0,
+          speed = 0.0,
+          course = 0.0,
+          heading = 0.0):
+
+        return anchorages.VesselLocationRecord(TestAnchorageVisits.ts(timestamp), 
+                         anchorages.LatLon(lat, lon),
+                         distanceToShore,
+                         speed,
+                         course)
+
+    def test(self):
+
+        anchoragePoint1 = anchorages.AnchoragePoint(anchorages.LatLon(0.0, 0.0),
+                       (anchorages.VesselMetadata(1),),
+                       10.0,
+                       0.1,
+                       None)
+
+        anchoragePoint2 = anchorages.AnchoragePoint(anchorages.LatLon(0.0, 1.0),
+                       (anchorages.VesselMetadata(1),),
+                       20.0,
+                       0.05,
+                       None)
+
+        anchorage_values = [
+        [anchoragePoint1],
+        [anchoragePoint2]
+        ]
+
+        vlr = self.vlr
+
+        vesselPath = [
+        vlr("2016-01-01T00:00:00Z", 0.008, 0.0, speed = 1.0),
+        vlr("2016-01-01T00:01:00Z", 0.006, 0.0, speed = 1.0),
+        vlr("2016-01-01T00:02:00Z", 0.004, 0.0, speed = 1.0),
+        vlr("2016-01-01T00:03:00Z", 0.002, 0.0, speed = 1.0),
+        vlr("2016-01-01T00:04:00Z", 0.000, 0.0, speed = 1.0),
+        vlr("2016-01-01T00:05:00Z", -0.002, 0.0, speed = 1.0),
+        vlr("2016-01-01T00:06:00Z", -0.004, 0.0, speed = 1.0),
+        vlr("2016-01-01T00:07:00Z", -0.006, 0.0, speed = 1.0),
+        vlr("2016-01-01T00:08:00Z", -0.008, 0.0, speed = 1.0),
+        vlr("2016-01-01T01:00:00Z", 0.008, 0.5, speed = 1.0),
+        vlr("2016-01-01T01:01:00Z", 0.006, 0.5, speed = 1.0),
+        vlr("2016-01-01T01:02:00Z", 0.004, 0.5, speed = 1.0),
+        vlr("2016-01-01T01:03:00Z", 0.002, 0.5, speed = 1.0),
+        vlr("2016-01-01T01:04:00Z", 0.000, 0.5, speed = 1.0),
+        vlr("2016-01-01T01:05:00Z", -0.002, 0.5, speed = 1.0),
+        vlr("2016-01-01T01:06:00Z", -0.004, 0.5, speed = 1.0),
+        vlr("2016-01-01T01:07:00Z", -0.006, 0.5, speed = 1.0),
+        vlr("2016-01-01T01:08:00Z", -0.008, 0.5, speed = 1.0),
+        vlr("2016-01-01T02:00:00Z", 0.008, 1.0, speed = 1.0),
+        vlr("2016-01-01T02:01:00Z", 0.006, 1.0, speed = 1.0),
+        vlr("2016-01-01T02:02:00Z", 0.004, 1.0, speed = 1.0),
+        vlr("2016-01-01T02:03:00Z", 0.002, 1.0, speed = 1.0),
+        vlr("2016-01-01T02:04:00Z", 0.000, 1.0, speed = 1.0),
+        vlr("2016-01-01T02:05:00Z", -0.002, 1.0, speed = 1.0),
+        vlr("2016-01-01T02:06:00Z", -0.004, 1.0, speed = 1.0),
+        vlr("2016-01-01T02:07:00Z", -0.006, 1.0, speed = 1.0),
+        vlr("2016-01-01T02:08:00Z", -0.008, 1.0, speed = 1.0)
+        ]
+
+        expected = (anchorages.VesselMetadata(45),
+            [
+            anchorages.AnchorageVisit([anchoragePoint1],
+                                      self.ts("2016-01-01T00:00:00Z"),
+                                      self.ts("2016-01-01T00:08:00Z")),
+            anchorages.AnchorageVisit([anchoragePoint2],
+                                      self.ts("2016-01-01T02:00:00Z"),
+                                      self.ts("2016-01-01T02:08:00Z"))
+            ])
+
+        max_radius = 0.5
+        min_visit_duration = datetime.timedelta(minutes=5)
+
+        res = anchorages.find_anchorage_visits((anchorages.VesselMetadata(45), vesselPath), 
+                                            anchorage_values, max_radius, min_visit_duration)
+
+        assert res == expected
+
+        print(anchorages.tagged_anchorage_visits_to_json(res))
+
+        assert json.loads(anchorages.tagged_anchorage_visits_to_json(res)) == {'mmsi': 45, 'visits': [
+            {'arrival': '2016-01-01T00:00:00Z', 'anchorage': '10000004', 'departure': '2016-01-01T00:08:00Z'}, 
+            {'arrival': '2016-01-01T02:00:00Z', 'anchorage': '1000a75c', 'departure': '2016-01-01T02:08:00Z'}]}
+
+
+
+class TestUnionFind(object):
+    def test_merge(self):
+        uf1 = anchorages.UnionFind()
+        uf1.union(1, 2)
+        uf1.union(3, 4)
+        uf2 = anchorages.UnionFind()
+        uf2.union(4, 5)
+        uf2.union(6, 7)
+        uf3 = anchorages.UnionFind()
+        uf3.union(0, 1)
+        uf3.union(9, 10)
+
+        uf1.merge(uf2, uf3)
+
+        assert sorted(uf1.parents.items()) == [(0, 2), (1, 2), (2, 2), (3, 4), (4, 4), 
+                                                (5, 4), (6, 7), (7, 7), (9, 10), (10, 10)]
 
 
 

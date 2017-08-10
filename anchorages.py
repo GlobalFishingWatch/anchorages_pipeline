@@ -3,10 +3,9 @@ from __future__ import absolute_import, print_function, division
 import argparse
 import logging
 import re
-import json
-import numpy as np
+import ujson as json
 import datetime
-from collections import namedtuple, Counter
+from collections import namedtuple, Counter, defaultdict
 import itertools as it
 import math
 import pickle
@@ -71,7 +70,7 @@ http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/215912
 with significant additional changes by D. Eppstein.
 """
 
-class UnionFind:
+class UnionFind(object):
     """Union-find data structure.
 
     Each unionFind instance X maintains a family of disjoint sets of
@@ -127,6 +126,17 @@ class UnionFind:
                 self.weights[heaviest] += self.weights[r]
                 self.parents[r] = heaviest
 
+    def merge(self, *union_finds):
+        """Merge additional UnionFinds into this one"""
+        for uf in union_finds:
+            for child in uf:
+                # For each node in accum, look up parents in both
+                # base and accum. Then merge the parents.
+                p0 = self[child]
+                p1 = uf[child]
+                self.union(p0, p1)
+
+
 
 def GroupAll(p, name="GroupAll"):
         return (p 
@@ -151,6 +161,10 @@ TaggedVesselLocationRecord = namedtuple('TaggedVesselLocationRecord',
 
 VesselInfoRecord = namedtuple('VesselInfoRecord',
             ['timestamp', 'destination'])
+
+
+AnchorageVisit = namedtuple('AnchorageVisit',
+            ['anchorage', 'arrival', 'departure'])
 
 
 def Records_from_msg(msg, blacklisted_mmsis):
@@ -270,6 +284,9 @@ StationaryPeriod = namedtuple("StationaryPeriod", ['location', 'duration', 'mean
 
 LatLon = namedtuple("LatLon", ["lat", "lon"])
 
+def LatLon_from_LatLng(latlng):
+    return LatLon(latlng.lat(), latlng.lon())
+
 ProcessedLocations = namedtuple("ProcessedLocations", ['locations', 'stationary_periods'])
 
 
@@ -346,44 +363,127 @@ def find_destinations(seq, limit):
     return tuple(Counter(x.destination for x in seq if x.destination not in set([''])).most_common(limit))
 
 
+bogus_destinations = set([''])
+
+def AnchoragePt_from_cell_visits(value, dest_limit):
+    cell, visits = value
+
+    n = 0
+    total_lat = 0.0
+    total_lon = 0.0
+    vessels = set()
+    total_distance_from_shore = 0.0
+    total_drift_radius = 0.0
+    all_destinations = []
+
+    for (md, pl) in visits:
+        n += 1
+        total_lat += pl.location.lat
+        total_lon += pl.location.lon
+        vessels.add(md)
+        total_distance_from_shore += pl.mean_distance_from_shore
+        total_drift_radius += pl.mean_drift_radius
+        dest = pl.destination
+        if dest not in bogus_destinations:
+            all_destinations.append(dest)
+
+    return AnchoragePoint(
+                mean_location = LatLon(total_lat / n, total_lon / n),
+                vessels = frozenset(vessels),
+                mean_distance_from_shore = total_distance_from_shore / n,
+                mean_drift_radius =  total_drift_radius / n,    
+                top_destinations = tuple(Counter(all_destinations).most_common(dest_limit))           
+                )    
+
+
+
 def find_anchorage_point_cells(input, min_unique_vessels_for_anchorage):
     return (input
-        | beam.FlatMap(lambda (md, locations):
+        | "addCellIds" >> beam.FlatMap(lambda (md, locations):
                 [(S2_cell_ID(pl.location), (md, pl)) for pl in locations.stationary_periods])
-        | beam.GroupByKey()
-        | beam.Map(lambda (cell, visits):
-            AnchoragePoint(
-                mean_location = LatLon_mean(pl.location for (md, pl) in visits),
-                vessels = frozenset(md for (md, pl) in visits),
-                mean_distance_from_shore = mean(pl.mean_distance_from_shore for (md, pl) in visits),
-                mean_drift_radius = mean(pl.mean_drift_radius for (md, pl) in visits),    
-                top_destinations = find_destinations((pl for (md, pl) in visits), limit=10)            
-                )
-            )
-        | beam.Filter(lambda x: len(x.vessels) >= min_unique_vessels_for_anchorage)
+        | "groupByCellIds" >> beam.GroupByKey()
+        | "createAnchoragePoints" >> beam.Map(AnchoragePt_from_cell_visits, dest_limit=10)
+        # | "createAnchoragePoints" >> beam.Map(lambda (cell, visits):
+        #     AnchoragePoint(
+        #         mean_location = LatLon_mean(pl.location for (md, pl) in visits),
+        #         vessels = frozenset(md for (md, pl) in visits),
+        #         mean_distance_from_shore = mean(pl.mean_distance_from_shore for (md, pl) in visits),
+        #         mean_drift_radius = mean(pl.mean_drift_radius for (md, pl) in visits),    
+        #         top_destinations = find_destinations((pl for (md, pl) in visits), limit=10)            
+        #         )
+        #     )
+        | "removeAPointsWFewVessels" >> beam.Filter(lambda x: len(x.vessels) >= min_unique_vessels_for_anchorage)
         )
 
 
 def anchorage_point_to_json(a_pt):
-    return {'lat' : a_pt.mean_location.lat, 'lon': a_pt.mean_location.lon}
+    return json.dumps({'lat' : a_pt.mean_location.lat, 'lon': a_pt.mean_location.lon})
 
 
+def datetime_to_text(dt):
+    return datetime.datetime.strftime(dt, '%Y-%m-%dT%H:%M:%SZ')
+
+def anchorage_visit_to_json_src(visit):
+    latlon = Anchorages.to_LatLon(visit.anchorage)
+    s2id = S2_cell_ID(latlon)
+    return {'anchorage' : s2id.to_token(), 
+            'arrival': datetime_to_text(visit.arrival), 'departure': datetime_to_text(visit.departure)}
+
+def tagged_anchorage_visits_to_json(tagged_visits):
+    metadata, visits = tagged_visits
+    return json.dumps({'mmsi' : metadata.mmsi, 
+        'visits': [anchorage_visit_to_json_src(x) for x in visits]})
 
 
+class MergeAdjacentAchoragePointsFn(beam.CombineFn):
 
-# TODO, think about building a custom accumulator on top
-# of beam.CombineFn so that we don't need to do combine all values
+  def create_accumulator(self):
+    return (UnionFind(), {})
+
+  def add_input(self, accumulator, anchorage_pt):
+    union_find, anchorages_pts_by_id = accumulator
+    s2id = S2_cell_ID(anchorage_pt.mean_location)
+    anchorages_pts_by_id[s2id] = anchorage_pt
+    neighbors = S2_cell_ID(anchorage_pt.mean_location).get_all_neighbors(ANCHORAGES_S2_SCALE)
+    for n_id in neighbors:
+        if n_id in anchorages_pts_by_id:
+            nc = anchorages_pts_by_id[n_id]
+            union_find.union(anchorage_pt, nc)
+
+  def merge_accumulators(self, accumulators):
+    base, anchorages_pts_by_id = accumulators[0]
+    base.merge(*[uf for (uf, _) in accumulators[1:]])
+    for (_, apid) in accumulators[1:]:
+        anchorages_pts_by_id.update(apid)
+    return (base, anchorages_pts_by_id)
+
+  def extract_output(self, union_find):
+    grouped = {}
+    for ap in union_find: # TODO may be able to leverage internals of union_find somehow
+        key = union_find[ap]
+        if key not in grouped:
+            grouped[key] = []
+        grouped[key].append(ap)
+
+    for v in grouped.values():
+        v.sort()
+
+    return grouped.values()
+
+
+# # TODO, think about building a custom accumulator on top
+# # of beam.CombineFn so that we don't need to do combine all values
 
 def merge_adjacent_anchorage_points(anchorage_points):
-    anchorages_by_id = {S2_cell_ID(ap.mean_location): ap for ap in anchorage_points}
+    anchorages_pts_by_id = {S2_cell_ID(ap.mean_location): ap for ap in anchorage_points}
 
     union_find = UnionFind()
 
     for ap in anchorage_points:
         neighbors = S2_cell_ID(ap.mean_location).get_all_neighbors(ANCHORAGES_S2_SCALE)
         for n_id in neighbors:
-            if n_id in anchorages_by_id:
-                nc = anchorages_by_id[n_id]
+            if n_id in anchorages_pts_by_id:
+                nc = anchorages_pts_by_id[n_id]
                 union_find.union(ap, nc)
 
     # # Values must be sorted by key to use itertools groupby
@@ -407,104 +507,149 @@ def merge_adjacent_anchorage_points(anchorage_points):
 
 class Anchorages(object):
 
-    @staticmethod
-    def find_visits(input, anchorages, min_duration):
-        anchorages =  pvalue.AsList(anchorages)   
+    # @staticmethod
+    # def find_visits(input, anchorages, min_duration):
+    #     anchorages =  pvalue.AsList(anchorages)   
 
     @staticmethod
-    def to_json(anchorage):
+    def to_LatLon(anchorage):
         n = 0
         lat = 0.0
         lon = 0.0
-        destinations = Counter()
         for ap in anchorage:
             lat += ap.mean_location.lat * len(ap.vessels)
             lon += ap.mean_location.lon * len(ap.vessels)
-            destinations.update(dict(ap.top_destinations))
             n += len(ap.vessels)
         lat /= n
         lon /= n
-        return json.dumps({'lat' : lat, 'lon': lon, 'destinations': destinations.most_common(10)})
+        return LatLon(lat, lon)
+
+    @staticmethod
+    def to_json(anchorage):
+        destinations = Counter()
+        for ap in anchorage:
+            destinations.update(dict(ap.top_destinations))
+        latlon = Anchorages.to_LatLon(anchorage)
+        s2id = S2_cell_ID(latlon)
+        return json.dumps({'id' : s2id.to_token(), 'lat' : latlon.lat, 'lon': latlon.lon, 
+                            'destinations': destinations.most_common(10)})
 
 
-def find_anchorage_visits(location_events, anchorages, min_visit_duration):
-    return location_events | beam.Map(find_visits_core, anchorages, min_visit_duration) 
-
-def find_visits_core((metadata, locations), anchorages):
-    pass
 
 
+def get_cap_covering_cells(latlon, max_radius_km, s2_level):
+    cap_radius_on_unit_sphere = max_radius_km / EARTH_RADIUS
+    coverer = s2sphere.RegionCoverer()
+    coverer.min_level = coverer.max_level = s2_level
 
-        
- #    locationEvents
- #      .withSideInputs(si)
- #      .map {
- #        case ((metadata, locations), ctx) => {
- #          val anchoragePointIdToAnchorage = anchoragePointIdToAnchorageCache.get { () =>
- #            ctx(si).flatMap { ag =>
- #              ag.anchoragePoints.map { a =>
- #                (a.id, ag)
- #              }
- #            }.toMap
- #          }
+    # S2 cap requires an axis (location on unit sphere) and the height of the cap (the cap is
+    # a planar cut on the unit sphere). The cap height is 1 - (sqrt(r^2 - a^2)/r) where r is
+    # the radius of the circle (1.0 after we've normalized) and a is the radius of the cap itself.
+    cap_axis = s2sphere.LatLng.from_degrees(latlon.lat, latlon.lon).normalized().to_point()
+    cap_height = 1.0 - math.sqrt(1.0 - cap_radius_on_unit_sphere ** 2)
+    cap = s2sphere.Cap.from_axis_height(cap_axis, cap_height)
 
- #          val lookup = anchorageLookupCache.get { () =>
- #            AdjacencyLookup(ctx(si).flatMap(_.anchoragePoints),
- #                            (anchorage: AnchoragePoint) => anchorage.meanLocation,
- #                            AnchorageParameters.anchorageVisitDistanceThreshold,
- #                            AnchorageParameters.anchoragesS2Scale)
- #          }
+    cover_cells = coverer.get_covering(cap)
 
- #          (metadata,
- #           locations
- #             .map((location) => {
- #               val anchoragePoints = lookup.nearby(location.location)
- #               if (anchoragePoints.length > 0) {
- #                 Some(
- #                   AnchorageVisit(anchoragePointIdToAnchorage(anchoragePoints.head._2.id),
- #                                  location.timestamp,
- #                                  location.timestamp))
- #               } else {
- #                 None
- #               }
- #             })
- #             .foldLeft(Vector[Option[AnchorageVisit]]())((res, visit) => {
- #               if (res.length == 0) {
- #                 res :+ visit
- #               } else {
- #                 (visit, res.last) match {
- #                   case (None, None) => res
- #                   case (None, Some(last)) => res :+ None
- #                   case (Some(visit), None) => res.init :+ Some(visit)
- #                   case (Some(visit), Some(last)) =>
- #                     res.init ++ last.extend(visit).map(visit => Some(visit))
- #                 }
- #               }
- #             })
- #             .filter(_.nonEmpty)
- #             .map(_.head)
- #             .filter(_.duration.isLongerThan(minVisitDuration))
- #             .toSeq)
- #        }
- #      }
- #      .toSCollection
- #  }
+    assert all((x.level() == s2_level for x in cover_cells))
 
+    return cover_cells
+
+
+def create_cell_map(anchorages, max_radius, level):
+    cell_map = defaultdict(list)
+    for anch in anchorages:
+        for ap in anch:
+            cap_cells = get_cap_covering_cells(ap.mean_location, max_radius, level)
+            for cellid in cap_cells:
+                cell_map[cellid].append(ap)
+    return dict(cell_map)
+
+
+
+
+def lookup_nearby(location, max_radius, level, cell_map):
+    cap_cells = get_cap_covering_cells(location, max_radius, level)
+    all_nearby_cells = it.chain.from_iterable((cell_map.get(x, ()) for x in cap_cells))
+
+    all_nearby_cells = all_nearby_cells
+
+    values = [(distance(location, x.mean_location), x) for x in all_nearby_cells]
+    values.sort(key=lambda x: x[0])
+    return values
+
+
+def find_anchorage_visits(value, anchorages, max_distance, min_visit_duration):
+    cell_map = create_cell_map(anchorages, max_distance, ANCHORAGES_S2_SCALE)
+
+    (metadata, locations) = value
+    anchorages_by_anchorage_pts = {}
+    for anchorage in anchorages:
+        for anchorage_pt in anchorage:
+            anchorages_by_anchorage_pts[anchorage_pt] = anchorage
+
+    raw_visits = []
+    for loc in locations:
+        a_pts = lookup_nearby(loc.location, max_distance, ANCHORAGES_S2_SCALE, cell_map) 
+        if len(a_pts) > 0:
+            raw_visits.append(
+                AnchorageVisit(anchorages_by_anchorage_pts[a_pts[0][1]],
+                           loc.timestamp,
+                           loc.timestamp))
+
+    visits = []
+    if raw_visits:
+        visits.append(raw_visits[0])
+        for rv in raw_visits[1:]:
+            last = visits[-1]
+            if last.anchorage == rv.anchorage:
+                visits[-1] = AnchorageVisit(last.anchorage, last.arrival, rv.departure)
+            else:
+                visits.append(rv)
+
+    visits = [x for x in visits if (x.departure - x.arrival) > min_visit_duration]
+
+    return (metadata, visits)
+
+
+def check_that_pipeline_args_consumed(pipeline):
+    options = pipeline.get_all_options(drop_default=True)
+
+    # Some options get translated on the way in (should be a better way to do this...)
+    translations = {'--worker_machine_type' : '--machine_type'}
+    flags = [translations.get(x, x) for x in pipeline._flags]
+
+    dash_flags = [x for x in flags if x.startswith('-') and x.replace('-', '') not in options]
+    if dash_flags:
+        print(options)
+        print(dash_flags)
+        raise ValueError('illegal options specified:\n    {}'.format('\n    '.join(dash_flags)))
 
 
 def run(argv=None):
     """Main entry point; defines and runs the wordcount pipeline.
 
 
-
     python -m anchorages \
         --project world-fishing-827 \
-        --job_name test-anchorages4 \
+        --job_name test-anchorages-visits-accum-2 \
         --runner DataflowRunner \
         --staging_location gs://world-fishing-827/scratch/timh/output/staging \
         --temp_location gs://world-fishing-827/scratch/timh/temp \
         --requirements_file requirements.txt \
-        --max_num_workers 100
+        --max_num_workers 200 \
+
+
+    python -m anchorages \
+        --project world-fishing-827 \
+        --job_name test-anchorages-visits-accum-2 \
+        --runner DataflowRunner \
+        --staging_location gs://world-fishing-827/scratch/timh/output/staging \
+        --temp_location gs://world-fishing-827/scratch/timh/temp \
+        --requirements_file requirements.txt \
+        --max_num_workers 50 \
+        --worker_machine_type n1-highmem-4 
+
 
     python -m anchorages \
         --input-pattern gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-01-01/001-of-* 
@@ -520,31 +665,39 @@ def run(argv=None):
                                                 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2015-*-*/*-of-*,'
                                                 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-*-*/*-of-*,'
                                                 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2017-*-*/*-of-*',
-                                        # default=
-                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-01-*/*-of-*,'
-                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-02-*/*-of-*,'
-                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-03-*/*-of-*,'
-                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-04-*/*-of-*,'
-                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-05-*/*-of-*,'
-                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-06-*/*-of-*,'
-                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-07-*/*-of-*,'
-                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-08-*/*-of-*,'
-                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-09-*/*-of-*,'
-                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-10-*/*-of-*,'
-                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-11-*/*-of-*,'
-                                        #         'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-12-*/*-of-*',
+                                                #
+                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-01-*/*-of-*,'
+                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-02-*/*-of-*,'
+                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-03-*/*-of-*,'
+                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-04-*/*-of-*,'
+                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-05-*/*-of-*,'
+                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-06-*/*-of-*,'
+                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-07-*/*-of-*,'
+                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-08-*/*-of-*,'
+                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-09-*/*-of-*,'
+                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-10-*/*-of-*,'
+                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-11-*/*-of-*,'
+                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-12-*/*-of-*',
                                             help='Input file to patterns (comma separated) to process (glob)')
     parser.add_argument('--output',
                                             dest='output',
                                             default='gs://world-fishing-827/scratch/timh/output/test_anchorages',
                                             help='Output file to write results to.')
+
+    parser.add_argument('--skip-visits',    action='store_true',
+                                            help='Skip generating vists.')
+
+
     known_args, pipeline_args = parser.parse_known_args(argv)
 
     # We use the save_main_session option because one or more DoFn's in this
     # workflow rely on global context (e.g., a module imported at module level).
     pipeline_options = PipelineOptions(pipeline_args)
+    check_that_pipeline_args_consumed(pipeline_options)
     pipeline_options.view_as(SetupOptions).save_main_session = True
+
     p = beam.Pipeline(options=pipeline_options)
+
 
     # TODO: Should go in config file or arguments >>>
     min_required_positions = 200 
@@ -552,6 +705,9 @@ def run(argv=None):
     stationary_period_max_distance = 0.5 # km
     min_unique_vessels_for_anchorage = 20
     blacklisted_mmsis = [0, 12345]
+    anchorage_visit_max_distance = 0.5 # km
+    anchorage_visit_min_duration = datetime.timedelta(minutes=60)
+
     # ^^^
     input_patterns = [x.strip() for x in known_args.input_patterns.split(',')]
 
@@ -578,16 +734,30 @@ def run(argv=None):
     anchorages = (GroupAll(anchorage_points, "GroupAllAnchorages")
         | "MergeAdjacentPoints" >> beam.FlatMap(merge_adjacent_anchorage_points))
 
+    # anchorages = (anchorage_points
+    #     | "mergeAnchoragePoints" >> beam.CombineGlobally(MergeAdjacentAchoragePointsFn())
+    #     | "reparallelizeAnchorages" >> beam.FlatMap(lambda x: x)
+    # )
 
     (anchorage_points 
-        | beam.Map(lambda x: json.dumps(anchorage_point_to_json(x)))
-        | 'writeAnchoragesPoints' >> WriteToText(known_args.output + '_anchorages_points', file_name_suffix='.json')
+        | "convertAPToJson" >> beam.Map(anchorage_point_to_json)
+        | "writeAnchoragesPoints" >> WriteToText(known_args.output + '_anchorages_points', file_name_suffix='.json')
     )
 
     (anchorages 
-        | beam.Map(Anchorages.to_json)
+        | "convertAnToJson" >> beam.Map(Anchorages.to_json)
         | 'writeAnchorage' >> WriteToText(known_args.output + '_anchorages', file_name_suffix='.json')
     )
+
+    if not known_args.skip_visits:
+        anchorages_list = beam.pvalue.AsList(anchorages)
+        (deduped_records 
+            | "findAnchorageVisits" >> beam.Map(find_anchorage_visits, anchorages_list, 
+                                                 anchorage_visit_max_distance, anchorage_visit_min_duration)
+            | "convertToJson" >> beam.Map(tagged_anchorage_visits_to_json)
+            | "writeAnchorageVisits" >> WriteToText(known_args.output + '_anchorages')
+        )
+
 
     result = p.run()
     result.wait_until_finish()
