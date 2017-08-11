@@ -87,55 +87,89 @@ class TestMask(object):
             assert anchorages.inland_mask.query(locations[key]) == is_inland, (key, locations[key], is_inland)
 
 
-class TestAnchorages(object):
+class TestAnchoragePoints(object):
 
-    @staticmethod
-    def LatLon_from_S2Token(token):
+    @classmethod
+    def LatLon_from_S2Token(cls, token):
         s2id = s2sphere.CellId.from_token(unicode(token))
         s2latlon = s2id.to_lat_lng()
         return anchorages.LatLon(s2latlon.lat().degrees, s2latlon.lng().degrees)
 
-
-    def AnchoragePoint_from_S2Token(self, token, mmsis, mean_distance_from_shore=0, mean_drift_radius=0, 
+    @classmethod
+    def AnchoragePoint_from_S2Token(cls, token, mmsis, total_visits=10, mean_distance_from_shore=0, mean_drift_radius=0, 
                                     top_destinations=()):
-        return anchorages.AnchoragePoint(self.LatLon_from_S2Token(token),
+        return anchorages.AnchoragePoint(cls.LatLon_from_S2Token(token),
+                                         total_visits,
                                          tuple(anchorages.VesselMetadata(x) for x in mmsis),
                                          mean_distance_from_shore,
                                          mean_drift_radius,
                                          top_destinations)
 
 
+    def test_to_json(self):
+        ap = self.AnchoragePoint_from_S2Token("89c19c9c",
+                                            (1, 2, 3))
+        assert json.loads(anchorages.anchorage_point_to_json(ap)) == {'destinations': [], 
+                                    'lat': 39.9950354853, 'lon': -74.129868411,
+                                     'total_visits': 10, 'unique_mmsi': 3}
+
+        ap = self.AnchoragePoint_from_S2Token("89c19c9c",
+                                            (1, 2, 3, 4),
+                                            total_visits=17,
+                                            top_destinations=('here', 'there'))
+        assert json.loads(anchorages.anchorage_point_to_json(ap)) == {'destinations': ['here', 'there'], 
+                                    'lat': 39.9950354853, 'lon': -74.129868411,
+                                    'total_visits': 17, 'unique_mmsi': 4}            
+
+
+class TestAnchorages(object):
+
+
     @property
-    def anchorages(self):
+    def anchorage_pts(self):
         return [
-              self.AnchoragePoint_from_S2Token("89c19c9c",
-                                            (1, 2, 3)),
-              self.AnchoragePoint_from_S2Token("89c19b64", (1, 2)),
-              self.AnchoragePoint_from_S2Token("89c1852c", [1]),
-              self.AnchoragePoint_from_S2Token("89c19b04",
+              TestAnchoragePoints.AnchoragePoint_from_S2Token("89c19c9c",
+                                            (1, 2, 3),
+                                            top_destinations=(('HERE', 3), ('THERE', 4))),
+              TestAnchoragePoints.AnchoragePoint_from_S2Token("89c19b64", (1, 2),
+                                            top_destinations=(('THERE', 3), ('EVERYWHERE', 10))),
+              TestAnchoragePoints.AnchoragePoint_from_S2Token("89c1852c", [1]),
+              TestAnchoragePoints.AnchoragePoint_from_S2Token("89c19b04",
                                             (1, 2),
+                                            20,
                                             30.0),
-              self.AnchoragePoint_from_S2Token("89c19bac",
-                                            (1, 2),
+              TestAnchoragePoints.AnchoragePoint_from_S2Token("89c19bac",
+                                            (7, 8),
+                                            13,
                                             20.0),
-              self.AnchoragePoint_from_S2Token("89c19bb4",
+              TestAnchoragePoints.AnchoragePoint_from_S2Token("89c19bb4",
                                             [1, 2],
+                                            8,
                                             10.0)
         ]   
 
 
     def test_merge(self):
-        anchs = self.anchorages
+        anch = self.anchorage_pts
 
-        grouped_anchorages = anchorages.merge_adjacent_anchorage_points(anchs)
+        grouped_anchorage_pts = anchorages.merge_adjacent_anchorage_points(anch)
 
-        assert len(grouped_anchorages) == 3
+        assert len(grouped_anchorage_pts) == 3
 
-        expected = [sorted([anchs[2]]), 
-                    sorted([anchs[0], anchs[1]]), 
-                    sorted([anchs[3], anchs[4], anchs[5]])]
+        expected = [sorted([anch[2]]), 
+                    sorted([anch[0], anch[1]]), 
+                    sorted([anch[3], anch[4], anch[5]])]
 
-        assert sorted(grouped_anchorages) == sorted(expected)
+        assert sorted(grouped_anchorage_pts) == sorted(expected)
+
+    def test_to_json(self):
+        assert json.loads(anchorages.Anchorages.to_json(self.anchorage_pts)) == {
+                        'id': '89c19b0c',
+                        'lat': 39.9832701713,
+                        'lon': -74.0995242524,
+                        'total_visits': 71,
+                        'unique_mmsi': 5,
+                        'destinations': [['EVERYWHERE', 10], ['THERE', 7], ['HERE', 3]]}
 
 
 
@@ -160,15 +194,31 @@ class TestAnchorageVisits(object):
                          speed,
                          course)
 
+    @staticmethod
+    def anchorage_data(anchorage_values, max_distance):
+        cadf = anchorages.CreateAnchorageDataFn(max_distance, anchorages.ANCHORAGES_S2_SCALE)
+        accum1 = cadf.create_accumulator()
+        accum2 = cadf.create_accumulator()
+        n = len(anchorage_values)
+        for x in anchorage_values[:n//2]:
+            accum1 = cadf.add_input(accum1, x)
+        for x in anchorage_values[n//2:]:
+            accum2 = cadf.add_input(accum2, x)
+        accum = cadf.merge_accumulators([accum2, accum1])
+        return cadf.extract_output(accum)
+
+
     def test(self):
 
         anchoragePoint1 = anchorages.AnchoragePoint(anchorages.LatLon(0.0, 0.0),
+                        10,
                        (anchorages.VesselMetadata(1),),
                        10.0,
                        0.1,
                        None)
 
         anchoragePoint2 = anchorages.AnchoragePoint(anchorages.LatLon(0.0, 1.0),
+                       17,
                        (anchorages.VesselMetadata(1),),
                        20.0,
                        0.05,
@@ -225,7 +275,7 @@ class TestAnchorageVisits(object):
         min_visit_duration = datetime.timedelta(minutes=5)
 
         res = anchorages.find_anchorage_visits((anchorages.VesselMetadata(45), vesselPath), 
-                                            anchorage_values, max_radius, min_visit_duration)
+                                            self.anchorage_data(anchorage_values, max_radius), max_radius, min_visit_duration)
 
         assert res == expected
 
@@ -255,21 +305,22 @@ class TestUnionFind(object):
                                                 (5, 4), (6, 7), (7, 7), (9, 10), (10, 10)]
 
 
+class TestUtilities(object):
+    distances = {
+        'New York': 3443.706085594739,
+        "Chicago": 2336.340987950822,
+        "Los Angeles": 574.265826359301,
+        "Phoenix": 0,
+        "Scottsdale": 14.633197815695059,
+        "Tokyo": 9308.45399157672,
+    }
 
-distances = {
-    'New York': 3443.706085594739,
-    "Chicago": 2336.340987950822,
-    "Los Angeles": 574.265826359301,
-    "Phoenix": 0,
-    "Scottsdale": 14.633197815695059,
-    "Tokyo": 9308.45399157672,
-}
+    def test_distances(self):
+        phx = locations['Phoenix']
 
-def test_distances():
-    phx = locations['Phoenix']
-
-    for key in sorted(locations):
-        if key.startswith("Ocean"):
-            continue
-        assert anchorages.distance(phx, locations[key]) == distances[key], (key, anchorages.distance(phx, locations[key]),  distances[key])
+        for key in sorted(locations):
+            if key.startswith("Ocean"):
+                continue
+            assert anchorages.distance(phx, locations[key]) == self.distances[key], (key, anchorages.distance(phx, locations[key]),  
+                self.distances[key])
 
