@@ -7,91 +7,13 @@ import ujson as json
 import datetime
 from collections import namedtuple, Counter, defaultdict
 import itertools as it
+import os
 import math
 import pickle
 import s2sphere
 import bisect
-# import port_name_filter
-import re
+from .port_name_filter import normalized_valid_names
 
-
-punctuation = re.compile(r"[\W +]+")
-
-
-number = re.compile(r"\d+")
-
-invalid_prefixes = set([
-"RESCUE", "FISHFARMS", "TLF ", "TEL ", "CALL ", "PHONE", "FISHING", "MOB ",
-"SAR ", "SEARCH AND RESCUE", "POLICE", "ON DUTY", "WORKING", "SURVEYING", "SEA TRIAL", 
-"CH ", "VHF CH", "PESCA ", "DREDGE "
-])
-
-
-invalid_suffixes = set([
-"FOR ORDER", "TOWING", "CRUISING", "OIL FIELDS", "OIL FIELD", "DREDGE", "PARADE", "TRADE", "WORK", " TRIAL",
-"PESCA", "PECHE", "OIL FIELDS", "HARBOR DUTY", " ESCORT", "SAILING"
-    ])
-
-
-blacklist = set([
-'CITY',
-'B # A',
-'AN',
-'NULL',
-'T #NKCL KR V',
-'A ARO',
-'VIGO MOANA VIGO',
-'BDAM VIA NOK',
-'GILLNETTER #',
-'OIL AND GAS ACTIVITY',
-'# #',
-'HOME',
-'A B C O',
-'SOUTH FLORIDA',
-'# T E D JT',
-'O P',
-'M Y SPACE OR SHORE',
-'OWER BY NAVALMARINE',
-'A#B #GD E',
-'Y B AND Y YY AND FY AND X',
-'# # N # # E',
-'ON THE BAY',
-'PLY PTOWN PLY',
-'SPLIT DUBROVNIK SPLI',
-'#O#',
-'BBBBBBBBB',
-'# # #',
-'ON THE BAY',
-'NO DESTINATION',
-'CLASSIFIED',
-])
-
-def normalize(x):
-    x = (x
-        .upper()
-        .replace('&', ' AND '))
-    return punctuation.sub(' ', x).strip()
-
-def is_valid_name(x):
-    x = number.sub('#', x)
-    if len(x) <= 1:
-        return False
-    for p in invalid_prefixes:
-        if x.startswith(p):
-            return False
-    for s in invalid_suffixes:
-        if x.endswith(s):
-            return False
-    if x in blacklist:
-        return False
-    return True
-
-
-def normalized_valid_names(seq):
-    for x in seq:
-        x = normalize(x)
-        if is_valid_name(x):
-            yield x
 
 
 # TODO put unit reg in package if we refactor
@@ -106,20 +28,13 @@ from apache_beam.metrics.metric import MetricsFilter
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
-# TODO: Try? to switch to s2sphere LatLon
 
-
-
-# from skimage import io
-# import numpy as np
-# imarray = io.imread("dist2coast_1deg_ocean_negative-land_v3.tiff")
-# np.save("inland.npy", imarray == -10)
-
+this_dir = os.path.dirname(__file__)
 
 class SparseInlandMask(object):
 
     def __init__(self):
-        with open("sparse_inland.pickle") as f:
+        with open(os.path.join(this_dir, "sparse_inland.pickle")) as f:
             mask_info = pickle.load(f)
         self.mask_data = mask_info['data']
         self.MAX_LAT = mask_info['max_lat']
@@ -440,7 +355,7 @@ def LatLon_mean(seq):
 
 
 def find_destinations(seq, limit):
-    filtered = normalized_valid_names(destination)
+    filtered = normalized_valid_names(seq)
     return tuple(Counter(filtered)).most_common(limit)
 
 #TODO: use setup.py to break into multiple files (https://beam.apache.org/documentation/sdks/python-pipeline-dependencies/)
@@ -457,7 +372,6 @@ def AnchoragePt_from_cell_visits(value, dest_limit):
     vessels = set()
     total_distance_from_shore = 0.0
     total_squared_drift_radius = 0.0
-    all_destinations = []
 
     for (md, pl) in visits:
         n += 1
@@ -466,16 +380,14 @@ def AnchoragePt_from_cell_visits(value, dest_limit):
         vessels.add(md)
         total_distance_from_shore += pl.mean_distance_from_shore
         total_squared_drift_radius += pl.rms_drift_radius ** 2
-        dest = pl.destination
-        if dest not in bogus_destinations:
-            all_destinations.append(dest)
+    all_destinations = normalized_valid_names(pl.destination for (md, pl) in visits)
 
     return AnchoragePoint(
                 mean_location = LatLon(total_lat / n, total_lon / n),
                 total_visits = n, 
                 vessels = frozenset(vessels),
                 mean_distance_from_shore = total_distance_from_shore / n,
-                rms_drift_radius =  math.sqrt(total_drift_radius / n),    
+                rms_drift_radius =  math.sqrt(total_squared_drift_radius / n),    
                 top_destinations = tuple(Counter(all_destinations).most_common(dest_limit))           
                 )    
 
@@ -746,61 +658,46 @@ def check_that_pipeline_args_consumed(pipeline):
         raise ValueError('illegal options specified:\n    {}'.format('\n    '.join(dash_flags)))
 
 
+preset_runs = {
+
+    'tiny' : ['gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-01-01/001-of-*'],
+
+    '2016' : [
+                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-01-*/*-of-*',
+                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-02-*/*-of-*',
+                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-03-*/*-of-*',
+                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-04-*/*-of-*',
+                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-05-*/*-of-*',
+                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-06-*/*-of-*',
+                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-07-*/*-of-*',
+                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-08-*/*-of-*',
+                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-09-*/*-of-*',
+                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-10-*/*-of-*',
+                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-11-*/*-of-*',
+                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-12-*/*-of-*'
+                ],
+
+    'all_years': [
+                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2012-*-*/*-of-*',
+                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2013-*-*/*-of-*',
+                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2014-*-*/*-of-*',
+                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2015-*-*/*-of-*',
+                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-*-*/*-of-*',
+                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2017-*-*/*-of-*'
+                ]
+    }
+
+preset_runs['small'] = preset_runs['2016'][-3:]
+preset_runs['medium'] = preset_runs['2016'][-6:]
+
+
+
+
 def run(argv=None):
     """Main entry point; defines and runs the wordcount pipeline.
-
-
-    python -m anchorages \
-        --project world-fishing-827 \
-        --job_name test-anchorages-visits-accum-2 \
-        --runner DataflowRunner \
-        --staging_location gs://world-fishing-827/scratch/timh/output/staging \
-        --temp_location gs://world-fishing-827/scratch/timh/temp \
-        --requirements_file requirements.txt \
-        --max_num_workers 200 \
-
-
-    python -m anchorages \
-        --project world-fishing-827 \
-        --job_name test-anchorages-accum-2 \
-        --runner DataflowRunner \
-        --staging_location gs://world-fishing-827/scratch/timh/output/staging \
-        --temp_location gs://world-fishing-827/scratch/timh/temp \
-        --requirements_file requirements.txt \
-        --max_num_workers 100 \
-        --worker_machine_type n1-highmem-2 \
-        --output gs://world-fishing-827/scratch/timh/output/test_anchorages_accum_1 \
-        --skip-visits
-
-
-    python -m anchorages \
-        --output gs://world-fishing-827/scratch/timh/output/test_anchorages_tiny \
-        --input-pattern gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-01-01/001-of-* 
-
-
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input-patterns',
-                                        default=
-                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2012-*-*/*-of-*,'
-                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2013-*-*/*-of-*,'
-                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2014-*-*/*-of-*,'
-                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2015-*-*/*-of-*,'
-                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-*-*/*-of-*,'
-                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2017-*-*/*-of-*',
-                                                #
-                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-01-*/*-of-*,'
-                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-02-*/*-of-*,'
-                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-03-*/*-of-*,'
-                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-04-*/*-of-*,'
-                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-05-*/*-of-*,'
-                                                # 'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-06-*/*-of-*,'
-                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-07-*/*-of-*,'
-                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-08-*/*-of-*,'
-                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-09-*/*-of-*,'
-                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-10-*/*-of-*,'
-                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-11-*/*-of-*,'
-                                                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-12-*/*-of-*',
+    parser.add_argument('--input-patterns', default='all_years',
                                             help='Input file to patterns (comma separated) to process (glob)')
     parser.add_argument('--output',
                                             dest='output',
@@ -830,9 +727,12 @@ def run(argv=None):
     blacklisted_mmsis = [0, 12345]
     anchorage_visit_max_distance = 0.5 # km
     anchorage_visit_min_duration = datetime.timedelta(minutes=60)
-
     # ^^^
-    input_patterns = [x.strip() for x in known_args.input_patterns.split(',')]
+
+    if known_args.input_patterns in preset_runs:
+        input_patterns = preset_runs[known_args.input_patterns]
+    else:
+        input_patterns = [x.strip() for x in known_args.input_patterns.split(',')]
 
     ais_input_data_streams = [(p | 'read_{}'.format(i) >> ReadFromText(x)) for (i, x) in  enumerate(input_patterns)]
 
@@ -887,7 +787,3 @@ def run(argv=None):
     result = p.run()
     result.wait_until_finish()
 
-
-if __name__ == '__main__':
-    logging.getLogger().setLevel(logging.INFO)
-    run()

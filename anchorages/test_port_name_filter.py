@@ -207,4 +207,9 @@ blacklist = set([
 def test_is_valid_name():
     assert list(port_name_filter.normalized_valid_names(bad_examples)) == []
     assert list(port_name_filter.normalized_valid_names(good_examples)) == [port_name_filter.normalize(x) for x in good_examples]
+    assert list(port_name_filter.normalized_valid_names(['SHANG  HAI'])) == ['SHANG HAI']
+
+
+def test_normalize():
+    assert port_name_filter.normalize("SHANG  HAI") == "SHANG HAI"
 
