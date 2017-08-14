@@ -36,6 +36,7 @@ class TestVesselLocationRecord(object):
 
     def test_create(self):
         [(md, obj)] = anchorages.Records_from_msg(examples_msgs[0], [])
+        print(obj)
         assert obj == anchorages.VesselLocationRecord(
                     timestamp=datetime.datetime(2016, 1, 1, 5, 20, 13), 
                     location=anchorages.LatLon(lat=55.2189674377, lon=9.2907962799), 
@@ -103,7 +104,8 @@ class TestAnchoragePoints(object):
                                          tuple(anchorages.VesselMetadata(x) for x in mmsis),
                                          mean_distance_from_shore,
                                          mean_drift_radius,
-                                         top_destinations)
+                                         top_destinations,
+                                         token)
 
 
     def test_to_json(self):
@@ -188,8 +190,9 @@ class TestAnchorageVisits(object):
           course = 0.0,
           heading = 0.0):
 
+        latlon = anchorages.LatLon(lat, lon)
         return anchorages.VesselLocationRecord(TestAnchorageVisits.ts(timestamp), 
-                         anchorages.LatLon(lat, lon),
+                         latlon,
                          distanceToShore,
                          speed,
                          course)
@@ -215,14 +218,16 @@ class TestAnchorageVisits(object):
                        (anchorages.VesselMetadata(1),),
                        10.0,
                        0.1,
-                       None)
+                       None,
+                       "BOGUS")
 
         anchoragePoint2 = anchorages.AnchoragePoint(anchorages.LatLon(0.0, 1.0),
                        17,
                        (anchorages.VesselMetadata(1),),
                        20.0,
                        0.05,
-                       None)
+                       None,
+                       "BOGUS")
 
         anchorage_values = [
         [anchoragePoint1],

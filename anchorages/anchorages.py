@@ -9,12 +9,10 @@ from collections import namedtuple, Counter, defaultdict
 import itertools as it
 import os
 import math
-import pickle
 import s2sphere
-import bisect
 from .port_name_filter import normalized_valid_names
-
-
+from .union_find import UnionFind
+from .sparse_inland_mask import SparseInlandMask
 
 # TODO put unit reg in package if we refactor
 # import pint
@@ -29,118 +27,9 @@ from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
 
-this_dir = os.path.dirname(__file__)
 
-class SparseInlandMask(object):
-
-    def __init__(self):
-        with open(os.path.join(this_dir, "sparse_inland.pickle")) as f:
-            mask_info = pickle.load(f)
-        self.mask_data = mask_info['data']
-        self.MAX_LAT = mask_info['max_lat']
-        self.MIN_LAT = mask_info['min_lat']
-        self.MAX_LON = mask_info['max_lon']
-        self.MIN_LON = mask_info['min_lon']
-        self._dlat = (self.MAX_LAT - self.MIN_LAT) / mask_info['n_lat']
-        self._dlon = (self.MAX_LON - self.MIN_LON) / mask_info['n_lon']
-
-    def query(self, loc):
-        lat, lon = loc
-        i = (self.MAX_LAT - lat) // self._dlat
-        j = (lon - self.MIN_LON) // self._dlon
-        ndx = bisect.bisect_right(self.mask_data[int(i)], j)
-        return ndx & 1
-
-    def checked_query(self, loc):
-        lat, lon = loc
-        assert self.MIN_LAT <= lat < self.MAX_LAT
-        assert self.MIN_LON <= lat < self.MAX_LON
-        return self.query(loc)
 
 inland_mask = SparseInlandMask()
-
-
-"""UnionFind.py
-
-Union-find data structure. Based on Josiah Carlson's code,
-http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/215912
-with significant additional changes by D. Eppstein.
-"""
-
-class UnionFind(object):
-    """Union-find data structure.
-
-    Each unionFind instance X maintains a family of disjoint sets of
-    hashable objects, supporting the following two methods:
-
-    - X[item] returns a name for the set containing the given item.
-      Each set is named by an arbitrarily-chosen one of its members; as
-      long as the set remains unchanged it will keep the same name. If
-      the item is not yet part of a set in X, a new singleton set is
-      created for it.
-
-    - X.union(item1, item2, ...) merges the sets containing each item
-      into a single larger set.  If any item is not yet part of a set
-      in X, it is added to X as one of the members of the merged set.
-    """
-
-    def __init__(self):
-        """Create a new empty union-find structure."""
-        self.weights = {}
-        self.parents = {}
-
-    def __getitem__(self, object):
-        """Find and return the name of the set containing the object."""
-
-        # check for previously unknown object
-        if object not in self.parents:
-            self.parents[object] = object
-            self.weights[object] = 1
-            return object
-
-        # find path of objects leading to the root
-        path = [object]
-        root = self.parents[object]
-        while root != path[-1]:
-            path.append(root)
-            root = self.parents[root]
-
-        # compress the path and return
-        for ancestor in path:
-            self.parents[ancestor] = root
-        return root
-        
-    def __iter__(self):
-        """Iterate through all items ever found or unioned by this structure."""
-        return iter(self.parents)
-
-    def union(self, *objects):
-        """Find the sets containing the objects and merge them all."""
-        roots = [self[x] for x in objects]
-        heaviest = max([(self.weights[r],r) for r in roots])[1]
-        for r in roots:
-            if r != heaviest:
-                self.weights[heaviest] += self.weights[r]
-                self.parents[r] = heaviest
-
-    def merge(self, *union_finds):
-        """Merge additional UnionFinds into this one"""
-        for uf in union_finds:
-            for child in uf:
-                # For each node in accum, look up parents in both
-                # base and accum. Then merge the parents.
-                p0 = self[child]
-                p1 = uf[child]
-                self.union(p0, p1)
-
-
-
-def GroupAll(p, name="GroupAll"):
-        return (p 
-            | name + "AddKey" >> beam.Map(lambda x: (0, x))
-            | name + "Group" >> beam.GroupByKey()
-            | name + "RemoveKey" >> beam.Map(lambda (_, x): x)
-            )
 
 
 
@@ -150,11 +39,8 @@ def VesselMetadata_from_msg(msg):
     return VesselMetadata(msg['mmsi'])
 
 
-VesselLocationRecord = namedtuple('VesselLocationRecord',
-            ['timestamp', 'location', 'distance_from_shore', 'speed', 'course'])
-
 TaggedVesselLocationRecord = namedtuple('TaggedVesselLocationRecord',
-            ['destination', 'timestamp', 'location', 'distance_from_shore', 'speed', 'course'])
+            ['destination', 's2id', 'timestamp', 'location', 'distance_from_shore', 'speed', 'course'])
 
 VesselInfoRecord = namedtuple('VesselInfoRecord',
             ['timestamp', 'destination'])
@@ -162,6 +48,23 @@ VesselInfoRecord = namedtuple('VesselInfoRecord',
 
 AnchorageVisit = namedtuple('AnchorageVisit',
             ['anchorage', 'arrival', 'departure'])
+
+
+class VesselLocationRecord(
+    namedtuple("VesselLocationRecord",
+              ['timestamp', 'location', 'distance_from_shore', 'speed', 'course'])):
+
+    @classmethod
+    def from_msg(cls, msg):
+        latlon = LatLon(msg['lat'], msg['lon'])
+
+        return cls(
+            datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ'), 
+            latlon, 
+            msg['distance_from_shore'] / 1000.0,
+            round(msg['speed'], 1),
+            msg['course']            )
+
 
 
 def Records_from_msg(msg, blacklisted_mmsis):
@@ -173,12 +76,7 @@ def Records_from_msg(msg, blacklisted_mmsis):
     metadata = VesselMetadata_from_msg(msg)
 
     if is_location_message(msg):
-        return [(metadata, VesselLocationRecord(
-            datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ'), 
-            LatLon(msg['lat'], msg['lon']), 
-            msg['distance_from_shore'] / 1000.0,
-            round(msg['speed'], 1),
-            msg['course']))]
+        return [(metadata, VesselLocationRecord.from_msg(msg))]
     elif msg.get('destination') not in set(['', None]):
         return [(metadata, VesselInfoRecord(
             datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ'),
@@ -193,7 +91,8 @@ AnchoragePoint = namedtuple("AnchoragePoint", ['mean_location',
                                                'vessels',
                                                'mean_distance_from_shore',
                                                'rms_drift_radius',
-                                               'top_destinations'])
+                                               'top_destinations',
+                                               's2id'])
 
 
 
@@ -223,7 +122,7 @@ def read_json_records(input, blacklisted_mmsis):
         | "FilterOutBadValues" >> beam.Filter(lambda (md, lr): is_not_bad_value(lr))
         )
 
-def tag_with_destination(records):
+def tag_with_destination_and_id(records):
     """filter out info messages and use them to tag subsequent records"""
     dest = ''
     new = []
@@ -231,7 +130,8 @@ def tag_with_destination(records):
         if isinstance(rcd, VesselInfoRecord):
             dest = rcd.destination
         else:
-            new.append(TaggedVesselLocationRecord(dest, *rcd)) 
+            new.append(TaggedVesselLocationRecord(dest, S2_cell_ID(rcd.location).to_token(), 
+                                                  *rcd)) 
     return new
 
 def dedup_by_timestamp(element):
@@ -276,7 +176,7 @@ def distance(a, b):
     return 2 * EARTH_RADIUS * math.asin(math.sqrt(h))
 
 StationaryPeriod = namedtuple("StationaryPeriod", ['location', 'duration', 'mean_distance_from_shore', 
-        'rms_drift_radius', 'destination'])
+        'rms_drift_radius', 'destination', 's2id'])
 
 LatLon = namedtuple("LatLon", ["lat", "lon"])
 
@@ -314,7 +214,8 @@ def remove_stationary_periods(records, stationary_period_min_duration, stationar
                     rms_drift_radius = math.sqrt(sum(distance(x.location, mean_location)**2 for x in current_period) / num_points)
                     stationary_periods.append(StationaryPeriod(mean_location, duration, 
                                                                mean_distance_from_shore, rms_drift_radius,
-                                                               first_vr.destination))
+                                                               first_vr.destination,
+                                                               s2id=S2_cell_ID(mean_location).to_token()))
                 else:
                     without_stationary_periods.extend(current_period)
                 current_period = []
@@ -329,9 +230,13 @@ def remove_stationary_periods(records, stationary_period_min_duration, stationar
 
 
 def filter_and_process_vessel_records(input, stationary_period_min_duration, stationary_period_max_distance):
-    return input | beam.Map( lambda (metadata, records):
+    return  ( input 
+            | "splitIntoStationaryNonstationaryPeriods" >> beam.Map( lambda (metadata, records):
                         (metadata, 
-                         remove_stationary_periods(list(thin_points(records)), stationary_period_min_duration, stationary_period_max_distance)))
+                         remove_stationary_periods(records, stationary_period_min_duration, stationary_period_max_distance)))
+
+            | "ExtractStationaryPeriods" >> beam.Map(lambda (md, x): (md, x.stationary_periods))
+            )
 
 
 # Around 1km^2
@@ -364,7 +269,7 @@ def find_destinations(seq, limit):
 bogus_destinations = set([''])
 
 def AnchoragePt_from_cell_visits(value, dest_limit):
-    cell, visits = value
+    s2id, visits = value
 
     n = 0
     total_lat = 0.0
@@ -388,7 +293,8 @@ def AnchoragePt_from_cell_visits(value, dest_limit):
                 vessels = frozenset(vessels),
                 mean_distance_from_shore = total_distance_from_shore / n,
                 rms_drift_radius =  math.sqrt(total_squared_drift_radius / n),    
-                top_destinations = tuple(Counter(all_destinations).most_common(dest_limit))           
+                top_destinations = tuple(Counter(all_destinations).most_common(dest_limit)),
+                s2id = s2id       
                 )    
 
 
@@ -396,18 +302,9 @@ def AnchoragePt_from_cell_visits(value, dest_limit):
 def find_anchorage_point_cells(input, min_unique_vessels_for_anchorage):
     return (input
         | "addCellIds" >> beam.FlatMap(lambda (md, locations):
-                [(S2_cell_ID(pl.location), (md, pl)) for pl in locations.stationary_periods])
+                [(pl.s2id, (md, pl)) for pl in locations])
         | "groupByCellIds" >> beam.GroupByKey()
         | "createAnchoragePoints" >> beam.Map(AnchoragePt_from_cell_visits, dest_limit=10)
-        # | "createAnchoragePoints" >> beam.Map(lambda (cell, visits):
-        #     AnchoragePoint(
-        #         mean_location = LatLon_mean(pl.location for (md, pl) in visits),
-        #         vessels = frozenset(md for (md, pl) in visits),
-        #         mean_distance_from_shore = mean(pl.mean_distance_from_shore for (md, pl) in visits),
-        #         mean_drift_radius = mean(pl.mean_drift_radius for (md, pl) in visits),    
-        #         top_destinations = find_destinations((pl for (md, pl) in visits), limit=10)            
-        #         )
-        #     )
         | "removeAPointsWFewVessels" >> beam.Filter(lambda x: len(x.vessels) >= min_unique_vessels_for_anchorage)
         )
 
@@ -441,31 +338,31 @@ class MergeAdjacentAchoragePointsFn(beam.CombineFn):
 
   def add_input(self, accumulator, anchorage_pt):
     union_find, anchorages_pts_by_id = accumulator
-    s2id = S2_cell_ID(anchorage_pt.mean_location)
-    anchorages_pts_by_id[s2id] = anchorage_pt
-    neighbors = S2_cell_ID(anchorage_pt.mean_location).get_all_neighbors(ANCHORAGES_S2_SCALE)
-    for n_id in neighbors:
-        if n_id in anchorages_pts_by_id:
-            nc = anchorages_pts_by_id[n_id]
-            union_find.union(anchorage_pt, nc)
+    anchorages_pts_by_id[anchorage_pt.s2id] = anchorage_pt
+    cellid = s2sphere.CellId.from_token(anchorage_pt.s2id)
+    neighbors = cellid.get_all_neighbors(ANCHORAGES_S2_SCALE)
+    for neighbor_cellid in neighbors:
+        s2id = neighbor_cellid.to_token()
+        if s2id in anchorages_pts_by_id:
+            union_find.union(anchorage_pt.s2id, s2id)
     return (union_find, anchorages_pts_by_id)
 
   def merge_accumulators(self, accumulators):
     accumiter = iter(accumulators)
-    base, anchorages_pts_by_id = next(accumiter)
-    for (uf, apid) in accumiter:
-        base.merge(uf)
-        anchorages_pts_by_id.update(apid)
-    return (base, anchorages_pts_by_id)
+    union_find, anchorages_pts_by_id = next(accumiter)
+    for (uf, apbid) in accumiter:
+        union_find.merge(uf)
+        anchorages_pts_by_id.update(apbid)
+    return (union_find, anchorages_pts_by_id)
 
   def extract_output(self, accumulator):
     union_find, anchorages_pts_by_id = accumulator
     grouped = {}
-    for ap in union_find: # TODO may be able to leverage internals of union_find somehow
-        key = union_find[ap]
+    for s2id in union_find: # TODO may be able to leverage internals of union_find somehow
+        key = union_find[s2id]
         if key not in grouped:
             grouped[key] = []
-        grouped[key].append(ap)
+        grouped[key].append(anchorages_pts_by_id[s2id])
 
     for v in grouped.values():
         v.sort()
@@ -507,39 +404,6 @@ class CreateAnchorageDataFn(beam.CombineFn):
 
 
 
-
-# # TODO, think about building a custom accumulator on top
-# # of beam.CombineFn so that we don't need to do combine all values
-
-def merge_adjacent_anchorage_points(anchorage_points):
-    anchorages_pts_by_id = {S2_cell_ID(ap.mean_location): ap for ap in anchorage_points}
-
-    union_find = UnionFind()
-
-    for ap in anchorage_points:
-        neighbors = S2_cell_ID(ap.mean_location).get_all_neighbors(ANCHORAGES_S2_SCALE)
-        for n_id in neighbors:
-            if n_id in anchorages_pts_by_id:
-                nc = anchorages_pts_by_id[n_id]
-                union_find.union(ap, nc)
-
-    # # Values must be sorted by key to use itertools groupby
-    # anchorage_points = list(anchorage_points)
-    # anchorage_points.sort(key=lambda x: union_find[x])
-    # grouped = it.groupby(anchorage_points, key=lambda x: union_find[x])   
-    # return [list(g) for (t, g) in grouped] 
-
-    grouped = {}
-    for ap in anchorage_points:
-        key = union_find[ap]
-        if key not in grouped:
-            grouped[key] = []
-        grouped[key].append(ap)
-
-    for v in grouped.values():
-        v.sort()
-
-    return grouped.values()
 
 
 class Anchorages(object): 
@@ -743,19 +607,22 @@ def run(argv=None):
     grouped_records = (location_records 
         | "GroupByMmsi" >> beam.GroupByKey()
         | "OrderByTimestamp" >> beam.Map(lambda (md, records): (md, sorted(records, key=lambda x: x.timestamp)))
-        | "TagWithDestination" >> beam.Map(lambda (md, records): (md, tag_with_destination(records))))
-
+        )
 
     deduped_records = filter_duplicate_timestamps(grouped_records, min_required_positions)
 
-    processed = filter_and_process_vessel_records(deduped_records, stationary_period_min_duration, stationary_period_max_distance)
+    thinned_records =   ( deduped_records 
+                        | "ThinPoints" >> beam.Map(lambda (md, vlrs): (md, list(thin_points(vlrs)))))
 
-    anchorage_points = (find_anchorage_point_cells(processed, min_unique_vessels_for_anchorage) |
+    tagged_records = ( thinned_records 
+                     | "TagWithDestinationAndId" >> beam.Map(lambda (md, records): (md, tag_with_destination_and_id(records))))
+
+
+    processed_records = filter_and_process_vessel_records(tagged_records, stationary_period_min_duration, stationary_period_max_distance) 
+
+
+    anchorage_points = (find_anchorage_point_cells(processed_records, min_unique_vessels_for_anchorage) |
                         beam.Filter(lambda x: not inland_mask.query(x.mean_location)))
-
-
-    # anchorages = (GroupAll(anchorage_points, "GroupAllAnchorages")
-    #     | "MergeAdjacentPoints" >> beam.FlatMap(merge_adjacent_anchorage_points))
 
     anchorages = (anchorage_points
         | "mergeAnchoragePoints" >> beam.CombineGlobally(MergeAdjacentAchoragePointsFn())
@@ -776,7 +643,7 @@ def run(argv=None):
         anchorage_data = beam.pvalue.AsSingleton(
             anchorages | "createVisitMetadata" >> beam.CombineGlobally(
                 CreateAnchorageDataFn(anchorage_visit_max_distance, ANCHORAGES_S2_SCALE)))
-        (deduped_records 
+        (processed_records 
             | "findAnchorageVisits" >> beam.Map(find_anchorage_visits, anchorage_data,
                                                  anchorage_visit_max_distance, anchorage_visit_min_duration)
             | "convertToJson" >> beam.Map(tagged_anchorage_visits_to_json)
