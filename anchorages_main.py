@@ -18,9 +18,8 @@
             --setup_file ./setup.py \
             --max_num_workers 5 \
             --output gs://world-fishing-827/scratch/timh/output/test_anchorages_tiny \
-            --input-pattern tiny \
-            --skip-visits
-
+            --input-pattern tiny 
+            
     Small dataflow run:
 
         python -m anchorages_main \
@@ -32,9 +31,7 @@
             --setup_file ./setup.py \
             --max_num_workers 200 \
             --output gs://world-fishing-827/scratch/timh/output/test_anchorages_small \
-            --input-pattern small \
-            --skip-visits
-
+            --input-pattern small 
     Full dataflow run:
 
         python -m anchorages_main \
@@ -46,10 +43,8 @@
             --setup_file ./setup.py \
             --max_num_workers 100 \
             --worker_machine_type n1-highmem-2 \
-            --output gs://world-fishing-827/scratch/timh/output/test_anchorages_full \
-            --input-pattern all_years
-            --skip-visits
-
+            --output gs://world-fishing-827/scratch/timh/output/test_anchorages_full_2 \
+            --input-pattern all_years 
 """
 import logging
 from anchorages import anchorages

@@ -128,6 +128,7 @@ def tag_with_destination_and_id(records):
     new = []
     for rcd in records:
         if isinstance(rcd, VesselInfoRecord):
+            # TODO: normalize here rather than later. And cache normalization in dictionary
             dest = rcd.destination
         else:
             new.append(TaggedVesselLocationRecord(dest, S2_cell_ID(rcd.location).to_token(), 
@@ -259,10 +260,6 @@ def LatLon_mean(seq):
     return LatLon(mean(x.lat for x in seq), mean(x.lon for x in seq))
 
 
-def find_destinations(seq, limit):
-    filtered = normalized_valid_names(seq)
-    return tuple(Counter(filtered)).most_common(limit)
-
 #TODO: use setup.py to break into multiple files (https://beam.apache.org/documentation/sdks/python-pipeline-dependencies/)
 
 
@@ -341,6 +338,8 @@ class MergeAdjacentAchoragePointsFn(beam.CombineFn):
     anchorages_pts_by_id[anchorage_pt.s2id] = anchorage_pt
     cellid = s2sphere.CellId.from_token(anchorage_pt.s2id)
     neighbors = cellid.get_all_neighbors(ANCHORAGES_S2_SCALE)
+    # add s2id if not present
+    union_find[anchorage_pt.s2id]
     for neighbor_cellid in neighbors:
         s2id = neighbor_cellid.to_token()
         if s2id in anchorages_pts_by_id:
@@ -368,41 +367,6 @@ class MergeAdjacentAchoragePointsFn(beam.CombineFn):
         v.sort()
 
     return grouped.values()
-
-
-class CreateAnchorageDataFn(beam.CombineFn):
-
-    def __init__(self, max_radius, level):
-        self.max_radius = max_radius
-        self.level = level
-
-    def create_accumulator(self):
-        # anchorages_by_anchorage_pts, cell_map
-        return ({}, defaultdict(list))
-
-    def add_input(self, accumulator, anchorage):
-        anchorages_by_anchorage_pts, cell_map = accumulator
-        for anchorage_pt in anchorage:
-            anchorages_by_anchorage_pts[anchorage_pt] = anchorage
-            cap_cells = get_cap_covering_cells(anchorage_pt.mean_location, self.max_radius, self.level)
-            for cellid in cap_cells:
-                cell_map[cellid].append(anchorage_pt)
-        return (anchorages_by_anchorage_pts, cell_map)
-
-    def merge_accumulators(self, accumulators):
-        accumiter = iter(accumulators)
-        anchorages_by_anchorage_pts, cell_map = next(accumiter)
-        for aba, cm in accumiter:
-            anchorages_by_anchorage_pts.update(aba)
-            for k, vals in cm.iteritems():
-                cell_map[k].extend(vals)
-        return (anchorages_by_anchorage_pts, cell_map)
-
-    def extract_output(self, accumulator):
-        anchorages_by_anchorage_pts, cell_map = accumulator
-        return (anchorages_by_anchorage_pts, dict(cell_map))
-
-
 
 
 
@@ -437,75 +401,6 @@ class Anchorages(object):
                             'destinations': destinations.most_common(10)})
 
 
-
-
-def get_cap_covering_cells(latlon, max_radius_km, s2_level):
-    cap_radius_on_unit_sphere = max_radius_km / EARTH_RADIUS
-    coverer = s2sphere.RegionCoverer()
-    coverer.min_level = coverer.max_level = s2_level
-
-    # S2 cap requires an axis (location on unit sphere) and the height of the cap (the cap is
-    # a planar cut on the unit sphere). The cap height is 1 - (sqrt(r^2 - a^2)/r) where r is
-    # the radius of the circle (1.0 after we've normalized) and a is the radius of the cap itself.
-    cap_axis = s2sphere.LatLng.from_degrees(latlon.lat, latlon.lon).normalized().to_point()
-    cap_height = 1.0 - math.sqrt(1.0 - cap_radius_on_unit_sphere ** 2)
-    cap = s2sphere.Cap.from_axis_height(cap_axis, cap_height)
-
-    cover_cells = coverer.get_covering(cap)
-
-    assert all((x.level() == s2_level for x in cover_cells))
-
-    return cover_cells
-
-
-def create_cell_map(anchorages, max_radius, level):
-    cell_map = defaultdict(list)
-    for anch in anchorages:
-        for ap in anch:
-            cap_cells = get_cap_covering_cells(ap.mean_location, max_radius, level)
-            for cellid in cap_cells:
-                cell_map[cellid].append(ap)
-    return dict(cell_map)
-
-
-
-
-def lookup_nearby(location, max_radius, level, cell_map):
-    cap_cells = get_cap_covering_cells(location, max_radius, level)
-    all_nearby_cells = it.chain.from_iterable((cell_map.get(x, ()) for x in cap_cells))
-
-    all_nearby_cells = all_nearby_cells
-
-    values = [(distance(location, x.mean_location), x) for x in all_nearby_cells]
-    values.sort(key=lambda x: x[0])
-    return values
-
-
-def find_anchorage_visits(value, anchorage_data, max_distance, min_visit_duration):
-    metadata, locations = value
-    anchorages_by_anchorage_pts, cell_map = anchorage_data
-    raw_visits = []
-    for loc in locations:
-        a_pts = lookup_nearby(loc.location, max_distance, ANCHORAGES_S2_SCALE, cell_map) 
-        if len(a_pts) > 0:
-            raw_visits.append(
-                AnchorageVisit(anchorages_by_anchorage_pts[a_pts[0][1]],
-                           loc.timestamp,
-                           loc.timestamp))
-
-    visits = []
-    if raw_visits:
-        visits.append(raw_visits[0])
-        for rv in raw_visits[1:]:
-            last = visits[-1]
-            if last.anchorage == rv.anchorage:
-                visits[-1] = AnchorageVisit(last.anchorage, last.arrival, rv.departure)
-            else:
-                visits.append(rv)
-
-    visits = [x for x in visits if (x.departure - x.arrival) > min_visit_duration]
-
-    return (metadata, visits)
 
 
 def check_that_pipeline_args_consumed(pipeline):
@@ -567,9 +462,6 @@ def run(argv=None):
                                             dest='output',
                                             default='gs://world-fishing-827/scratch/timh/output/test_anchorages_2',
                                             help='Output file to write results to.')
-
-    parser.add_argument('--skip-visits',    action='store_true',
-                                            help='Skip generating vists.')
 
 
     known_args, pipeline_args = parser.parse_known_args(argv)
@@ -638,17 +530,6 @@ def run(argv=None):
         | "convertAnToJson" >> beam.Map(Anchorages.to_json)
         | 'writeAnchorage' >> WriteToText(known_args.output + '_anchorages', file_name_suffix='.json')
     )
-
-    if not known_args.skip_visits:
-        anchorage_data = beam.pvalue.AsSingleton(
-            anchorages | "createVisitMetadata" >> beam.CombineGlobally(
-                CreateAnchorageDataFn(anchorage_visit_max_distance, ANCHORAGES_S2_SCALE)))
-        (processed_records 
-            | "findAnchorageVisits" >> beam.Map(find_anchorage_visits, anchorage_data,
-                                                 anchorage_visit_max_distance, anchorage_visit_min_duration)
-            | "convertToJson" >> beam.Map(tagged_anchorage_visits_to_json)
-            | "writeAnchorageVisits" >> WriteToText(known_args.output + '_anchorages')
-        )
 
 
     result = p.run()
