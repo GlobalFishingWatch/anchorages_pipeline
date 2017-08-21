@@ -93,6 +93,7 @@ AnchoragePoint = namedtuple("AnchoragePoint", ['mean_location',
                                                'rms_drift_radius',
                                                'top_destinations',
                                                's2id',
+                                               'neighbor_s2ids',
                                                'active_mmsi',
                                                'total_mmsi'])
 
@@ -291,6 +292,8 @@ def AnchoragePts_from_cell_visits2(value, dest_limit):
     total_mmsi_count = len(vessels | active_mmsi)
 
     if n:
+        neighbor_s2ids = tuple(s2sphere.CellId.from_token(s2id).get_all_neighbors(ANCHORAGES_S2_SCALE))
+
         return [AnchoragePoint(
                     mean_location = LatLon(total_lat / n, total_lon / n),
                     total_visits = n, 
@@ -299,6 +302,7 @@ def AnchoragePts_from_cell_visits2(value, dest_limit):
                     rms_drift_radius =  math.sqrt(total_squared_drift_radius / n),    
                     top_destinations = tuple(Counter(all_destinations).most_common(dest_limit)),
                     s2id = s2id,
+                    neighbor_s2ids = neighbor_s2ids,
                     active_mmsi = active_mmsi_count,
                     total_mmsi = total_mmsi_count  
                     )]
@@ -643,8 +647,8 @@ def run(argv=None):
 
     processed_records = filter_and_process_vessel_records(tagged_records, stationary_period_min_duration, stationary_period_max_distance) 
 
-    anchorage_points = (find_anchorage_points_cells_2(processed_records, min_unique_vessels_for_anchorage) |
-                        beam.Filter(lambda x: not inland_mask.query(x.mean_location)))
+    anchorage_points = (find_anchorage_points_cells_2(processed_records, min_unique_vessels_for_anchorage) 
+        | 'filterOutInlandPorts' >> beam.Filter(lambda x: not inland_mask.query(x.mean_location)))
 
     # anchorages = (anchorage_points
     #     | "mergeAnchoragePoints" >> beam.CombineGlobally(GroupAll())

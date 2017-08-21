@@ -99,13 +99,15 @@ class TestAnchoragePoints(object):
     @classmethod
     def AnchoragePoint_from_S2Token(cls, token, mmsis, total_visits=10, mean_distance_from_shore=0, mean_drift_radius=0, 
                                     top_destinations=()):
+        token = unicode(token)
         return anchorages.AnchoragePoint(cls.LatLon_from_S2Token(token),
                                          total_visits,
                                          tuple(anchorages.VesselMetadata(x) for x in mmsis),
                                          mean_distance_from_shore,
                                          mean_drift_radius,
                                          top_destinations,
-                                         unicode(token),
+                                         token,
+                                         tuple(s2sphere.CellId.from_token(token).get_all_neighbors(anchorages.ANCHORAGES_S2_SCALE)),
                                          0,
                                          0)
 

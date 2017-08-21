@@ -28,7 +28,7 @@
             --staging_location gs://world-fishing-827/scratch/timh/output/staging \
             --temp_location gs://world-fishing-827/scratch/timh/temp \
             --setup_file ./setup.py \
-            --max_num_workers 100 \
+            --max_num_workers 200 \
             --worker_machine_type custom-1-6656 \
             --output gs://world-fishing-827/scratch/timh/output/test_anchorages_small \
             --input-pattern small 
@@ -48,6 +48,21 @@
             --worker_machine_type n1-highmem-2 \
             --output gs://world-fishing-827/scratch/timh/output/test_anchorages_full_2 \
             --input-pattern medium 
+
+
+    2016 dataflow run:
+
+        python -m anchorages_main \
+            --project world-fishing-827 \
+            --job_name test-anchorages-2016 \
+            --runner DataflowRunner \
+            --staging_location gs://world-fishing-827/scratch/timh/output/staging \
+            --temp_location gs://world-fishing-827/scratch/timh/temp \
+            --setup_file ./setup.py \
+            --max_num_workers 200 \
+            --output gs://world-fishing-827/scratch/timh/output/test_anchorages_2016 \
+            --input-pattern medium 
+
 
     Full dataflow run:
 
