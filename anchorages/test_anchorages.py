@@ -105,7 +105,9 @@ class TestAnchoragePoints(object):
                                          mean_distance_from_shore,
                                          mean_drift_radius,
                                          top_destinations,
-                                         unicode(token))
+                                         unicode(token),
+                                         0,
+                                         0)
 
 
     def test_to_json(self):
@@ -113,7 +115,10 @@ class TestAnchoragePoints(object):
                                             (1, 2, 3))
         assert json.loads(anchorages.anchorage_point_to_json(ap)) == {'destinations': [], 
                                     'lat': 39.9950354853, 'lon': -74.129868411,
-                                     'total_visits': 10, 'unique_mmsi': 3}
+                                     'total_visits': 10, 'unique_active_mmsi': 0, 
+                                     'drift_radius': 0,
+                                     'unique_stationary_mmsi': 3,
+                                     'unique_total_mmsi': 0}
 
         ap = self.AnchoragePoint_from_S2Token("89c19c9c",
                                             (1, 2, 3, 4),
@@ -121,7 +126,11 @@ class TestAnchoragePoints(object):
                                             top_destinations=('here', 'there'))
         assert json.loads(anchorages.anchorage_point_to_json(ap)) == {'destinations': ['here', 'there'], 
                                     'lat': 39.9950354853, 'lon': -74.129868411,
-                                    'total_visits': 17, 'unique_mmsi': 4}            
+                                    'total_visits': 17, 
+                                    'drift_radius': 0,
+                                    'unique_active_mmsi': 0,
+                                    'unique_stationary_mmsi': 4,
+                                    'unique_total_mmsi': 0}
 
 
 class TestAnchorages(object):
@@ -152,33 +161,19 @@ class TestAnchorages(object):
 
 
     def test_merge(self):
-        anch = self.anchorage_pts
+        anchs = self.anchorage_pts
+ 
+        grouped_anchorages = anchorages.merge_adjacent_anchorage_points(anchs)
+ 
+        assert len(grouped_anchorages) == 3
+ 
+        expected = [sorted([anchs[2]]), 
+                    sorted([anchs[0], anchs[1]]), 
+                    sorted([anchs[3], anchs[4], anchs[5]])]
+ 
+        assert sorted(grouped_anchorages) == sorted(expected)
+ 
 
-        merger = anchorages.MergeAdjacentAchoragePointsFn()
-
-        accum1 = merger.create_accumulator()
-        accum2 = merger.create_accumulator()
-
-        for a in anch[:3]:
-            merger.add_input(accum1, a)
-        for a in anch[3:]:
-            merger.add_input(accum2, a) 
-
-        accum = merger.merge_accumulators([accum1, accum2])
-
-        grouped_anchorage_pts = merger.extract_output(accum)
-
-
-        # assert len(grouped_anchorage_pts) == 3
-
-        expected = [sorted([anch[2]]), 
-                    sorted([anch[0], anch[1]]), 
-                    sorted([anch[3], anch[4], anch[5]])]
-
-        for i, x in enumerate(sorted(grouped_anchorage_pts)):
-            print(i, x)
-
-        assert sorted(grouped_anchorage_pts) == sorted(expected)
 
 
 
@@ -194,22 +189,22 @@ class TestAnchorages(object):
 
 
 
-class TestUnionFind(object):
-    def test_merge(self):
-        uf1 = anchorages.UnionFind()
-        uf1.union(1, 2)
-        uf1.union(3, 4)
-        uf2 = anchorages.UnionFind()
-        uf2.union(4, 5)
-        uf2.union(6, 7)
-        uf3 = anchorages.UnionFind()
-        uf3.union(0, 1)
-        uf3.union(9, 10)
+# class TestUnionFind(object):
+#     def test_merge(self):
+#         uf1 = anchorages.UnionFind()
+#         uf1.union(1, 2)
+#         uf1.union(3, 4)
+#         uf2 = anchorages.UnionFind()
+#         uf2.union(4, 5)
+#         uf2.union(6, 7)
+#         uf3 = anchorages.UnionFind()
+#         uf3.union(0, 1)
+#         uf3.union(9, 10)
 
-        uf1.merge(uf2, uf3)
+#         uf1.merge(uf2, uf3)
 
-        assert sorted(uf1.parents.items()) == [(0, 2), (1, 2), (2, 2), (3, 4), (4, 4), 
-                                                (5, 4), (6, 7), (7, 7), (9, 10), (10, 10)]
+#         assert sorted(uf1.parents.items()) == [(0, 2), (1, 2), (2, 2), (3, 4), (4, 4), 
+#                                                 (5, 4), (6, 7), (7, 7), (9, 10), (10, 10)]
 
 
 class TestUtilities(object):

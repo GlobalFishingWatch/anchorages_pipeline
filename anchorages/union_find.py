@@ -62,12 +62,12 @@ class UnionFind(object):
                 self.weights[heaviest] += self.weights[r]
                 self.parents[r] = heaviest
 
-    def merge(self, *union_finds):
-        """Merge additional UnionFinds into this one"""
-        for uf in union_finds:
-            for child in uf:
-                # For each node in accum, look up parents in both
-                # base and accum. Then merge the parents.
-                p0 = self[child]
-                p1 = uf[child]
-                self.union(p0, p1)
+    # def merge(self, *union_finds):
+    #     """Merge additional UnionFinds into this one"""
+    #     for uf in union_finds:
+    #         for child in uf:
+    #             # For each node in accum, look up parents in both
+    #             # base and accum. Then merge the parents.
+    #             p0 = self[child]
+    #             p1 = uf[child]
+    #             self.union(p0, p1)
