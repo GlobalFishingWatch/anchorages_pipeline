@@ -95,7 +95,10 @@ AnchoragePoint = namedtuple("AnchoragePoint", ['mean_location',
                                                's2id',
                                                'neighbor_s2ids',
                                                'active_mmsi',
-                                               'total_mmsi'])
+                                               'total_mmsi',
+                                               'stationary_mmsi_days',
+                                               'active_mmsi_days'
+                                               ])
 
 
 
@@ -118,9 +121,17 @@ def is_not_bad_value(lr):
     )
 
 
-def read_json_records(input, blacklisted_mmsis):
-    return (input 
+def read_json_records(input, blacklisted_mmsis, latlon_filters):
+    parsed =  (input 
         | "Parse" >> beam.Map(json.loads)
+        )
+
+    if latlon_filters is not None:
+        parsed = (parsed 
+            | "filterByLatLon" >> beam.Filter(filter_by_latlon, latlon_filters)
+        )
+
+    return (parsed 
         | "CreateLocationRecords" >> beam.FlatMap(Records_from_msg, blacklisted_mmsis)
         | "FilterOutBadValues" >> beam.Filter(lambda (md, lr): is_not_bad_value(lr))
         )
@@ -210,7 +221,7 @@ def remove_stationary_periods(records, stationary_period_min_duration, stationar
         if current_period:
             first_vr = current_period[0]
             if distance(vr.location, first_vr.location) > stationary_period_max_distance:
-                if vr.timestamp - first_vr.timestamp > stationary_period_min_duration:
+                if current_period[-1].timestamp - first_vr.timestamp > stationary_period_min_duration:
                     without_stationary_periods.append(first_vr)
                     if current_period[-1] != first_vr:
                         without_stationary_periods.append(current_period[-1])
@@ -279,12 +290,15 @@ def AnchoragePts_from_cell_visits2(value, dest_limit):
     total_squared_drift_radius = 0.0
     active_mmsi = set(md for (md, loc) in active_points)
     active_mmsi_count = len(active_mmsi)
+    active_days = len(set([(md, loc.timestamp.date()) for (md, loc) in active_points]))
+    stationary_days = 0
 
     for (md, sp) in stationary_periods:
         n += 1
         total_lat += sp.location.lat
         total_lon += sp.location.lon
         vessels.add(md)
+        stationary_days += sp.duration.total_seconds() / (24.0 * 60.0 * 60.0)
         total_distance_from_shore += sp.mean_distance_from_shore
         total_squared_drift_radius += sp.rms_drift_radius ** 2
     all_destinations = normalized_valid_names(sp.destination for (md, sp) in stationary_periods)
@@ -304,7 +318,9 @@ def AnchoragePts_from_cell_visits2(value, dest_limit):
                     s2id = s2id,
                     neighbor_s2ids = neighbor_s2ids,
                     active_mmsi = active_mmsi_count,
-                    total_mmsi = total_mmsi_count  
+                    total_mmsi = total_mmsi_count,
+                    stationary_mmsi_days = stationary_days,
+                    active_mmsi_days = active_days
                     )]
     else:
         return []
@@ -382,7 +398,9 @@ def anchorage_point_to_json(a_pt):
         'destinations': a_pt.top_destinations,
         'unique_stationary_mmsi' : len(a_pt.vessels),
         'unique_active_mmsi' : a_pt.active_mmsi,
-        'unique_total_mmsi' : a_pt.total_mmsi
+        'unique_total_mmsi' : a_pt.total_mmsi,
+        'active_mmsi_days': a_pt.active_mmsi_days,
+        'stationary_mmsi_days': a_pt.stationary_mmsi_days,
         })
 
              
@@ -587,6 +605,20 @@ preset_runs['medium'] = preset_runs['2016'][-6:]
 
 
 
+def filter_by_latlon(msg, filters):
+    if not is_location_message(msg):
+        # Keep non-location messages for destination tagging
+        return True
+    # Keep any message that falls within a filter region
+    lat = msg['lat']
+    lon = msg['lon']
+    for bounds in filters:
+        if ((bounds['min_lat'] <= lat <= bounds['max_lat']) and 
+            (bounds['min_lon'] <= lon <= bounds['max_lon'])):
+                return True
+    # This message is not within any filter region.
+    return False
+
 
 def run(argv=None):
     """Main entry point; defines and runs the wordcount pipeline.
@@ -599,6 +631,9 @@ def run(argv=None):
                                             default='gs://world-fishing-827/scratch/timh/output/test_anchorages_2',
                                             help='Output file to write results to.')
 
+    parser.add_argument('--latlon-filter',
+                                            dest='latlon_filter',
+                                            help='newline separated json file containing dicts of min_lat, max_lat, min_lon, max_lon, name')
 
     known_args, pipeline_args = parser.parse_known_args(argv)
 
@@ -630,7 +665,15 @@ def run(argv=None):
 
     ais_input_data = ais_input_data_streams | beam.Flatten()
 
-    location_records = read_json_records(ais_input_data, blacklisted_mmsis)
+    if known_args.latlon_filter:
+        with open(known_args.latlon_filter) as f:
+            latlon_filters = [json.loads(x) for x in f.readlines()]
+    else:
+        latlon_filters = None
+
+
+    location_records = read_json_records(ais_input_data, blacklisted_mmsis, latlon_filters)
+
 
     grouped_records = (location_records 
         | "GroupByMmsi" >> beam.GroupByKey()

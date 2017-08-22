@@ -109,7 +109,9 @@ class TestAnchoragePoints(object):
                                          token,
                                          tuple(s2sphere.CellId.from_token(token).get_all_neighbors(anchorages.ANCHORAGES_S2_SCALE)),
                                          0,
-                                         0)
+                                         0,
+                                         4,
+                                         7)
 
 
     def test_to_json(self):
@@ -120,7 +122,10 @@ class TestAnchoragePoints(object):
                                      'total_visits': 10, 'unique_active_mmsi': 0, 
                                      'drift_radius': 0,
                                      'unique_stationary_mmsi': 3,
-                                     'unique_total_mmsi': 0}
+                                     'unique_total_mmsi': 0,
+                                     'stationary_mmsi_days': 4,
+                                     'active_mmsi_days': 7
+                                     }
 
         ap = self.AnchoragePoint_from_S2Token("89c19c9c",
                                             (1, 2, 3, 4),
@@ -132,7 +137,9 @@ class TestAnchoragePoints(object):
                                     'drift_radius': 0,
                                     'unique_active_mmsi': 0,
                                     'unique_stationary_mmsi': 4,
-                                    'unique_total_mmsi': 0}
+                                    'unique_total_mmsi': 0,
+                                     'stationary_mmsi_days': 4,
+                                     'active_mmsi_days': 7}
 
 
 class TestAnchorages(object):
