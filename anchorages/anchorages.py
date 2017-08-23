@@ -620,22 +620,47 @@ def filter_by_latlon(msg, filters):
     return False
 
 
+def add_pipeline_defaults(pipeline_args, name):
+
+    defaults = {
+        '--project' : 'world-fishing-827',
+        '--staging_location' : 'gs://machine-learning-dev-ttl-30d/anchorages/{}/output/staging'.format(name),
+        '--temp_location' : 'gs://machine-learning-dev-ttl-30d/anchorages/temp',
+        '--setup_file' : './setup.py',
+        '--runner': 'DataflowRunner',
+        '--max_num_workers' : '200',
+        '--job_name': name,
+    }
+
+    for name, value in defaults.items():
+        if name not in pipeline_args:
+            pipeline_args.extend((name, value))
+
+
 def run(argv=None):
     """Main entry point; defines and runs the wordcount pipeline.
     """
+
     parser = argparse.ArgumentParser()
+
+    parser.add_argument('--name', required=True, help='Name to prefix output and job name if not otherwise specified')
+
     parser.add_argument('--input-patterns', default='all_years',
                                             help='Input file to patterns (comma separated) to process (glob)')
     parser.add_argument('--output',
                                             dest='output',
-                                            default='gs://world-fishing-827/scratch/timh/output/test_anchorages_2',
                                             help='Output file to write results to.')
 
-    parser.add_argument('--latlon-filter',
+    parser.add_argument('--latlon-filters',
                                             dest='latlon_filter',
                                             help='newline separated json file containing dicts of min_lat, max_lat, min_lon, max_lon, name')
 
     known_args, pipeline_args = parser.parse_known_args(argv)
+
+    if known_args.output is None:
+        known_args.output = 'gs://machine-learning-dev-ttl-30d/anchorages/{}/output'.format(known_args.name)
+
+    add_pipeline_defaults(pipeline_args, known_args.name)
 
     # We use the save_main_session option because one or more DoFn's in this
     # workflow rely on global context (e.g., a module imported at module level).

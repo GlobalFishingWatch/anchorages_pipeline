@@ -3,79 +3,32 @@
     Minimal local run:
 
         python -m anchorages_main \
-            --output gs://world-fishing-827/scratch/timh/output/test_anchorages_tiny \
+            --name test-anchorages-2016-tiny \
+            --runner DirectRunner \
+            --latlon-filters latlon_filters.json \
             --input-pattern tiny 
 
-    Minimal dataflow run:
-
-        python -m anchorages_main \
-            --project world-fishing-827 \
-            --job_name test-anchorages-visits-accum-0 \
-            --runner DataflowRunner \
-            --staging_location gs://world-fishing-827/scratch/timh/output/staging \
-            --temp_location gs://world-fishing-827/scratch/timh/temp \
-            --setup_file ./setup.py \
-            --max_num_workers 5 \
-            --output gs://world-fishing-827/scratch/timh/output/test_anchorages_tiny \
-            --input-pattern tiny 
             
-    Small dataflow run:
+    Small, filtered dataflow run:
 
         python -m anchorages_main \
-            --project world-fishing-827 \
-            --job_name test-anchorages-visits-accum-1 \
-            --runner DataflowRunner \
-            --staging_location gs://world-fishing-827/scratch/timh/output/staging \
-            --temp_location gs://world-fishing-827/scratch/timh/temp \
-            --setup_file ./setup.py \
-            --max_num_workers 200 \
-            --worker_machine_type custom-1-6656 \
-            --output gs://world-fishing-827/scratch/timh/output/test_anchorages_small \
+            --name test-anchorages-2016-small \
+            --latlon-filters latlon_filters.json \
             --input-pattern small 
 
-    These \/ take 200 instances because they use himem-2 instances. 
 
-    Medium dataflow run:
-
-        python -m anchorages_main \
-            --project world-fishing-827 \
-            --job_name test-anchorages-accum-2 \
-            --runner DataflowRunner \
-            --staging_location gs://world-fishing-827/scratch/timh/output/staging \
-            --temp_location gs://world-fishing-827/scratch/timh/temp \
-            --setup_file ./setup.py \
-            --max_num_workers 100 \
-            --worker_machine_type n1-highmem-2 \
-            --output gs://world-fishing-827/scratch/timh/output/test_anchorages_full_2 \
-            --input-pattern medium 
-
-
-    2016 dataflow run:
+    Filtered 2016 dataflow run:
 
         python -m anchorages_main \
-            --project world-fishing-827 \
-            --job_name test-anchorages-2016 \
-            --runner DataflowRunner \
-            --staging_location gs://world-fishing-827/scratch/timh/output/staging \
-            --temp_location gs://world-fishing-827/scratch/timh/temp \
-            --setup_file ./setup.py \
-            --max_num_workers 200 \
-            --output gs://world-fishing-827/scratch/timh/output/test_anchorages_2016 \
-            --input-pattern medium 
+            --name test-anchorages-2016-filtered \
+            --input-pattern 2016 \
+            --latlon-filters latlon_filters.json 
 
 
     Full dataflow run:
 
         python -m anchorages_main \
-            --project world-fishing-827 \
-            --job_name test-anchorages-accum-2 \
-            --runner DataflowRunner \
-            --staging_location gs://world-fishing-827/scratch/timh/output/staging \
-            --temp_location gs://world-fishing-827/scratch/timh/temp \
-            --setup_file ./setup.py \
-            --max_num_workers 100 \
-            --worker_machine_type n1-highmem-2 \
-            --output gs://world-fishing-827/scratch/timh/output/test_anchorages_full_2 \
+            --name test-anchorages-all-years \
             --input-pattern all_years 
 """
 import logging
