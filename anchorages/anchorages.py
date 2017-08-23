@@ -254,8 +254,10 @@ def filter_and_process_vessel_records(input, stationary_period_min_duration, sta
             # | "ExtractStationaryPeriods" >> beam.Map(lambda (md, x): (md, x.stationary_periods))
             )
 
-# Around 1km^2
-ANCHORAGES_S2_SCALE = 13
+# # Around (1 km)^2
+# ANCHORAGES_S2_SCALE = 13
+# Around (0.5 km)^2
+ANCHORAGES_S2_SCALE = 14
 
 def S2_cell_ID(loc):
     ll = s2sphere.LatLng.from_degrees(loc.lat, loc.lon)
@@ -673,7 +675,7 @@ def run(argv=None):
 
     # TODO: Should go in config file or arguments >>>
     min_required_positions = 200 
-    stationary_period_min_duration = datetime.timedelta(hours=48)
+    stationary_period_min_duration = datetime.timedelta(hours=12)
     stationary_period_max_distance = 0.5 # km
     min_unique_vessels_for_anchorage = 20
     blacklisted_mmsis = [0, 12345]
@@ -724,12 +726,12 @@ def run(argv=None):
 
     (anchorage_points 
         | "convertAPToJson" >> beam.Map(anchorage_point_to_json)
-        | "writeAnchoragesPoints" >> WriteToText(known_args.output + '_anchorages_points', file_name_suffix='.json')
+        | "writeAnchoragesPoints" >> WriteToText(known_args.output + '/anchorages_points', file_name_suffix='.json')
     )
 
     # (anchorages 
     #     | "convertAnToJson" >> beam.Map(Anchorages.to_json)
-    #     | 'writeAnchorage' >> WriteToText(known_args.output + '_anchorages', file_name_suffix='.json')
+    #     | 'writeAnchorage' >> WriteToText(known_args.output + '/anchorages', file_name_suffix='.json')
     # )
 
 
