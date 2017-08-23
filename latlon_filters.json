@@ -1,0 +1,9 @@
+{"name": "Bay Area", "min_lon": -124.0, "max_lon": -121.0, "min_lat": 36.0, "max_lat": 38.5}
+{"name": "Vancouver_Seattle", "min_lon": -124.0, "max_lon": -122.0, "min_lat": 47.0, "max_lat": 49.5}
+{"name": "Shanghai", "min_lon": 120.0, "max_lon": 123.0, "min_lat": 30, "max_lat": 32}
+{"name": "Dubai_UAE", "min_lon": 55.0, "max_lon": 57.0, "min_lat": 24.0, "max_lat": 26}
+{"name": "Gothenburg", "min_lon": 11.0, "max_lon": 12.2, "min_lat": 57.5, "max_lat": 58.5}
+{"name": "Rotterdam", "min_lon": 3.0, "max_lon": 5, "min_lat": 51.2, "max_lat": 52.2}
+{"name": "Baltimore", "min_lon": -76.7, "max_lon": -76.25, "min_lat": 38.8, "max_lat": 39.4}
+{"name": "Dutch_Harbor", "min_lon": -167.42, "max_lon": -165.0, "min_lat": 53.4, "max_lat": 54.19}
+{"name": "Singapore", "min_lon": 100, "max_lon": 107, "min_lat": 0.3, "max_lat": 3.3}
