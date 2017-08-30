@@ -103,15 +103,38 @@ class TestAnchoragePoints(object):
         return anchorages.AnchoragePoint(cls.LatLon_from_S2Token(token),
                                          total_visits,
                                          tuple(anchorages.VesselMetadata(x) for x in mmsis),
+                                         tuple(anchorages.VesselMetadata(x) for x in mmsis[:2]),
                                          mean_distance_from_shore,
                                          mean_drift_radius,
                                          top_destinations,
                                          token,
                                          tuple(s2sphere.CellId.from_token(token).get_all_neighbors(anchorages.ANCHORAGES_S2_SCALE)),
-                                         0,
+                                         2,
                                          0,
                                          4,
-                                         7)
+                                         3,
+                                         7,
+                                         ('APORT', 'ACOUNTRY', 0, 0),
+                                         10.0
+                                         )
+
+      # ['mean_location',
+      #  'total_visits',
+      #  'vessels',
+      #  'fishing_vessels',
+      #  'mean_distance_from_shore',
+      #  'rms_drift_radius',
+      #  'top_destinations',
+      #  's2id',
+      #  'neighbor_s2ids',
+      #  'active_mmsi',
+      #  'total_mmsi',
+      #  'stationary_mmsi_days',
+      #  'stationary_fishing_mmsi_days',
+      #  'active_mmsi_days',
+      #  'port_name',
+      #  'port_distance'
+      #  ])
 
 
     def test_to_json(self):
@@ -121,10 +144,15 @@ class TestAnchoragePoints(object):
                                     'lat': 39.9950354853, 'lon': -74.129868411,
                                      'total_visits': 10, 'unique_active_mmsi': 0, 
                                      'drift_radius': 0,
-                                     'unique_stationary_mmsi': 3,
-                                     'unique_total_mmsi': 0,
-                                     'stationary_mmsi_days': 4,
-                                     'active_mmsi_days': 7
+                                    'unique_active_mmsi': 2,
+                                    'unique_stationary_mmsi': 3,
+                                    'unique_total_mmsi': 0,
+                                    'stationary_mmsi_days': 4,
+                                    'active_mmsi_days': 7,
+                                    'port_distance': 10.0,
+                                    'port_name': [u'APORT', u'ACOUNTRY', 0, 0],
+                                    'stationary_fishing_mmsi_days': 3,
+                                    'unique_stationary_fishing_mmsi': 2
                                      }
 
         ap = self.AnchoragePoint_from_S2Token("89c19c9c",
@@ -135,85 +163,17 @@ class TestAnchoragePoints(object):
                                     'lat': 39.9950354853, 'lon': -74.129868411,
                                     'total_visits': 17, 
                                     'drift_radius': 0,
-                                    'unique_active_mmsi': 0,
+                                    'unique_active_mmsi': 2,
                                     'unique_stationary_mmsi': 4,
                                     'unique_total_mmsi': 0,
-                                     'stationary_mmsi_days': 4,
-                                     'active_mmsi_days': 7}
+                                    'stationary_mmsi_days': 4,
+                                    'active_mmsi_days': 7,
+                                    'port_distance': 10.0,
+                                    'port_name': [u'APORT', u'ACOUNTRY', 0, 0],
+                                    'stationary_fishing_mmsi_days': 3,
+                                    'unique_stationary_fishing_mmsi': 2
+                                     }
 
-
-class TestAnchorages(object):
-
-
-    @property
-    def anchorage_pts(self):
-        return [
-              TestAnchoragePoints.AnchoragePoint_from_S2Token("89c19c9c",
-                                            (1, 2, 3),
-                                            top_destinations=(('HERE', 3), ('THERE', 4))),
-              TestAnchoragePoints.AnchoragePoint_from_S2Token("89c19b64", (1, 2),
-                                            top_destinations=(('THERE', 3), ('EVERYWHERE', 10))),
-              TestAnchoragePoints.AnchoragePoint_from_S2Token("89c1852c", [1]),
-              TestAnchoragePoints.AnchoragePoint_from_S2Token("89c19b04",
-                                            (1, 2),
-                                            20,
-                                            30.0),
-              TestAnchoragePoints.AnchoragePoint_from_S2Token("89c19bac",
-                                            (7, 8),
-                                            13,
-                                            20.0),
-              TestAnchoragePoints.AnchoragePoint_from_S2Token("89c19bb4",
-                                            [1, 2],
-                                            8,
-                                            10.0)
-        ]   
-
-
-    def test_merge(self):
-        anchs = self.anchorage_pts
- 
-        grouped_anchorages = anchorages.merge_adjacent_anchorage_points(anchs)
- 
-        assert len(grouped_anchorages) == 3
- 
-        expected = [sorted([anchs[2]]), 
-                    sorted([anchs[0], anchs[1]]), 
-                    sorted([anchs[3], anchs[4], anchs[5]])]
- 
-        assert sorted(grouped_anchorages) == sorted(expected)
- 
-
-
-
-
-    def test_to_json(self):
-        assert json.loads(anchorages.Anchorages.to_json(self.anchorage_pts)) == {
-                        'id': '89c19b0c',
-                        'lat': 39.9832701713,
-                        'lon': -74.0995242524,
-                        'total_visits': 71,
-                        'unique_mmsi': 5,
-                        'destinations': [['EVERYWHERE', 10], ['THERE', 7], ['HERE', 3]]}
-
-
-
-
-# class TestUnionFind(object):
-#     def test_merge(self):
-#         uf1 = anchorages.UnionFind()
-#         uf1.union(1, 2)
-#         uf1.union(3, 4)
-#         uf2 = anchorages.UnionFind()
-#         uf2.union(4, 5)
-#         uf2.union(6, 7)
-#         uf3 = anchorages.UnionFind()
-#         uf3.union(0, 1)
-#         uf3.union(9, 10)
-
-#         uf1.merge(uf2, uf3)
-
-#         assert sorted(uf1.parents.items()) == [(0, 2), (1, 2), (2, 2), (3, 4), (4, 4), 
-#                                                 (5, 4), (6, 7), (7, 7), (9, 10), (10, 10)]
 
 
 class TestUtilities(object):

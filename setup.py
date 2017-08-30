@@ -11,5 +11,5 @@ setuptools.setup(
     description='anchorage pipeline.',
     install_requires=REQUIRED_PACKAGES,
     packages=setuptools.find_packages(),
-    package_data={'anchorages': ['*.pickle']},
+    package_data={'anchorages': ['*.pickle', '*.csv']},
     )
