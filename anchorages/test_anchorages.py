@@ -2,6 +2,7 @@ import pytest
 import json
 import datetime
 import anchorages
+import nearest_port
 import pickle
 import s2sphere
 
@@ -194,4 +195,18 @@ class TestUtilities(object):
                 continue
             assert anchorages.distance(phx, locations[key]) == self.distances[key], (key, anchorages.distance(phx, locations[key]),  
                 self.distances[key])
+
+class GenericObject(object):
+    pass
+
+def test_tagged_anchorage_visits_to_json():
+    md = anchorages.VesselMetadata(33)
+    sp = anchorages.StationaryPeriod(anchorages.LatLon(25.0, -56.0), datetime.datetime(2017, 1, 1), datetime.timedelta(hours=37), 
+                                        10.0, 9.0, "there", 12345)
+    obj = GenericObject()
+    obj.s2id = "1234"
+    anch = nearest_port.Anchorage("port_name", "country", 33.0, 44.0, obj)
+    dumped = anchorages.tagged_anchorage_visits_to_json((md, [(anch, sp)]))
+    print(dumped)
+    assert dumped == '{"mmsi":33,"visits":[{"arrival":"2017-01-01T00:00:00Z","port_s2id":"1234","port_name":"port_name","mean_lat":25.0,"port_country":"country","mean_lon":-56.0,"duration_hours":37.0,"port_lon":44.0,"port_lat":33.0}]}'
 
