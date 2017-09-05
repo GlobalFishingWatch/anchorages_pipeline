@@ -153,7 +153,8 @@ class TestAnchoragePoints(object):
                                     'port_distance': 10.0,
                                     'port_name': [u'APORT', u'ACOUNTRY', 0, 0],
                                     'stationary_fishing_mmsi_days': 3,
-                                    'unique_stationary_fishing_mmsi': 2
+                                    'unique_stationary_fishing_mmsi': 2,
+                                    's2id': '89c19c9c'
                                      }
 
         ap = self.AnchoragePoint_from_S2Token("89c19c9c",
@@ -172,7 +173,8 @@ class TestAnchoragePoints(object):
                                     'port_distance': 10.0,
                                     'port_name': [u'APORT', u'ACOUNTRY', 0, 0],
                                     'stationary_fishing_mmsi_days': 3,
-                                    'unique_stationary_fishing_mmsi': 2
+                                    'unique_stationary_fishing_mmsi': 2,
+                                    's2id': '89c19c9c'
                                      }
 
 
