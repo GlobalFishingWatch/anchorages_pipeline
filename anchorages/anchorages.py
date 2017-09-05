@@ -407,6 +407,7 @@ def anchorage_point_to_json(a_pt):
         'stationary_fishing_mmsi_days': a_pt.stationary_fishing_mmsi_days,
         'port_name': a_pt.port_name,
         'port_distance': a_pt.port_distance,
+        's2id' : a_pt.s2id
         })
 
              
