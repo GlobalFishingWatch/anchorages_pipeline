@@ -1,6 +1,7 @@
 from __future__ import print_function, division
 import csv
 import os
+import math
 from collections import namedtuple
 from .distance import distance, EARTH_RADIUS
 
@@ -9,10 +10,12 @@ Port = namedtuple("Port", ["name", "country", "lat", "lon"])
 this_dir = os.path.dirname(__file__)
 
 
+BUFFER_KM = 20
+
+
 class PortFinder(object):
 
-    def __init__(self, anchorage_path="ports.csv", buffer_km=100.0):
-        self.buffer_km = buffer_km
+    def __init__(self, anchorage_path="ports.csv"):
         self.ports_near = {}
         self.ports = []
         with open(os.path.join(this_dir, anchorage_path)) as f:
@@ -39,16 +42,17 @@ class PortFinder(object):
         return min_p, min_dist
 
 
-    def is_within(self, range, location_record):
+    def is_within(self, range, location_record, s2id=None):
         loc = location_record.location
-        if location_record.s2id not in self.ports_near:
+        if s2id is None:
+            s2id = location_record.s2id
+        if s2id not in self.ports_near:
             ports = []
             for p in self.ports:
-                dist = distance(p, loc)
-                if dist <= self.buffer_km:
+                if distance(p, loc) <= BUFFER_KM:
                     ports.append(p)
-            self.ports_near[location_record.s2id] = ports
-        candidates = sorted([(distance(p, loc), p) for p in self.ports_near[location_record.s2id]])
+            self.ports_near[s2id] = ports
+        candidates = sorted([(distance(p, loc), p) for p in self.ports_near[s2id]])
         if candidates:
             dist, port = candidates[0]
             if dist <= range:
@@ -64,8 +68,7 @@ Anchorage = namedtuple("Anchorage", ["name", "country", "lat", "lon", "anchorage
 
 class AnchorageFinder(PortFinder):
 
-    def __init__(self, anchorages, buffer_km=100.0):
-        self.buffer_km = buffer_km
+    def __init__(self, anchorages):
         self.ports_near = {}
         self.ports = [Anchorage(name=ap.port_name[0],
                                 country=ap.port_name[1],

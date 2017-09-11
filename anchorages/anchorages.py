@@ -14,7 +14,7 @@ from .port_name_filter import normalized_valid_names
 from .union_find import UnionFind
 from .sparse_inland_mask import SparseInlandMask
 from .distance import distance
-from .nearest_port import port_finder, AnchorageFinder
+from .nearest_port import port_finder, AnchorageFinder, BUFFER_KM as VISIT_BUFFER_KM
 
 # TODO put unit reg in package if we refactor
 # import pint
@@ -257,6 +257,12 @@ def filter_and_process_vessel_records(input, stationary_period_min_duration, sta
 # ANCHORAGES_S2_SCALE = 13
 # Around (0.5 km)^2
 ANCHORAGES_S2_SCALE = 14
+# Around (8 km)^2
+VISITS_S2_SCALE = 10
+#
+# TODO: revisit
+approx_visit_cell_size = 2.0 ** (13 - VISITS_S2_SCALE) 
+VISIT_SAFETY_FACTOR = 2.0 # Extra margin factor to ensure VISIT_BUFFER_KM is large enough
 
 def S2_cell_ID(loc):
     ll = s2sphere.LatLng.from_degrees(loc.lat, loc.lon)
@@ -450,15 +456,15 @@ class GroupAll(beam.CombineFn):
         return accumulator
 
 
-def find_visits(stationary_periods, anchorage_points, max_distance):
-    # Only look for anchorages with 1 degree latitude of lat_bin. Actual stationary
-    # periods are within +-0.5 degree, so that means we have a 30 nm buffer.
+def find_visits(s2id, md_sp_tuples, tagged_anchorage_points, max_distance):
+    # Filter anchorage points so we only keep ones in this and adjacent cells.
+    anchorage_points = [ap for (s2ids, ap) in tagged_anchorage_points if s2id in s2ids]
     anchorage_finder = AnchorageFinder(anchorage_points)
     visits = []
-    for sp in stationary_periods:
-        anch = anchorage_finder.is_within(max_distance, sp)
+    for md, sp in md_sp_tuples:
+        anch = anchorage_finder.is_within(max_distance, sp, s2id=s2id)
         if anch is not None:
-            visits.append((anch, sp))
+            visits.append((md, (anch, sp)))
     return visits
 
 
@@ -543,6 +549,16 @@ def add_pipeline_defaults(pipeline_args, name):
             pipeline_args.extend((name, value))
 
 
+def tag_apts_with_nbr_s2ids(apt):
+    """Tag anchorage pt with it's own and nbr ids at VISITS_S2_SCALE
+    """
+    s2_cell_id = s2sphere.CellId.from_token(apt.s2id).parent(VISITS_S2_SCALE)
+    s2ids = [s2_cell_id.to_token()]
+    for cell_id in s2_cell_id.get_all_neighbors(VISITS_S2_SCALE):
+        s2ids.append(cell_id.to_token())
+    return (frozenset(s2ids), apt)
+
+
 def run(argv=None):
     """Main entry point; defines and runs the wordcount pipeline.
     """
@@ -592,6 +608,9 @@ def run(argv=None):
     min_unique_vessels_for_anchorage = 20
     blacklisted_mmsis = [0, 12345]
     anchorage_visit_max_distance = 3.0 # km
+
+    assert anchorage_visit_max_distance + approx_visit_cell_size * VISIT_SAFETY_FACTOR < VISIT_BUFFER_KM
+
     anchorage_visit_min_duration = datetime.timedelta(minutes=180)
     # ^^^
 
@@ -639,13 +658,22 @@ def run(argv=None):
     )
 
     # TODO: this is a very broad stationary distance.... is that what we want. Might be, but think about it.
-    visit_records = filter_and_process_vessel_records(tagged_records, anchorage_visit_min_duration, anchorage_visit_max_distance, 
+    visit_records = filter_and_process_vessel_records(tagged_records, anchorage_visit_min_duration, anchorage_visit_max_distance,
                     prefix="anchorages")
 
+    tagged_anchorage_points = ( anchorage_points 
+                              | "tagAnchoragePointsWithNbrS2ids" >> beam.Map(tag_apts_with_nbr_s2ids)
+                              )
+
     anchorage_visits = ( visit_records  
-                       | "FindVisits" >> beam.Map(lambda (md, processed_locations), anch_points: 
-                                        (md, find_visits(processed_locations.stationary_periods, anch_points, anchorage_visit_max_distance)),
-                                beam.pvalue.AsList(anchorage_points))  
+                       | "TagSPWithS2id" >> beam.FlatMap(lambda (md, processed_locations): 
+                                                [(s2sphere.CellId.from_token(sp.s2id).parent(VISITS_S2_SCALE).to_token(), 
+                                                    (md, sp)) for sp in processed_locations.stationary_periods])
+                       | "GroupByS2id" >> beam.GroupByKey()
+                       | "FindVisits"  >> beam.FlatMap(lambda (s2id, md_sp_tuples), anch_points: 
+                                        (find_visits(s2id, md_sp_tuples, anch_points, anchorage_visit_max_distance)),
+                                                                        beam.pvalue.AsIter(tagged_anchorage_points))  
+                       | "GroupVisitsByMd" >> beam.GroupByKey()
                        )
 
     (anchorage_visits 
