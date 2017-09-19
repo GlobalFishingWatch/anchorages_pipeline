@@ -456,9 +456,7 @@ class GroupAll(beam.CombineFn):
         return accumulator
 
 
-def find_visits(s2id, md_sp_tuples, tagged_anchorage_points, max_distance):
-    # Filter anchorage points so we only keep ones in this and adjacent cells.
-    anchorage_points = [ap for (s2ids, ap) in tagged_anchorage_points if s2id in s2ids]
+def find_visits(s2id, md_sp_tuples, anchorage_points, max_distance):
     anchorage_finder = AnchorageFinder(anchorage_points)
     visits = []
     for md, sp in md_sp_tuples:
@@ -556,7 +554,7 @@ def tag_apts_with_nbr_s2ids(apt):
     s2ids = [s2_cell_id.to_token()]
     for cell_id in s2_cell_id.get_all_neighbors(VISITS_S2_SCALE):
         s2ids.append(cell_id.to_token())
-    return (frozenset(s2ids), apt)
+    return [(x, apt) for x in s2ids]
 
 
 def run(argv=None):
@@ -662,17 +660,20 @@ def run(argv=None):
                     prefix="anchorages")
 
     tagged_anchorage_points = ( anchorage_points 
-                              | "tagAnchoragePointsWithNbrS2ids" >> beam.Map(tag_apts_with_nbr_s2ids)
+                              | "tagAnchoragePointsWithNbrS2ids" >> beam.FlatMap(tag_apts_with_nbr_s2ids)
                               )
 
-    anchorage_visits = ( visit_records  
+    tagged_for_visits_records = ( visit_records  
                        | "TagSPWithS2id" >> beam.FlatMap(lambda (md, processed_locations): 
                                                 [(s2sphere.CellId.from_token(sp.s2id).parent(VISITS_S2_SCALE).to_token(), 
                                                     (md, sp)) for sp in processed_locations.stationary_periods])
-                       | "GroupByS2id" >> beam.GroupByKey()
-                       | "FindVisits"  >> beam.FlatMap(lambda (s2id, md_sp_tuples), anch_points: 
-                                        (find_visits(s2id, md_sp_tuples, anch_points, anchorage_visit_max_distance)),
-                                                                        beam.pvalue.AsIter(tagged_anchorage_points))  
+                       )
+
+
+    anchorage_visits = ( (tagged_for_visits_records, tagged_anchorage_points)
+                       | "CoGroupByS2id" >> beam.CoGroupByKey()
+                       | "FindVisits"  >> beam.FlatMap(lambda (s2id, (md_sp_tuples, apts)): 
+                                        (find_visits(s2id, md_sp_tuples, apts, anchorage_visit_max_distance)))  
                        | "GroupVisitsByMd" >> beam.GroupByKey()
                        )
 
