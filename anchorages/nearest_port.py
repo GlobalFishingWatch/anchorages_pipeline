@@ -60,6 +60,24 @@ class PortFinder(object):
         return None
 
 
+    def is_within_dist(self, range, location_record, s2id=None):
+        loc = location_record.location
+        if s2id is None:
+            s2id = location_record.s2id
+        if s2id not in self.ports_near:
+            ports = []
+            for p in self.ports:
+                if distance(p, loc) <= BUFFER_KM:
+                    ports.append(p)
+            self.ports_near[s2id] = ports
+        candidates = sorted([(distance(p, loc), p) for p in self.ports_near[s2id]])
+        if candidates:
+            dist, port = candidates[0]
+            if dist <= range:
+                return port, dist
+        return None, None
+
+
 port_finder = PortFinder()
 
 
