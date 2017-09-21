@@ -11,8 +11,8 @@
             
 """
 import logging
-from anchorages import encounters
+from anchorages import port_visits
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
-    encounters.run()
+    port_visits.run()

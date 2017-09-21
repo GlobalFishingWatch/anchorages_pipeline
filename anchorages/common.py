@@ -462,6 +462,24 @@ class GroupAll(beam.CombineFn):
         return accumulator
 
 
+def add_pipeline_defaults(pipeline_args, name):
+
+    defaults = {
+        '--project' : 'world-fishing-827',
+        '--staging_location' : 'gs://machine-learning-dev-ttl-30d/anchorages/{}/output/staging'.format(name),
+        '--temp_location' : 'gs://machine-learning-dev-ttl-30d/anchorages/temp',
+        '--setup_file' : './setup.py',
+        '--runner': 'DataflowRunner',
+        '--max_num_workers' : '200',
+        '--job_name': name,
+    }
+
+    for name, value in defaults.items():
+        if name not in pipeline_args:
+            pipeline_args.extend((name, value))
+
+
+
 def find_visits(s2id, md_sp_tuples, anchorage_points, max_distance):
     anchorage_finder = AnchorageFinder(anchorage_points)
     visits = []
@@ -495,7 +513,7 @@ def tag_apts_with_nbr_s2ids(apt):
     for cell_id in s2_cell_id.get_all_neighbors(VISITS_S2_SCALE):
         s2ids.append(cell_id.to_token())
     return [(x, apt) for x in s2ids]
-    
+
 
 preset_runs = {
 
