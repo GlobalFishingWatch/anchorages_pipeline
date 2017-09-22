@@ -4,6 +4,7 @@ import argparse
 import logging
 import re
 import ujson as json
+import json as classic_json
 import datetime
 from collections import namedtuple, Counter, defaultdict
 import itertools as it
@@ -35,7 +36,7 @@ from  . import common as cmn
 PseudoAnchorage = namedtuple("PseudoAnchorage", ['mean_location', "s2id", "port_name"])
 
 def PseudoAnchorage_from_json(obj):
-    return PseudoAnchorage(cmn.LatLon(obj['lat'], obj['lon']), obj['s2id'], Port._make(obj['port_name']))
+    return PseudoAnchorage(cmn.LatLon(obj['anchor_lat'], obj['anchor_lon']), obj['anchor_id'], (obj['FINAL_NAME'], obj['iso3']))
 
 
 IN_PORT = "IN_PORT"
@@ -49,41 +50,73 @@ AT_SEA = "AT_SEA"
             # MMSI
             # Event Type (in or out)
 
+
+# TODO: make into real class with constructor.
 VisitEvent = namedtuple("VisitEvent", 
-    ['anchorage_point', 'mmsi', 'event_type'])
+    ['anchorage_id', 'lat', 'lon', 'mmsi', 'timestamp', 'port_label', 'event_type'])
 
 
-def find_in_out_events((md, records), port_entry_dist, port_exit_dist, anchorages):
+# Questions:
+# Should we call lat/lon, anchorage_lat, anchorage_lon
+
+def find_in_out_events((md, (s2ids, records)), port_entry_dist, port_exit_dist, anchorage_map):
     state = None
     current_port = None
     current_distance = None
+    anchorages = [anchorage_map[x] for x in s2ids if x in anchorage_map]
+    # return [(len(anchorages), len(anchorage_map), anchorage_map.keys()[:1], list(s2ids)[:1])]
     finder = AnchorageFinder(anchorages)
     events = []
     buffer_dist = max(port_entry_dist, port_exit_dist)
     for rcd in records:
         port, dist = finder.is_within_dist(buffer_dist, rcd)
-        if port is not None:
-            if dist < port_entry_dist:
-                # We are in a port
-                if state == AT_SEA:
-                    # We were outside of a port; so entered a port
-                    events.append((port, md.mmsi, "PORT_ENTRY")) # TODO: put real event
-                state = IN_PORT
-                if state != IN_PORT or dist < current_distance:
-                    current_port = port
-                    current_distance = dist
-            elif dist > port_exit_dist:
-                # We are outside a port
-                if state == IN_PORT:
-                    # We were in a port, so exited a port
-                    events.append((port, md.mmsi, "PORT_EXIT")) 
-                state = AT_SEA
-                current_port = current_distance = None
+        if port is not None and dist < port_entry_dist:
+            # We are in a port
+            if state == AT_SEA:
+                # We were outside of a port; so entered a port
+                events.append(VisitEvent(anchorage_id=port.anchorage_point.s2id, 
+                                         lat=port.lat, 
+                                         lon=port.lon, 
+                                         mmsi=md.mmsi, 
+                                         timestamp=rcd.timestamp, 
+                                         port_label=port.name, 
+                                         event_type="PORT_ENTRY")) 
+            if current_port is None or dist < current_distance:
+                current_port = port
+                current_distance = dist
+            state = IN_PORT
+        elif port is None or dist > port_exit_dist:
+            # We are outside a port
+            if state == IN_PORT:
+                # We were in a port, so exited a port
+                events.append(VisitEvent(anchorage_id=current_port.anchorage_point.s2id, 
+                                         lat=current_port.lat, 
+                                         lon=current_port.lon, 
+                                         mmsi=md.mmsi, 
+                                         timestamp=rcd.timestamp, 
+                                         port_label=current_port.name, 
+                                         event_type="PORT_EXIT")) 
+            state = AT_SEA
+            current_port = current_distance = None
+    return events
 
 
 
 def event_to_json(visit):
+    visit = visit._replace(timestamp = cmn.datetime_to_text(visit.timestamp))
     return json.dumps(visit._asdict())
+
+
+def tag_records_with_nbr_s2id_set(records):
+    """Tag anchorage pt with it's own and nbr ids at VISITS_S2_SCALE
+    """
+    s2ids = set()
+    for rcd in records:
+        s2_cell_id = s2sphere.CellId.from_token(rcd.s2id).parent(cmn.VISITS_S2_SCALE)
+        s2ids.add(s2_cell_id.to_token())
+        for cell_id in s2_cell_id.get_all_neighbors(cmn.VISITS_S2_SCALE):
+            s2ids.add(cell_id.to_token())
+    return (s2ids, records)
 
 
 def run(argv=None):
@@ -108,6 +141,8 @@ def run(argv=None):
 
     parser.add_argument('--start-window', help="date to start tracking events to warm up vessel state")
 
+
+    parser.add_argument('--shard-output', type=bool, default=False, help="Whether to shard output or dump as single file")
 
 
     parser.add_argument('--fishing-mmsi-list',
@@ -149,13 +184,10 @@ def run(argv=None):
     anchorage_visit_min_duration = datetime.timedelta(minutes=180)
     # ^^^
 
-    #     # XXX TODO: Put back...
-    # if known_args.input_patterns in cmn.preset_runs:
-    #     raw_input_patterns = cmn.preset_runs[known_args.input_patterns]
-    # elif known_args.input_patterns is not None:
-    #     raw_input_patterns = known_args.input_patterns.split(',')]
-    raw_input_patterns = [x.strip() for x in ['gs://p_p429_resampling_3/data-production/classify-pipeline/classify/{date:%Y-%m-%d}/*0-of-*']]
-
+    if known_args.input_patterns in cmn.preset_runs:
+        raw_input_patterns = cmn.preset_runs[known_args.input_patterns]
+    elif known_args.input_patterns is not None:
+        raw_input_patterns = known_args.input_patterns.split(',')
 
     start_date = datetime.datetime.strptime(known_args.start_date, '%Y-%m-%d') 
     end_window = end_date = datetime.datetime.strptime(known_args.end_date, '%Y-%m-%d') 
@@ -188,9 +220,6 @@ def run(argv=None):
         | "FilterOutBadValues" >> beam.Filter(lambda (md, lr): cmn.is_not_bad_value(lr))
         )
 
-    # mmsi -> s2id list; 
-    # s2idlist -> anchorages per mmsi
-    # do cogroup on mmsi
 
 
     grouped_records = (location_records 
@@ -206,23 +235,29 @@ def run(argv=None):
     tagged_records = ( thinned_records 
                      | "TagWithDestinationAndId" >> beam.Map(lambda (md, records): (md, cmn.tag_with_destination_and_id(records))))
 
+    tagged_groups = ( tagged_records
+                    | "TagPathsWithS2ids" >> beam.Map(lambda (md, records): (md, tag_records_with_nbr_s2id_set(records))))
+
     port_patterns = [x.strip() for x in known_args.port_patterns.split(',')]
 
 
     port_input_data_streams = [(p | 'ReadPort_{}'.format(i) >> ReadFromText(x)) for (i, x) in  enumerate(port_patterns)]
 
 
-    port_data = beam.pvalue.AsIter(port_input_data_streams 
+    port_data = beam.pvalue.AsDict(port_input_data_streams 
         | "FlattenPorts" >> beam.Flatten() 
-        | "JsonToPortsDict" >> beam.Map(json.loads)
-        | "CreatePorts" >> beam.Map(PseudoAnchorage_from_json))
+        | "JsonToPortsDict" >> beam.Map(classic_json.loads)
+        | "CreatePorts" >> beam.Map(PseudoAnchorage_from_json)
+        | "TagWithVisitS2id" >> beam.Map(lambda x: (s2sphere.CellId.from_token(x.s2id).parent(cmn.VISITS_S2_SCALE).to_token(), x)))
 
 
-    events = (tagged_records | beam.FlatMap(find_in_out_events, port_entry_dist=3.0, port_exit_dist=4.0, anchorages=port_data))
+    events = (tagged_groups | beam.FlatMap(find_in_out_events, port_entry_dist=3.0, port_exit_dist=4.0, anchorage_map=port_data))
+
+    num_shards = (0 if known_args.shard_output else 1)
 
     (events
         | "convertAVToJson" >> beam.Map(event_to_json)
-        | "writeAnchoragesVisits" >> WriteToText(known_args.output, file_name_suffix='.json'))
+        | "writeAnchoragesVisits" >> WriteToText(known_args.output, file_name_suffix='.json', num_shards=num_shards))
 
 
     result = p.run()
