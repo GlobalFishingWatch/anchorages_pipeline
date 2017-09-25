@@ -31,7 +31,7 @@ from apache_beam.options.pipeline_options import SetupOptions
 
 
 from  . import common as cmn
-
+from .transforms.source import Source
 
 PseudoAnchorage = namedtuple("PseudoAnchorage", ['mean_location', "s2id", "port_name"])
 
@@ -42,13 +42,6 @@ def PseudoAnchorage_from_json(obj):
 IN_PORT = "IN_PORT"
 AT_SEA = "AT_SEA"
 
-
-
-            # Anchorage point (s2 id, lat, lon)
-            # Port Label
-            # Timestamp
-            # MMSI
-            # Event Type (in or out)
 
 
 # TODO: make into real class with constructor.
@@ -62,7 +55,6 @@ VisitEvent = namedtuple("VisitEvent",
 def find_in_out_events((md, (s2ids, records)), port_entry_dist, port_exit_dist, anchorage_map):
     state = None
     current_port = None
-    current_distance = None
     anchorages = [anchorage_map[x] for x in s2ids if x in anchorage_map]
     # return [(len(anchorages), len(anchorage_map), anchorage_map.keys()[:1], list(s2ids)[:1])]
     finder = AnchorageFinder(anchorages)
@@ -77,13 +69,11 @@ def find_in_out_events((md, (s2ids, records)), port_entry_dist, port_exit_dist, 
                 events.append(VisitEvent(anchorage_id=port.anchorage_point.s2id, 
                                          lat=port.lat, 
                                          lon=port.lon, 
-                                         mmsi=md.mmsi, 
+                                         mmsi=md, 
                                          timestamp=rcd.timestamp, 
                                          port_label=port.name, 
                                          event_type="PORT_ENTRY")) 
-            if current_port is None or dist < current_distance:
-                current_port = port
-                current_distance = dist
+            current_port = port
             state = IN_PORT
         elif port is None or dist > port_exit_dist:
             # We are outside a port
@@ -92,12 +82,12 @@ def find_in_out_events((md, (s2ids, records)), port_entry_dist, port_exit_dist, 
                 events.append(VisitEvent(anchorage_id=current_port.anchorage_point.s2id, 
                                          lat=current_port.lat, 
                                          lon=current_port.lon, 
-                                         mmsi=md.mmsi, 
+                                         mmsi=md, 
                                          timestamp=rcd.timestamp, 
                                          port_label=current_port.name, 
                                          event_type="PORT_EXIT")) 
             state = AT_SEA
-            current_port = current_distance = None
+            current_port = None
     return events
 
 
@@ -107,17 +97,97 @@ def event_to_json(visit):
     return json.dumps(visit._asdict())
 
 
-def tag_records_with_nbr_s2id_set(records):
-    """Tag anchorage pt with it's own and nbr ids at VISITS_S2_SCALE
-    """
-    s2ids = set()
-    for rcd in records:
-        s2_cell_id = s2sphere.CellId.from_token(rcd.s2id).parent(cmn.VISITS_S2_SCALE)
-        s2ids.add(s2_cell_id.to_token())
-        for cell_id in s2_cell_id.get_all_neighbors(cmn.VISITS_S2_SCALE):
-            s2ids.add(cell_id.to_token())
-    return (s2ids, records)
 
+
+
+class CreateVesselRecords(beam.PTransform):
+
+    def __init__(self, blacklisted_mmsis):
+        self.blacklisted_mmsis = blacklisted_mmsis
+
+    def from_msg(self, msg):
+        obj = cmn.VesselRecord.from_msg(msg)
+        if (obj is None) or (obj[0] in self.blacklisted_mmsis):
+            return []
+        else:
+            return [obj]
+
+    def expand(self, ais_source):
+        return (ais_source
+            | beam.FlatMap(self.from_msg)
+        )
+
+
+class CreateTaggedPaths(beam.PTransform):
+
+    def __init__(self, min_required_positions):
+        self.min_required_positions = min_required_positions
+        self.FIVE_MINUTES = datetime.timedelta(minutes=5)
+
+    def order_by_timestamp(self, item):
+        mmsi, records = item
+        records = list(records)
+        records.sort(key=lambda x: x.timestamp)
+        return mmsi, records
+
+    def dedup_by_timestamp(self, item):
+        key, source = item
+        seen = set()
+        sink = []
+        for x in source:
+            if x.timestamp not in seen:
+                sink.append(x)
+                seen.add(x.timestamp)
+        return (key, sink)
+
+    def long_enough(self, item):
+        mmsi, records = item
+        return len(records) >= self.min_required_positions
+
+    def thin_records(self, item):
+        mmsi, records = item
+        last_timestamp = datetime.datetime(datetime.MINYEAR, 1, 1)
+        thinned = []
+        for rcd in records:
+            if (rcd.timestamp - last_timestamp) >= self.FIVE_MINUTES:
+                last_timestamp = rcd.timestamp
+                thinned.append(rcd)
+        return mmsi, thinned
+
+    def tag_records(self, item):
+        mmsi, records = item
+        # TODO: reimplement that here
+        return (mmsi, cmn.tag_with_destination_and_id(records))
+
+    def tag_path(self, item):
+        mmsi, records = item
+        s2ids = set()
+        for rcd in records:
+            s2_cell_id = s2sphere.CellId.from_token(rcd.s2id).parent(cmn.VISITS_S2_SCALE)
+            s2ids.add(s2_cell_id.to_token())
+            for cell_id in s2_cell_id.get_all_neighbors(cmn.VISITS_S2_SCALE):
+                s2ids.add(cell_id.to_token())
+        return (mmsi, (s2ids, records))
+
+    def expand(self, vessel_records):
+        return (vessel_records
+            | beam.GroupByKey()
+            | beam.Map(self.order_by_timestamp)
+            | beam.Map(self.dedup_by_timestamp)
+            | beam.Filter(self.long_enough)
+            | beam.Map(self.thin_records)
+            | beam.Map(self.tag_records)
+            | beam.Map(self.tag_path)
+            )
+
+
+
+
+ais_query = """
+SELECT mmsi, lat, lon, timestamp, destination FROM   
+  TABLE_DATE_RANGE([world-fishing-827:{table}.], 
+                    TIMESTAMP('{start:%Y-%m-%d}'), TIMESTAMP('{end:%Y-%m-%d}')) 
+"""
 
 def run(argv=None):
     """Main entry point; defines and runs the wordcount pipeline.
@@ -127,13 +197,13 @@ def run(argv=None):
 
     parser.add_argument('--name', required=True, help='Name to prefix output and job name if not otherwise specified')
 
-    parser.add_argument('--port-patterns', help='Input file patterns (comma separated) for anchorages output to process (glob)')
+    parser.add_argument('--anchorage-path', help='Anchorage file pattern (glob)')
     parser.add_argument('--output',
                                             dest='output',
                                             help='Output file to write results to.')
 
-    parser.add_argument('--input-patterns', default='custom',
-                                            help='Input file to patterns (comma separated) to process (glob)')
+    parser.add_argument('--input-table', default='pipeline_classify_p_p429_resampling_2',
+                                            help='Input table to pull data from')
 
     parser.add_argument('--start-date', required=True, help="First date to look for entry/exit events.")
 
@@ -184,10 +254,7 @@ def run(argv=None):
     anchorage_visit_min_duration = datetime.timedelta(minutes=180)
     # ^^^
 
-    if known_args.input_patterns in cmn.preset_runs:
-        raw_input_patterns = cmn.preset_runs[known_args.input_patterns]
-    elif known_args.input_patterns is not None:
-        raw_input_patterns = known_args.input_patterns.split(',')
+
 
     start_date = datetime.datetime.strptime(known_args.start_date, '%Y-%m-%d') 
     end_window = end_date = datetime.datetime.strptime(known_args.end_date, '%Y-%m-%d') 
@@ -197,61 +264,68 @@ def run(argv=None):
     else:
         start_window = start_date - datetime.timedelta(days=1)
 
-    input_patterns = []
-    day = start_window
-    while day <= end_window:
-        for x in raw_input_patterns:
-            input_patterns.append(x.format(date=day))
-        day += datetime.timedelta(days=1)
-
 
     start_date = datetime.datetime.strptime(known_args.start_date, '%Y-%m-%d') 
     end_window = end_date = datetime.datetime.strptime(known_args.end_date, '%Y-%m-%d') 
 
 
-    ais_input_data_streams = [(p | 'ReadAis_{}'.format(i) >> ReadFromText(x)) for (i, x) in  enumerate(input_patterns)]
 
-    ais_input_data = ais_input_data_streams | beam.Flatten() 
-
-    location_records = (ais_input_data 
-        | "ParseAis" >> beam.Map(json.loads)
-        | "CreateLocationRecords" >> beam.FlatMap(cmn.Records_from_msg, blacklisted_mmsis)
-        | "FilterByDateWindow" >> beam.Filter(lambda (md, lr): start_window <= lr.timestamp <= end_window)
-        | "FilterOutBadValues" >> beam.Filter(lambda (md, lr): cmn.is_not_bad_value(lr))
-        )
+    query = ais_query.format(table=known_args.input_table, start=start_window, end=end_window)
 
 
 
-    grouped_records = (location_records 
-        | "GroupByMmsi" >> beam.GroupByKey()
-        | "OrderByTimestamp" >> beam.Map(lambda (md, records): (md, sorted(records, key=lambda x: x.timestamp)))
-        )
 
-    deduped_records = cmn.filter_duplicate_timestamps(grouped_records, min_required_positions)
+    ais_input_data = p | "ReadAis" >> Source(query)
 
-    thinned_records =   ( deduped_records 
-                        | "ThinPoints" >> beam.Map(lambda (md, vlrs): (md, list(cmn.thin_points(vlrs)))))
+    location_records = ais_input_data | CreateVesselRecords(blacklisted_mmsis)
 
-    tagged_records = ( thinned_records 
-                     | "TagWithDestinationAndId" >> beam.Map(lambda (md, records): (md, cmn.tag_with_destination_and_id(records))))
-
-    tagged_groups = ( tagged_records
-                    | "TagPathsWithS2ids" >> beam.Map(lambda (md, records): (md, tag_records_with_nbr_s2id_set(records))))
-
-    port_patterns = [x.strip() for x in known_args.port_patterns.split(',')]
+    tagged_paths = location_records | CreateTaggedPaths(min_required_positions)
 
 
-    port_input_data_streams = [(p | 'ReadPort_{}'.format(i) >> ReadFromText(x)) for (i, x) in  enumerate(port_patterns)]
+    # tagged_paths = (p 
+    #     | "ReadAis" >> Source(query)
+    #     | CreateVesselRecords(blacklisted_mmsis)
+    #     | CreateTaggedPaths(min_required_positions)
+    #     )
 
 
-    port_data = beam.pvalue.AsDict(port_input_data_streams 
-        | "FlattenPorts" >> beam.Flatten() 
+    # def order_by_timestamp(items):
+    #     md, records = items
+    #     try:
+    #         records = list(records)
+    #     except:
+    #         raise RuntimeError("could not convert", type(records), "to list")
+    #     return md, sorted(records, key=lambda x: x.timestamp)
+
+    # grouped_records = (location_records 
+    #     | "GroupByMmsi" >> beam.GroupByKey()
+    #     | "OrderByTimestamp" >> beam.Map(order_by_timestamp)
+    #     )
+
+    # deduped_records = cmn.filter_duplicate_timestamps(grouped_records, min_required_positions)
+
+    # thinned_records =   ( deduped_records 
+    #                     | "ThinPoints" >> beam.Map(lambda (md, vlrs): (md, list(cmn.thin_points(vlrs)))))
+
+    # thinned_records = tagged_paths
+
+    # tagged_records = ( thinned_records 
+    #                  | "TagWithDestinationAndId" >> beam.Map(lambda (md, records): (md, cmn.tag_with_destination_and_id(records))))
+
+    # tagged_paths = ( tagged_records
+    #                 | "TagPathsWithS2ids" >> beam.Map(lambda (md, records): (md, tag_records_with_nbr_s2id_set(records))))
+
+
+    port_input_data= (p | 'ReadPort' >> ReadFromText(known_args.anchorage_path))
+
+
+    port_data = beam.pvalue.AsDict(port_input_data 
         | "JsonToPortsDict" >> beam.Map(classic_json.loads)
         | "CreatePorts" >> beam.Map(PseudoAnchorage_from_json)
         | "TagWithVisitS2id" >> beam.Map(lambda x: (s2sphere.CellId.from_token(x.s2id).parent(cmn.VISITS_S2_SCALE).to_token(), x)))
 
 
-    events = (tagged_groups | beam.FlatMap(find_in_out_events, port_entry_dist=3.0, port_exit_dist=4.0, anchorage_map=port_data))
+    events = (tagged_paths | beam.FlatMap(find_in_out_events, port_entry_dist=3.0, port_exit_dist=4.0, anchorage_map=port_data))
 
     num_shards = (0 if known_args.shard_output else 1)
 

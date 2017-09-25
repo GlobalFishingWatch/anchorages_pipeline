@@ -25,11 +25,18 @@ from apache_beam.metrics.metric import MetricsFilter
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
+from .records import VesselRecord, VesselInfoRecord, VesselLocationRecord
 
-VesselMetadata = namedtuple('VesselMetadata', ['mmsi'])
 
-def VesselMetadata_from_msg(msg):
-    return VesselMetadata(msg['mmsi'])
+# VesselMetadata = namedtuple('VesselMetadata', ['mmsi'])
+
+
+def Records_from_msg(msg, blacklisted_mmsis):
+    obj = VesselRecord.from_msg(msg)
+    if obj is None or obj[0] in blacklisted_mmsis:
+        return []
+    else:
+        return [obj]
 
 
 def filter_by_latlon(msg, filters):
@@ -48,57 +55,22 @@ def filter_by_latlon(msg, filters):
 
 
 TaggedVesselLocationRecord = namedtuple('TaggedVesselLocationRecord',
-            ['destination', 's2id', 'is_new_id', 'timestamp', 'location', 'distance_from_shore', 'speed', 'course'])
+            ['destination', 's2id', 'is_new_id', 'timestamp', 'location'])
 
-VesselInfoRecord = namedtuple('VesselInfoRecord',
-            ['timestamp', 'destination'])
+
 
 
 AnchorageVisit = namedtuple('AnchorageVisit',
             ['anchorage', 'arrival', 'departure'])
 
 
-class VesselLocationRecord(
-    namedtuple("VesselLocationRecord",
-              ['timestamp', 'location', 'distance_from_shore', 'speed', 'course'])):
 
-    @classmethod
-    def from_msg(cls, msg):
-        latlon = LatLon(msg['lat'], msg['lon'])
-
-        return cls(
-            datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ'), 
-            latlon, 
-            msg['distance_from_shore'] / 1000.0,
-            round(msg['speed'], 1),
-            msg['course']            )
-
-
-
-def Records_from_msg(msg, blacklisted_mmsis):
-
-    mmsi = msg.get('mmsi')
-    if not isinstance(mmsi, int) or (mmsi in blacklisted_mmsis):
-        return []
-
-    metadata = VesselMetadata_from_msg(msg)
-
-    if is_location_message(msg):
-        return [(metadata, VesselLocationRecord.from_msg(msg))]
-    elif msg.get('destination') not in set(['', None]):
-        return [(metadata, VesselInfoRecord(
-            datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ'),
-            msg['destination']
-            ))]
-    else:
-        return []
 
 
 AnchoragePoint = namedtuple("AnchoragePoint", ['mean_location',
                                                'total_visits',
                                                'vessels',
                                                'fishing_vessels',
-                                               'mean_distance_from_shore',
                                                'rms_drift_radius',
                                                'top_destinations',
                                                's2id',
@@ -116,37 +88,11 @@ AnchoragePoint = namedtuple("AnchoragePoint", ['mean_location',
 
 def is_location_message(msg):
     return (
-                'lat' in msg and 
-                'lon' in msg and
-                'speed' in msg and
-                'distance_from_shore' in msg and
-                'course' in msg
+                msg.get('lat') is not None  and 
+                msg.get('lon') is not None
         )
 
 
-def is_not_bad_value(lr):
-    return isinstance(lr, VesselInfoRecord) or (
-    -90 <= lr.location.lat <= 90 and
-    -180 <= lr.location.lon <= 180 and
-    0 <= lr.distance_from_shore <= 20000 and
-    0 <= lr.course < 360 
-    )
-
-
-def read_json_records(input, blacklisted_mmsis, latlon_filters):
-    parsed =  (input 
-        | "Parse" >> beam.Map(json.loads)
-        )
-
-    if latlon_filters is not None:
-        parsed = (parsed 
-            | "filterByLatLon" >> beam.Filter(filter_by_latlon, latlon_filters)
-        )
-
-    return (parsed 
-        | "CreateLocationRecords" >> beam.FlatMap(Records_from_msg, blacklisted_mmsis)
-        | "FilterOutBadValues" >> beam.Filter(lambda (md, lr): is_not_bad_value(lr))
-        )
 
 def tag_with_destination_and_id(records):
     """filter out info messages and use them to tag subsequent records"""
@@ -165,7 +111,7 @@ def tag_with_destination_and_id(records):
             s2id = S2_cell_ID(rcd.location).to_token()
             is_new_id = (s2id == last_s2id)
             new.append(TaggedVesselLocationRecord(dest, s2id, is_new_id,
-                                                  *rcd)) 
+                                                  *rcd[:-1])) 
             last_s2id = is_new_id
     return new
 
@@ -202,7 +148,7 @@ def thin_points(records):
             yield vlr
 
 
-StationaryPeriod = namedtuple("StationaryPeriod", ['location', 'start_time', 'duration', 'mean_distance_from_shore', 
+StationaryPeriod = namedtuple("StationaryPeriod", ['location', 'start_time', 'duration',
         'rms_drift_radius', 'destination', 's2id'])
 
 LatLon = namedtuple("LatLon", ["lat", "lon"])
@@ -234,12 +180,11 @@ def remove_stationary_periods(records, stationary_period_min_duration, stationar
                     mean_lat = sum(x.location.lat for x in current_period) / num_points
                     mean_lon = sum(x.location.lon for x in current_period) / num_points
                     mean_location = LatLon(mean_lat, mean_lon)
-                    mean_distance_from_shore = sum(x.distance_from_shore for x in current_period) / num_points
                     rms_drift_radius = math.sqrt(sum(distance(x.location, mean_location)**2 for x in current_period) / num_points)
                     stationary_periods.append(StationaryPeriod(mean_location, 
                                                                first_vr.timestamp,
                                                                duration, 
-                                                               mean_distance_from_shore, rms_drift_radius,
+                                                               rms_drift_radius,
                                                                first_vr.destination,
                                                                s2id=S2_cell_ID(mean_location).to_token()))
                 else:
@@ -298,7 +243,6 @@ def AnchoragePts_from_cell_visits(value, dest_limit, fishing_vessel_set):
     total_lon = 0.0
     fishing_vessels = set()
     vessels = set()
-    total_distance_from_shore = 0.0
     total_squared_drift_radius = 0.0
     active_mmsi = set(md for (md, loc) in active_points)
     active_mmsi_count = len(active_mmsi)
@@ -315,7 +259,6 @@ def AnchoragePts_from_cell_visits(value, dest_limit, fishing_vessel_set):
         if md.mmsi in fishing_vessel_set:
             fishing_vessels.add(md)
             stationary_fishing_days += sp.duration.total_seconds() / (24.0 * 60.0 * 60.0)
-        total_distance_from_shore += sp.mean_distance_from_shore
         total_squared_drift_radius += sp.rms_drift_radius ** 2
     all_destinations = normalized_valid_names(sp.destination for (md, sp) in stationary_periods)
 
@@ -331,7 +274,6 @@ def AnchoragePts_from_cell_visits(value, dest_limit, fishing_vessel_set):
                     total_visits = n, 
                     vessels = frozenset(vessels),
                     fishing_vessels = frozenset(fishing_vessels),
-                    mean_distance_from_shore = total_distance_from_shore / n,
                     rms_drift_radius =  math.sqrt(total_squared_drift_radius / n),    
                     top_destinations = tuple(Counter(all_destinations).most_common(dest_limit)),
                     s2id = s2id,
@@ -347,37 +289,6 @@ def AnchoragePts_from_cell_visits(value, dest_limit, fishing_vessel_set):
     else:
         return []
 
-
-# def AnchoragePt_from_cell_visits(value, dest_limit):
-#     s2id, visits = value
-
-#     n = 0
-#     total_lat = 0.0
-#     total_lon = 0.0
-#     vessels = set()
-#     total_distance_from_shore = 0.0
-#     total_squared_drift_radius = 0.0
-
-#     for (md, pl) in visits:
-#         n += 1
-#         total_lat += pl.location.lat
-#         total_lon += pl.location.lon
-#         vessels.add(md)
-#         total_distance_from_shore += pl.mean_distance_from_shore
-#         total_squared_drift_radius += pl.rms_drift_radius ** 2
-#     all_destinations = normalized_valid_names(pl.destination for (md, pl) in visits)
-
-#     return AnchoragePoint(
-#                 mean_location = LatLon(total_lat / n, total_lon / n),
-#                 total_visits = n, 
-#                 vessels = frozenset(vessels),
-#                 mean_distance_from_shore = total_distance_from_shore / n,
-#                 rms_drift_radius =  math.sqrt(total_squared_drift_radius / n),    
-#                 top_destinations = tuple(Counter(all_destinations).most_common(dest_limit)),
-#                 s2id = s2id,
-#                 active_mmsi = 0,
-#                 total_mmsi = 0 
-#                 )                  
 
 
 def find_anchorage_points(input, min_unique_vessels_for_anchorage, fishing_vessels):
@@ -515,38 +426,4 @@ def tag_apts_with_nbr_s2ids(apt):
     return [(x, apt) for x in s2ids]
 
 
-preset_runs = {
 
-    'tiny' : ['gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-01-01/001-of-*'],
-
-    '2016' : [
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-01-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-02-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-03-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-04-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-05-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-06-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-07-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-08-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-09-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-10-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-11-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-12-*/*-of-*'
-                ],
-
-    'all_years': [
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2012-*-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2013-*-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2014-*-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2015-*-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-*-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2017-*-*/*-of-*'
-                ],
-
-    'custom': [
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/{date:%Y-%m-%d}/*-of-*'
-                ]
-    }
-
-preset_runs['small'] = preset_runs['2016'][-3:]
-preset_runs['medium'] = preset_runs['2016'][-6:]
