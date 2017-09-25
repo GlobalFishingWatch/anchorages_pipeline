@@ -10,7 +10,7 @@ Port = namedtuple("Port", ["name", "country", "lat", "lon"])
 this_dir = os.path.dirname(__file__)
 
 
-BUFFER_KM = 20
+BUFFER_KM = 32 + 1
 
 
 class PortFinder(object):
