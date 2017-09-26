@@ -185,16 +185,14 @@ class CreateInOutEvents(beam.PTransform):
                 current_port = None
         return events
 
-    def event_to_json(self, event):
-        event = event._replace(timestamp = cmn.datetime_to_text(event.timestamp))
-        return json.dumps(event._asdict())
+    def event_to_dict(self, event):
+        return event._asdict()
 
     def expand(self, tagged_paths):
         anchorage_map = beam.pvalue.AsDict(self.anchorages)
         return (tagged_paths
             | beam.FlatMap(self.create_in_out_events, anchorage_map=anchorage_map)
-            # | beam.Map(self.event_to_json)
-            | beam.Map(lambda x: x._asdict())
+            | beam.Map(self.event_to_dict)
             )
 
 
@@ -301,9 +299,6 @@ def run():
                             anchorage_exit_dist=config['anchorage_exit_distance_km'], 
                             anchorages=anchorages)
         | "writeInOutEvents" >> EventSink(table=known_args.output, write_disposition="WRITE_TRUNCATE")
-        # WriteToText(known_args.output, 
-        #                                     file_name_suffix='.json', 
-        #                                     num_shards=(0 if known_args.shard_output else 1))
         )
 
     result = p.run()
