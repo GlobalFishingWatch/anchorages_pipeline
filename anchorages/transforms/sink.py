@@ -4,7 +4,7 @@ from apache_beam import io
 
 
 class EventSink(PTransform):
-    def __init__(self, table=None, write_disposition=None):
+    def __init__(self, table, write_disposition):
         self.table = table
         self.write_disposition = write_disposition
 
@@ -34,7 +34,7 @@ class EventSink(PTransform):
             table=self.table,
             write_disposition=self.write_disposition,
             schema=build_table_schema({
-                "mmsi": "int",
+                "mmsi": "integer",
                 "timestamp": "timestamp",
                 "lat": "float",
                 "lon": "float",

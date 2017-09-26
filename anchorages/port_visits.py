@@ -193,7 +193,8 @@ class CreateInOutEvents(beam.PTransform):
         anchorage_map = beam.pvalue.AsDict(self.anchorages)
         return (tagged_paths
             | beam.FlatMap(self.create_in_out_events, anchorage_map=anchorage_map)
-            | beam.Map(self.event_to_json)
+            # | beam.Map(self.event_to_json)
+            | beam.Map(lambda x: x._asdict())
             )
 
 
@@ -215,8 +216,8 @@ def parse_command_line_args():
                         help="Last date (inclusive) to look for entry/exit events.")
     parser.add_argument('--start-window', 
                         help="date to start tracking events to warm up vessel state")
-    parser.add_argument('--shard-output', type=bool, default=False, 
-                        help="Whether to shard output or dump as single file")
+    # parser.add_argument('--shard-output', type=bool, default=False, 
+    #                     help="Whether to shard output or dump as single file")
     parser.add_argument('--config', default='config.yaml',
                         help="path to configuration file")
     parser.add_argument('--fishing-mmsi-list', dest='fishing_mmsi_list',
@@ -228,7 +229,7 @@ def parse_command_line_args():
     known_args, pipeline_args = parser.parse_known_args()
 
     if known_args.output is None:
-        known_args.output = 'gs://machine-learning-dev-ttl-30d/anchorages/{}/output/encounters'.format(known_args.name)
+        known_args.output = 'scratch_tim.in_out_events_{}'.format(known_args.name)
 
     cmn.add_pipeline_defaults(pipeline_args, known_args.name)
 
@@ -299,9 +300,10 @@ def run():
         | CreateInOutEvents(anchorage_entry_dist=config['anchorage_entry_distance_km'], 
                             anchorage_exit_dist=config['anchorage_exit_distance_km'], 
                             anchorages=anchorages)
-        | "writeInOutEvents" >> WriteToText(known_args.output, 
-                                            file_name_suffix='.json', 
-                                            num_shards=(0 if known_args.shard_output else 1))
+        | "writeInOutEvents" >> EventSink(table=known_args.output, write_disposition="WRITE_TRUNCATE")
+        # WriteToText(known_args.output, 
+        #                                     file_name_suffix='.json', 
+        #                                     num_shards=(0 if known_args.shard_output else 1))
         )
 
     result = p.run()
