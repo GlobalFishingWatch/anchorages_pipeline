@@ -31,6 +31,26 @@ from .records import VesselRecord, VesselInfoRecord, VesselLocationRecord
 # VesselMetadata = namedtuple('VesselMetadata', ['mmsi'])
 
 
+class CreateVesselRecords(beam.PTransform):
+
+    def __init__(self, blacklisted_mmsis):
+        self.blacklisted_mmsis = blacklisted_mmsis
+
+    def from_msg(self, msg):
+        obj = VesselRecord.from_msg(msg)
+        if (obj is None) or (obj[0] in self.blacklisted_mmsis):
+            return []
+        else:
+            return [obj]
+
+    def expand(self, ais_source):
+        return (ais_source
+            | beam.FlatMap(self.from_msg)
+        )
+
+
+
+
 def Records_from_msg(msg, blacklisted_mmsis):
     obj = VesselRecord.from_msg(msg)
     if obj is None or obj[0] in blacklisted_mmsis:
@@ -208,16 +228,16 @@ def filter_and_process_vessel_records(input, stationary_period_min_duration, sta
 # ANCHORAGES_S2_SCALE = 13
 # Around (0.5 km)^2
 ANCHORAGES_S2_SCALE = 14
-# Around (8 km)^2
-VISITS_S2_SCALE = 10
+# Around (16 km)^2
+VISITS_S2_SCALE = 9
 #
 # TODO: revisit
 approx_visit_cell_size = 2.0 ** (13 - VISITS_S2_SCALE) 
 VISIT_SAFETY_FACTOR = 2.0 # Extra margin factor to ensure VISIT_BUFFER_KM is large enough
 
-def S2_cell_ID(loc):
+def S2_cell_ID(loc, scale=ANCHORAGES_S2_SCALE):
     ll = s2sphere.LatLng.from_degrees(loc.lat, loc.lon)
-    return s2sphere.CellId.from_lat_lng(ll).parent(ANCHORAGES_S2_SCALE)
+    return s2sphere.CellId.from_lat_lng(ll).parent(scale)
 
 def mean(iterable):
     n = 0
@@ -333,44 +353,6 @@ def anchorage_point_to_json(a_pt):
         's2id' : a_pt.s2id
         })
 
-             
-
-def datetime_to_text(dt):
-    return datetime.datetime.strftime(dt, '%Y-%m-%dT%H:%M:%SZ')
-
-def single_anchorage_visit_to_json(visit):
-    anchorage, stationary_period  = visit
-    return {'port_name' : anchorage.name,
-            'port_country' : anchorage.country,
-            'port_lat' : anchorage.lat,
-            'port_lon' : anchorage.lon,
-            'port_s2id' : anchorage.anchorage_point.s2id, 
-            'arrival': datetime_to_text(stationary_period.start_time),
-            'duration_hours': stationary_period.duration.total_seconds() / (60.0 * 60.0),
-            'mean_lat': stationary_period.location.lat,
-            'mean_lon': stationary_period.location.lon
-            }
-
-def tagged_anchorage_visits_to_json(tagged_visits):
-    metadata, visits = tagged_visits
-    return json.dumps({'mmsi' : metadata.mmsi, 
-        'visits': [single_anchorage_visit_to_json(x) for x in visits]})
-
-
-class GroupAll(beam.CombineFn):
-
-    def create_accumulator(self):
-        return []
-
-    def add_input(self, accumulator, value):
-        accumulator.append(value)
-        return accumulator
-
-    def merge_accumulators(self, accumulators):
-        return list(it.chain(*accumulators))
-
-    def extract_output(self, accumulator):
-        return accumulator
 
 
 def add_pipeline_defaults(pipeline_args, name):
@@ -390,18 +372,6 @@ def add_pipeline_defaults(pipeline_args, name):
             pipeline_args.extend((name, value))
 
 
-
-def find_visits(s2id, md_sp_tuples, anchorage_points, max_distance):
-    anchorage_finder = AnchorageFinder(anchorage_points)
-    visits = []
-    for md, sp in md_sp_tuples:
-        anch = anchorage_finder.is_within(max_distance, sp, s2id=s2id)
-        if anch is not None:
-            visits.append((md, (anch, sp)))
-    return visits
-
-
-
 def check_that_pipeline_args_consumed(pipeline):
     options = pipeline.get_all_options(drop_default=True)
 
@@ -416,14 +386,6 @@ def check_that_pipeline_args_consumed(pipeline):
         raise ValueError('illegal options specified:\n    {}'.format('\n    '.join(dash_flags)))
 
 
-def tag_apts_with_nbr_s2ids(apt):
-    """Tag anchorage pt with it's own and nbr ids at VISITS_S2_SCALE
-    """
-    s2_cell_id = s2sphere.CellId.from_token(apt.s2id).parent(VISITS_S2_SCALE)
-    s2ids = [s2_cell_id.to_token()]
-    for cell_id in s2_cell_id.get_all_neighbors(VISITS_S2_SCALE):
-        s2ids.append(cell_id.to_token())
-    return [(x, apt) for x in s2ids]
 
 
 

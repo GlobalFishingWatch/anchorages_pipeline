@@ -36,22 +36,7 @@ VisitEvent = namedtuple("VisitEvent",
 IN_PORT = "IN_PORT"
 AT_SEA = "AT_SEA"
 
-class CreateVesselRecords(beam.PTransform):
 
-    def __init__(self, blacklisted_mmsis):
-        self.blacklisted_mmsis = blacklisted_mmsis
-
-    def from_msg(self, msg):
-        obj = cmn.VesselRecord.from_msg(msg)
-        if (obj is None) or (obj[0] in self.blacklisted_mmsis):
-            return []
-        else:
-            return [obj]
-
-    def expand(self, ais_source):
-        return (ais_source
-            | beam.FlatMap(self.from_msg)
-        )
 
 
 class CreateTaggedPaths(beam.PTransform):
@@ -92,14 +77,14 @@ class CreateTaggedPaths(beam.PTransform):
 
     def tag_records(self, item):
         mmsi, records = item
-        # TODO: reimplement that here
+        # TODO: reimplement here and only drop info records
         return (mmsi, cmn.tag_with_destination_and_id(records))
 
     def tag_path(self, item):
         mmsi, records = item
         s2ids = set()
         for rcd in records:
-            s2_cell_id = s2sphere.CellId.from_token(rcd.s2id).parent(cmn.VISITS_S2_SCALE)
+            s2_cell_id = cmn.S2_cell_ID(rcd.location, cmn.VISITS_S2_SCALE)
             s2ids.add(s2_cell_id.to_token())
             for cell_id in s2_cell_id.get_all_neighbors(cmn.VISITS_S2_SCALE):
                 s2ids.add(cell_id.to_token())
@@ -125,7 +110,8 @@ class CreateTaggedAnchorages(beam.PTransform):
         return classic_json.loads(text)
 
     def dict_to_psuedo_anchorages(self, obj):
-        return PseudoAnchorage(cmn.LatLon(obj['anchor_lat'], obj['anchor_lon']), obj['anchor_id'], (obj['FINAL_NAME'], obj['iso3']))
+        return PseudoAnchorage(cmn.LatLon(obj['anchor_lat'], obj['anchor_lon']), 
+            obj['anchor_id'], (obj['FINAL_NAME'], obj['iso3']))
 
     def tag_psuedo_anchorages_with_s2id(self, anchorage):
         s2id = s2sphere.CellId.from_token(anchorage.s2id).parent(cmn.VISITS_S2_SCALE).to_token()
@@ -136,6 +122,7 @@ class CreateTaggedAnchorages(beam.PTransform):
             | beam.Map(self.json_to_dict)
             | beam.Map(self.dict_to_psuedo_anchorages)
             | beam.Map(self.tag_psuedo_anchorages_with_s2id)
+            | beam.CombineGlobally(CombineAnchoragesIntoMap())
             )
 
 
@@ -151,12 +138,17 @@ class CreateInOutEvents(beam.PTransform):
         mmsi, (s2ids, records) = tagged_path
         state = None
         current_port = None
-        anchorages = [anchorage_map[x] for x in s2ids if x in anchorage_map]
-        finder = AnchorageFinder(anchorages)
+        anchorages = set()
+        for x in s2ids:
+            anchorages |= anchorage_map.get(x, set())
+        finder = AnchorageFinder(list(anchorages))
         events = []
         buffer_dist = max(self.anchorage_entry_dist, self.anchorage_exit_dist)
         for rcd in records:
-            port, dist = finder.is_within_dist(buffer_dist, rcd)
+            # TODO: pass in S2id at visit_S2_scale for more caching
+            # port, dist = finder.is_within_dist(buffer_dist, rcd)
+            # TODO: if this works and is performant (=>) then clean up logic here and in port_finder
+            port, dist = finder.find_nearest_port_and_distance(rcd.location)
             if port is not None and dist < self.anchorage_entry_dist:
                 # We are in a port
                 if state == AT_SEA:
@@ -189,7 +181,7 @@ class CreateInOutEvents(beam.PTransform):
         return event._asdict()
 
     def expand(self, tagged_paths):
-        anchorage_map = beam.pvalue.AsDict(self.anchorages)
+        anchorage_map = beam.pvalue.AsSingleton(self.anchorages)
         return (tagged_paths
             | beam.FlatMap(self.create_in_out_events, anchorage_map=anchorage_map)
             | beam.Map(self.event_to_dict)
@@ -214,20 +206,15 @@ def parse_command_line_args():
                         help="Last date (inclusive) to look for entry/exit events.")
     parser.add_argument('--start-window', 
                         help="date to start tracking events to warm up vessel state")
-    # parser.add_argument('--shard-output', type=bool, default=False, 
-    #                     help="Whether to shard output or dump as single file")
     parser.add_argument('--config', default='config.yaml',
                         help="path to configuration file")
-    parser.add_argument('--fishing-mmsi-list', dest='fishing_mmsi_list',
-                         default='../treniformis/treniformis/_assets/GFW/FISHING_MMSI/KNOWN_LIKELY_AND_SUSPECTED/ANY_YEAR.txt',
-                         help='location of list of newline separated fishing mmsi')
     parser.add_argument('--fast-test', action='store_true', 
                         help='limit query size for testing')
 
     known_args, pipeline_args = parser.parse_known_args()
 
     if known_args.output is None:
-        known_args.output = 'scratch_tim.in_out_events_{}'.format(known_args.name)
+        known_args.output = 'machine_learning_dev_ttl_30d.in_out_events_{}'.format(known_args.name)
 
     cmn.add_pipeline_defaults(pipeline_args, known_args.name)
 
@@ -272,6 +259,31 @@ def create_query(args):
     return query
 
 
+class CombineAnchoragesIntoMap(beam.CombineFn):
+
+    def create_accumulator(self):
+        return {}
+
+    def add_input(self, accumulator, item):
+        key, value = item
+        if key not in accumulator:
+            accumulator[key] = set()
+        accumulator[key].add(value)
+        return accumulator
+
+    def merge_accumulators(self, accumulators):
+        result = {}
+        for accum in accumulators:
+            for (key, val) in accum.iteritems():
+                if key not in result:
+                    result[key] = set()
+                result[key] |= val
+        return result
+
+    def extract_output(self, accumulator):
+        return accumulator
+
+
 def run():
     """Main entry point; defines and runs the wordcount pipeline.
     """
@@ -285,7 +297,7 @@ def run():
 
     tagged_paths = (p 
         | "ReadAis" >> Source(query)
-        | CreateVesselRecords(config['blacklisted_mmsis'])
+        | cmn.CreateVesselRecords(config['blacklisted_mmsis'])
         | CreateTaggedPaths(config['min_required_positions'])
         )
 
@@ -298,7 +310,7 @@ def run():
         | CreateInOutEvents(anchorage_entry_dist=config['anchorage_entry_distance_km'], 
                             anchorage_exit_dist=config['anchorage_exit_distance_km'], 
                             anchorages=anchorages)
-        | "writeInOutEvents" >> EventSink(table=known_args.output, write_disposition="WRITE_TRUNCATE")
+        | "writeInOutEvents" >> EventSink(table=known_args.output, write_disposition="WRITE_APPEND")
         )
 
     result = p.run()

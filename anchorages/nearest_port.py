@@ -10,8 +10,9 @@ Port = namedtuple("Port", ["name", "country", "lat", "lon"])
 this_dir = os.path.dirname(__file__)
 
 
-BUFFER_KM = 32 + 1
-
+BUFFER_KM = 64 + 1
+inf = float('inf')
+assert math.isinf(inf)
 
 class PortFinder(object):
 
@@ -31,9 +32,9 @@ class PortFinder(object):
 
 
     def find_nearest_port_and_distance(self, loc):
-        min_p = self.ports[0]
-        min_dist = distance(min_p, loc)
-        for p in self.ports[1:]:
+        min_p = None
+        min_dist = inf
+        for p in self.ports:
             dist = distance(p, loc)
             if dist > min_dist:
                 continue
@@ -75,7 +76,7 @@ class PortFinder(object):
             dist, port = candidates[0]
             if dist <= range:
                 return port, dist
-        return None, None
+        return None, inf
 
 
 port_finder = PortFinder()
