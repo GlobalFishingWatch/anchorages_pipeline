@@ -1,18 +1,13 @@
 from __future__ import absolute_import, print_function, division
 
 import argparse
-import yaml
 import ujson as json
 import json as classic_json
 import datetime
 from collections import namedtuple
 import itertools as it
 import s2sphere
-from .nearest_port import AnchorageFinder, BUFFER_KM as VISIT_BUFFER_KM
-
-# TODO put unit reg in package if we refactor
-# import pint
-# unit = pint.UnitRegistry()
+import logging
 
 import apache_beam as beam
 from apache_beam.io import ReadFromText
@@ -20,7 +15,9 @@ from apache_beam.io import WriteToText
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
-from  . import common as cmn
+from . import common as cmn
+from .nearest_port import AnchorageFinder
+from .distance import distance, inf
 from .transforms.source import Source
 from .transforms.sink import EventSink
 
@@ -28,57 +25,17 @@ from .transforms.sink import EventSink
 PseudoAnchorage = namedtuple("PseudoAnchorage", 
     ['mean_location', "s2id", "port_name"])
 
-# Note if we subclass, we should use __slots__ = ()
 VisitEvent = namedtuple("VisitEvent", 
-    ['anchorage_id', 'lat', 'lon', 'mmsi', 'timestamp', 'port_label', 'event_type'])
+    ['anchorage_id', 'lat', 'lon', 'vessel_lat', 'vessel_lon', 'mmsi', 'timestamp', 'port_label', 'event_type'])
 
-# TODO: add as attribute VisitEvent
 IN_PORT = "IN_PORT"
-AT_SEA = "AT_SEA"
+AT_SEA  = "AT_SEA"
+STOPPED = "STOPPED"
 
 
 
 
-class CreateTaggedPaths(beam.PTransform):
-
-    def __init__(self, min_required_positions):
-        self.min_required_positions = min_required_positions
-        self.FIVE_MINUTES = datetime.timedelta(minutes=5)
-
-    def order_by_timestamp(self, item):
-        mmsi, records = item
-        records = list(records)
-        records.sort(key=lambda x: x.timestamp)
-        return mmsi, records
-
-    def dedup_by_timestamp(self, item):
-        key, source = item
-        seen = set()
-        sink = []
-        for x in source:
-            if x.timestamp not in seen:
-                sink.append(x)
-                seen.add(x.timestamp)
-        return (key, sink)
-
-    def long_enough(self, item):
-        mmsi, records = item
-        return len(records) >= self.min_required_positions
-
-    def thin_records(self, item):
-        mmsi, records = item
-        last_timestamp = datetime.datetime(datetime.MINYEAR, 1, 1)
-        thinned = []
-        for rcd in records:
-            if (rcd.timestamp - last_timestamp) >= self.FIVE_MINUTES:
-                last_timestamp = rcd.timestamp
-                thinned.append(rcd)
-        return mmsi, thinned
-
-    def tag_records(self, item):
-        mmsi, records = item
-        # TODO: reimplement here and only drop info records
-        return (mmsi, cmn.tag_with_destination_and_id(records))
+class CreateTaggedPaths(cmn.CreateTaggedRecords):
 
     def tag_path(self, item):
         mmsi, records = item
@@ -91,13 +48,8 @@ class CreateTaggedPaths(beam.PTransform):
         return (mmsi, (s2ids, records))
 
     def expand(self, vessel_records):
-        return (vessel_records
-            | beam.GroupByKey()
-            | beam.Map(self.order_by_timestamp)
-            | beam.Map(self.dedup_by_timestamp)
-            | beam.Filter(self.long_enough)
-            | beam.Map(self.thin_records)
-            | beam.Map(self.tag_records)
+        tagged_records = cmn.CreateTaggedRecords.expand(self, vessel_records)
+        return (tagged_records
             | beam.Map(self.tag_path)
             )
 
@@ -109,72 +61,127 @@ class CreateTaggedAnchorages(beam.PTransform):
         # and see if it's still a problem
         return classic_json.loads(text)
 
-    def dict_to_psuedo_anchorages(self, obj):
+    def dict_to_psuedo_anchorage(self, obj):
         return PseudoAnchorage(cmn.LatLon(obj['anchor_lat'], obj['anchor_lon']), 
             obj['anchor_id'], (obj['FINAL_NAME'], obj['iso3']))
 
-    def tag_psuedo_anchorages_with_s2id(self, anchorage):
+    def tag_anchorage_with_s2id(self, anchorage):
         s2id = s2sphere.CellId.from_token(anchorage.s2id).parent(cmn.VISITS_S2_SCALE).to_token()
         return (s2id, anchorage)
 
     def expand(self, anchorages_text):
         return (anchorages_text
             | beam.Map(self.json_to_dict)
-            | beam.Map(self.dict_to_psuedo_anchorages)
-            | beam.Map(self.tag_psuedo_anchorages_with_s2id)
+            | beam.Map(self.dict_to_psuedo_anchorage)
+            | beam.Map(self.tag_anchorage_with_s2id)
             | beam.CombineGlobally(CombineAnchoragesIntoMap())
             )
 
 
+# Future state transitions
+# IN_PORT
+#    (dist >= exit_dist) -> AT_SEA
+#    (dist < exit_dist & speed <= stopped_begin_speed) -> STOPPED
+#    othewise unchanged
+# AT_SEA
+#    (dist < entry_dist & speed <= stopped_begin_speed) -> STOPPED
+#    (dist < entry_dist & speed > stopped_begin_speed) -> IN_PORT
+#    othewise unchanged
+# STOPPED
+#    (dist >= exit_dist) -> AT_SEA
+#    (dist < exit_dist & speed > stopped_end_speed) -> IN_PORT
+#    othewise unchanged
+
 
 class CreateInOutEvents(beam.PTransform):
 
-    def __init__(self, anchorages, anchorage_entry_dist, anchorage_exit_dist):
+    transition_map = {
+        (AT_SEA, AT_SEA)   : [],
+        (AT_SEA, IN_PORT)  : ['PORT_ENTRY'],
+        (AT_SEA, STOPPED)  : ['PORT_ENTRY', 'PORT_STOP'],
+        (IN_PORT, AT_SEA)  : ['PORT_EXIT'],
+        (IN_PORT, IN_PORT) : [],
+        (IN_PORT, STOPPED) : ['PORT_STOP'],
+        (STOPPED, AT_SEA)  : ['PORT_EXIT'],
+        (STOPPED, IN_PORT) : [],
+        (STOPPED, STOPPED) : [],
+    }
+
+    def __init__(self, anchorages, 
+                 anchorage_entry_dist, anchorage_exit_dist,
+                 stopped_begin_speed, stopped_end_speed):
         self.anchorages = anchorages
         self.anchorage_entry_dist = anchorage_entry_dist
         self.anchorage_exit_dist = anchorage_exit_dist
+        self.stopped_begin_speed = stopped_begin_speed
+        self.stopped_end_speed = stopped_end_speed
+
+    def _is_in_port(self, state, dist):
+        if dist <= self.anchorage_entry_dist:
+            return True
+        elif dist >= self.anchorage_exit_dist:
+            return False
+        else:
+            return (state in (IN_PORT, STOPPED))
+
+    def _is_stopped(self, state, speed):
+        if speed <= self.stopped_begin_speed:
+            return True
+        elif speed >= self.stopped_end_speed:
+            return False
+        else:
+            return (state == STOPPED) 
+
+    def _anchorage_distance(self, loc, anchorages):
+        closest = None
+        min_dist = inf
+        for anch in anchorages:
+            dist = dist(loc, port.mean_location)
+            if dist < min_dist:
+                min_dist = dist
+                closest = anch
+        return closest, min_dist
 
     def create_in_out_events(self, tagged_path, anchorage_map):
         mmsi, (s2ids, records) = tagged_path
         state = None
-        current_port = None
+        active_port = None
         anchorages = set()
         for x in s2ids:
             anchorages |= anchorage_map.get(x, set())
         finder = AnchorageFinder(list(anchorages))
         events = []
+
         buffer_dist = max(self.anchorage_entry_dist, self.anchorage_exit_dist)
         for rcd in records:
-            # TODO: pass in S2id at visit_S2_scale for more caching
-            # port, dist = finder.is_within_dist(buffer_dist, rcd)
-            # TODO: if this works and is performant (=>) then clean up logic here and in port_finder
+            # TODO: Tagg anchorages with neighbors instead of paths, then lookup
+            # anchorages by s2id!
             port, dist = finder.find_nearest_port_and_distance(rcd.location)
-            if port is not None and dist < self.anchorage_entry_dist:
-                # We are in a port
-                if state == AT_SEA:
-                    # We were outside of a port; so entered a port
-                    events.append(VisitEvent(anchorage_id=port.anchorage_point.s2id, 
-                                             lat=port.lat, 
-                                             lon=port.lon, 
-                                             mmsi=mmsi, 
-                                             timestamp=rcd.timestamp, 
-                                             port_label=port.name, 
-                                             event_type="PORT_ENTRY")) 
-                current_port = port
-                state = IN_PORT
-            elif port is None or dist > self.anchorage_exit_dist:
-                # We are outside a port
-                if state == IN_PORT:
-                    # We were in a port, so exited a port
-                    events.append(VisitEvent(anchorage_id=current_port.anchorage_point.s2id, 
-                                             lat=current_port.lat, 
-                                             lon=current_port.lon, 
-                                             mmsi=mmsi, 
-                                             timestamp=rcd.timestamp, 
-                                             port_label=current_port.name, 
-                                             event_type="PORT_EXIT")) 
+            
+            last_state = state
+            is_in_port = self._is_in_port(state, dist)
+            is_stopped = self._is_stopped(state, rcd.speed)
+
+            if is_in_port:
+                active_port = port
+                state = STOPPED if is_stopped else IN_PORT
+            else:
                 state = AT_SEA
-                current_port = None
+
+            if (last_state is None) or (active_port is None):
+                # Not enough information yet.
+                continue 
+
+            for event_type in self.transition_map[(last_state, state)]:
+                events.append(VisitEvent(anchorage_id=active_port.anchorage_point.s2id, 
+                                         lat=active_port.lat, 
+                                         lon=active_port.lon, 
+                                         vessel_lat=rcd.location.lat,
+                                         vessel_lon=rcd.location.lon,
+                                         mmsi=mmsi, 
+                                         timestamp=rcd.timestamp, 
+                                         port_label=active_port.name, 
+                                         event_type=event_type)) 
         return events
 
     def event_to_dict(self, event):
@@ -197,7 +204,7 @@ def parse_command_line_args():
     parser.add_argument('--anchorage-path', 
                         help='Anchorage file pattern (glob)')
     parser.add_argument('--output', dest='output',
-                        help='Output file to write results to.')
+                        help='Output table to write results to.')
     parser.add_argument('--input-table', default='pipeline_classify_p_p429_resampling_2',
                         help='Input table to pull data from')
     parser.add_argument('--start-date', required=True, 
@@ -227,21 +234,9 @@ def parse_command_line_args():
     return known_args, pipeline_options
 
 
-def load_config(path):
-    with open(path) as f:
-        config = yaml.load(f.read())
-
-    anchorage_visit_max_distance = max(config['anchorage_entry_distance_km'],
-                                       config['anchorage_exit_distance_km'])
-    assert (anchorage_visit_max_distance + 
-            cmn.approx_visit_cell_size * cmn.VISIT_SAFETY_FACTOR < VISIT_BUFFER_KM)
-
-    return config
-
-
 def create_query(args):
     template = """
-    SELECT mmsi, lat, lon, timestamp, destination FROM   
+    SELECT mmsi, lat, lon, timestamp, destination, speed FROM   
       TABLE_DATE_RANGE([world-fishing-827:{table}.], 
                         TIMESTAMP('{start:%Y-%m-%d}'), TIMESTAMP('{end:%Y-%m-%d}')) 
     """
@@ -285,13 +280,11 @@ class CombineAnchoragesIntoMap(beam.CombineFn):
 
 
 def run():
-    """Main entry point; defines and runs the wordcount pipeline.
-    """
     known_args, pipeline_options = parse_command_line_args()
 
     p = beam.Pipeline(options=pipeline_options)
 
-    config = load_config(known_args.config)
+    config = cmn.load_config(known_args.config)
 
     query = create_query(known_args)
 
@@ -307,9 +300,11 @@ def run():
         )
 
     (tagged_paths
-        | CreateInOutEvents(anchorage_entry_dist=config['anchorage_entry_distance_km'], 
+        | CreateInOutEvents(anchorages=anchorages,
+                            anchorage_entry_dist=config['anchorage_entry_distance_km'], 
                             anchorage_exit_dist=config['anchorage_exit_distance_km'], 
-                            anchorages=anchorages)
+                            stopped_begin_speed=config['stopped_begin_speed_knots'],
+                            stopped_end_speed=config['stopped_end_speed_knots'])
         | "writeInOutEvents" >> EventSink(table=known_args.output, write_disposition="WRITE_APPEND")
         )
 

@@ -1,35 +1,26 @@
 """
 
-    Minimal local run:
+    Minimal dataflow run:
 
         python -m anchorages_main \
             --name test-anchorages-2016-tiny \
-            --runner DirectRunner \
-            --latlon-filters latlon_filters.json \
-            --input-pattern tiny 
-
-            
-    Small, filtered dataflow run:
-
-        python -m anchorages_main \
-            --name test-anchorages-2016-small \
-            --latlon-filters latlon_filters.json \
-            --input-pattern small 
+            --start-date 2016-01-01 \
+            --end-date 2016-01-31 \
 
 
-    Filtered 2016 dataflow run:
+    2016 dataflow run:
 
         python -m anchorages_main \
-            --name test-anchorages-2016-filtered \
-            --input-pattern 2016 \
-            --latlon-filters latlon_filters.json 
-
+            --name test-anchorages-2016 \
+            --start-date 2016-01-01 \
+            --end-date 2016-12-31 \
 
     Full dataflow run:
 
         python -m anchorages_main \
             --name test-anchorages-all-years \
-            --input-pattern all_years 
+            --start-date 2012-01-01 \
+            --end-date 2017-12-31 \
 """
 import logging
 from anchorages import anchorages

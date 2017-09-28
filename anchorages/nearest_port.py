@@ -3,7 +3,7 @@ import csv
 import os
 import math
 from collections import namedtuple
-from .distance import distance, EARTH_RADIUS
+from .distance import distance, EARTH_RADIUS, inf
 
 Port = namedtuple("Port", ["name", "country", "lat", "lon"])
 
@@ -11,8 +11,6 @@ this_dir = os.path.dirname(__file__)
 
 
 BUFFER_KM = 64 + 1
-inf = float('inf')
-assert math.isinf(inf)
 
 class PortFinder(object):
 

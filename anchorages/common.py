@@ -11,6 +11,7 @@ import itertools as it
 import os
 import math
 import s2sphere
+import yaml
 from .port_name_filter import normalized_valid_names
 from .union_find import UnionFind
 from .sparse_inland_mask import SparseInlandMask
@@ -25,66 +26,89 @@ from apache_beam.metrics.metric import MetricsFilter
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
-from .records import VesselRecord, VesselInfoRecord, VesselLocationRecord
-
-
-# VesselMetadata = namedtuple('VesselMetadata', ['mmsi'])
+from .records import VesselRecord, InvalidRecord, VesselInfoRecord, VesselLocationRecord
 
 
 class CreateVesselRecords(beam.PTransform):
 
     def __init__(self, blacklisted_mmsis):
-        self.blacklisted_mmsis = blacklisted_mmsis
+        self.blacklisted_mmsis = set(blacklisted_mmsis)
 
-    def from_msg(self, msg):
-        obj = VesselRecord.from_msg(msg)
-        if (obj is None) or (obj[0] in self.blacklisted_mmsis):
-            return []
-        else:
-            return [obj]
+    def is_valid(self, item):
+        mmsi, rcd = item
+        return (not isinstance(rcd, InvalidRecord) and 
+                isinstance(mmsi, int) and
+                (mmsi not in self.blacklisted_mmsis)) 
 
     def expand(self, ais_source):
         return (ais_source
-            | beam.FlatMap(self.from_msg)
+            | beam.Map(VesselRecord.from_msg)
+            | beam.Filter(self.is_valid)
         )
 
 
+class CreateTaggedRecords(beam.PTransform):
 
+    def __init__(self, min_required_positions):
+        self.min_required_positions = min_required_positions
+        self.FIVE_MINUTES = datetime.timedelta(minutes=5)
 
-def Records_from_msg(msg, blacklisted_mmsis):
-    obj = VesselRecord.from_msg(msg)
-    if obj is None or obj[0] in blacklisted_mmsis:
-        return []
-    else:
-        return [obj]
+    def order_by_timestamp(self, item):
+        mmsi, records = item
+        records = list(records)
+        records.sort(key=lambda x: x.timestamp)
+        return mmsi, records
 
+    def dedup_by_timestamp(self, item):
+        key, source = item
+        seen = set()
+        sink = []
+        for x in source:
+            if x.timestamp not in seen:
+                sink.append(x)
+                seen.add(x.timestamp)
+        return (key, sink)
 
-def filter_by_latlon(msg, filters):
-    if not is_location_message(msg):
-        # Keep non-location messages for destination tagging
-        return True
-    # Keep any message that falls within a filter region
-    lat = msg['lat']
-    lon = msg['lon']
-    for bounds in filters:
-        if ((bounds['min_lat'] <= lat <= bounds['max_lat']) and 
-            (bounds['min_lon'] <= lon <= bounds['max_lon'])):
-                return True
-    # This message is not within any filter region.
-    return False
+    def long_enough(self, item):
+        mmsi, records = item
+        return len(records) >= self.min_required_positions
 
+    def thin_records(self, item):
+        mmsi, records = item
+        last_timestamp = datetime.datetime(datetime.MINYEAR, 1, 1)
+        thinned = []
+        for rcd in records:
+            if (rcd.timestamp - last_timestamp) >= self.FIVE_MINUTES:
+                last_timestamp = rcd.timestamp
+                thinned.append(rcd)
+        return mmsi, thinned
 
-TaggedVesselLocationRecord = namedtuple('TaggedVesselLocationRecord',
-            ['destination', 's2id', 'is_new_id', 'timestamp', 'location'])
+    def tag_records(self, item):
+        mmsi, records = item
+        dest = ''
+        tagged = []
+        for rcd in records:
+            if isinstance(rcd, VesselInfoRecord):
+                # TODO: normalize here rather than later. And cache normalization in dictionary
+                dest = rcd.destination
+            else:
+                tagged.append(rcd._replace(destination=dest))
+        return (mmsi, tagged)
 
+    def expand(self, vessel_records):
+        return (vessel_records
+            | beam.GroupByKey()
+            | beam.Map(self.order_by_timestamp)
+            | beam.Map(self.dedup_by_timestamp)
+            | beam.Filter(self.long_enough)
+            | beam.Map(self.thin_records)
+            | beam.Map(self.tag_records)
+            )
 
 
 
 AnchorageVisit = namedtuple('AnchorageVisit',
             ['anchorage', 'arrival', 'departure'])
-
-
-
 
 
 AnchoragePoint = namedtuple("AnchoragePoint", ['mean_location',
@@ -106,123 +130,31 @@ AnchoragePoint = namedtuple("AnchoragePoint", ['mean_location',
 
 
 
-def is_location_message(msg):
-    return (
-                msg.get('lat') is not None  and 
-                msg.get('lon') is not None
-        )
 
 
 
-def tag_with_destination_and_id(records):
-    """filter out info messages and use them to tag subsequent records"""
-    # TODO: think about is_new_id, we don't currently use it. Original thought was to count
-    # the average number of vessels in a cell at one time. For that we probably want to swithc
-    # to is_first, and is_last for the first and last points in the cell. Could be done by
-    # modifying the last item in the cell as well.
-    dest = ''
-    new = []
-    last_s2id = None
-    for rcd in records:
-        if isinstance(rcd, VesselInfoRecord):
-            # TODO: normalize here rather than later. And cache normalization in dictionary
-            dest = rcd.destination
-        else:
-            s2id = S2_cell_ID(rcd.location).to_token()
-            is_new_id = (s2id == last_s2id)
-            new.append(TaggedVesselLocationRecord(dest, s2id, is_new_id,
-                                                  *rcd[:-1])) 
-            last_s2id = is_new_id
-    return new
-
-def dedup_by_timestamp(element):
-    key, source = element
-    seen = set()
-    sink = []
-    for x in source:
-        if x.timestamp not in seen:
-            sink.append(x)
-            seen.add(x.timestamp)
-    return (key, sink)
 
 
+def load_config(path):
+    with open(path) as f:
+        config = yaml.load(f.read())
 
-def filter_duplicate_timestamps(input, min_required_positions):
-    return (input
-           | "RemoveDupTStamps" >> beam.Map(dedup_by_timestamp)
-           | "RemoveShortSeries" >> beam.Filter(lambda x: len(x[1]) >= min_required_positions)
-           )
- 
+    anchorage_visit_max_distance = max(config['anchorage_entry_distance_km'],
+                                       config['anchorage_exit_distance_km'])
+    assert (anchorage_visit_max_distance + 
+            approx_visit_cell_size * VISIT_SAFETY_FACTOR < VISIT_BUFFER_KM)
 
-FIVE_MINUTES = datetime.timedelta(minutes=5)
+    return config
 
-def thin_points(records):
-    # TODO: consider instead putting on five minute intervals? 
-    if not records:
-        return
-    last = records[0]
-    yield last
-    for vlr in records[1:]:
-        if (vlr.timestamp - last.timestamp) >= FIVE_MINUTES:
-            last = vlr
-            yield vlr
-
-
-StationaryPeriod = namedtuple("StationaryPeriod", ['location', 'start_time', 'duration',
-        'rms_drift_radius', 'destination', 's2id'])
 
 LatLon = namedtuple("LatLon", ["lat", "lon"])
 
 def LatLon_from_LatLng(latlng):
     return LatLon(latlng.lat(), latlng.lon())
 
-ProcessedLocations = namedtuple("ProcessedLocations", ['locations', 'stationary_periods'])
 
 
-def remove_stationary_periods(records, stationary_period_min_duration, stationary_period_max_distance):
-    # Remove long stationary periods from the record: anything over the threshold
-    # time will be reduced to just the start and end points of the period.
 
-    without_stationary_periods = []
-    stationary_periods = []
-    current_period = []
-
-    for vr in records:
-        if current_period:
-            first_vr = current_period[0]
-            if distance(vr.location, first_vr.location) > stationary_period_max_distance:
-                if current_period[-1].timestamp - first_vr.timestamp > stationary_period_min_duration:
-                    without_stationary_periods.append(first_vr)
-                    if current_period[-1] != first_vr:
-                        without_stationary_periods.append(current_period[-1])
-                    num_points = len(current_period)
-                    duration = current_period[-1].timestamp - first_vr.timestamp
-                    mean_lat = sum(x.location.lat for x in current_period) / num_points
-                    mean_lon = sum(x.location.lon for x in current_period) / num_points
-                    mean_location = LatLon(mean_lat, mean_lon)
-                    rms_drift_radius = math.sqrt(sum(distance(x.location, mean_location)**2 for x in current_period) / num_points)
-                    stationary_periods.append(StationaryPeriod(mean_location, 
-                                                               first_vr.timestamp,
-                                                               duration, 
-                                                               rms_drift_radius,
-                                                               first_vr.destination,
-                                                               s2id=S2_cell_ID(mean_location).to_token()))
-                else:
-                    without_stationary_periods.extend(current_period)
-                current_period = []
-        current_period.append(vr)
-    without_stationary_periods.extend(current_period)
-
-    return ProcessedLocations(without_stationary_periods, stationary_periods) 
-
-
-#  TODO: defunctionify
-def filter_and_process_vessel_records(input, stationary_period_min_duration, stationary_period_max_distance, prefix=''):
-    return ( input 
-            | prefix + "splitIntoStationaryNonstationaryPeriods" >> beam.Map( lambda (metadata, records):
-                        (metadata, 
-                         remove_stationary_periods(records, stationary_period_min_duration, stationary_period_max_distance)))
-            )
 
 # # Around (1 km)^2
 # ANCHORAGES_S2_SCALE = 13
@@ -270,14 +202,14 @@ def AnchoragePts_from_cell_visits(value, dest_limit, fishing_vessel_set):
     stationary_days = 0
     stationary_fishing_days = 0
 
-    for (md, sp) in stationary_periods:
+    for (mmsi, sp) in stationary_periods:
         n += 1
         total_lat += sp.location.lat
         total_lon += sp.location.lon
-        vessels.add(md)
+        vessels.add(mmsi)
         stationary_days += sp.duration.total_seconds() / (24.0 * 60.0 * 60.0)
-        if md.mmsi in fishing_vessel_set:
-            fishing_vessels.add(md)
+        if mmsi in fishing_vessel_set:
+            fishing_vessels.add(mmsi)
             stationary_fishing_days += sp.duration.total_seconds() / (24.0 * 60.0 * 60.0)
         total_squared_drift_radius += sp.rms_drift_radius ** 2
     all_destinations = normalized_valid_names(sp.destination for (md, sp) in stationary_periods)
@@ -319,12 +251,14 @@ def find_anchorage_points(input, min_unique_vessels_for_anchorage, fishing_vesse
     # (md, stationary_periods) => (md (stationary_locs, )) 
     stationary_periods_by_s2id = (input
         | "addStationaryCellIds" >> beam.FlatMap(lambda (md, processed_locations):
-                [(sp.s2id, (md, sp)) for sp in processed_locations.stationary_periods])
+                [(S2_cell_ID(sp.location).to_token(), (md, sp)) 
+                        for sp in processed_locations.stationary_periods])
         )
 
     active_points_by_s2id = (input
         | "addActiveCellIds" >> beam.FlatMap(lambda (md, processed_locations):
-                [(loc.s2id, (md, loc)) for loc in processed_locations.locations])
+                [(S2_cell_ID(rcd.location).to_token(), (md, rcd)) 
+                        for rcd in processed_locations.active_records])
         )
 
     return ((stationary_periods_by_s2id, active_points_by_s2id) 
