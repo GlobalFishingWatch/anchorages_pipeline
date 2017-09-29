@@ -2,12 +2,10 @@
 
     Minimal local run:
 
-        python -m anchorages_main \
-            --name test-anchorages-2016-tiny \
-            --runner DirectRunner \
-            --latlon-filters latlon_filters.json \
-            --input-pattern tiny 
-
+        python -m port_visits_main --name testvisits38abq \
+                                   --anchorages gfw_raw.anchorage_naming_20170928 \
+                                   --start-date 2016-02-01 \
+                                   --end-date 2016-02-28
             
 """
 import logging

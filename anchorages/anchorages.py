@@ -4,25 +4,25 @@ import argparse
 import ujson as json
 import datetime
 import s2sphere
+import math
 from collections import namedtuple
 from .sparse_inland_mask import SparseInlandMask
 from .distance import distance
 
 from . import common as cmn
-from .transforms.source import Source
-from .transforms.sink import EventSink
+from .transforms.source import QuerySource
+from .transforms.sink import AnchorageSink
 
 import apache_beam as beam
-from apache_beam.io import ReadFromText
-from apache_beam.io import WriteToText
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
+MAX_DESTINATIONS = 10
 
 StationaryPeriod = namedtuple("StationaryPeriod", 
     ['location', 'start_time', 'duration', 'rms_drift_radius', 'destination'])
 
-ActiveAndStationary = namedtuple("ProcessedLocations", 
+ActiveAndStationary = namedtuple("ActiveAndStationary", 
     ['active_records', 'stationary_periods'])
 
 
@@ -75,11 +75,13 @@ class FindAnchoragePoints(beam.PTransform):
 
     def extract_stationary(self, item):
         mmsi, combined = item
-        return [(mmsi, sp) for sp in combined.stationary_periods] 
+        return [(cmn.S2_cell_ID(sp.location).to_token(), (mmsi, sp)) 
+                        for sp in combined.stationary_periods] 
 
     def extract_active(self, item):
         mmsi, combined = item
-        return [(mmsi, ar) for ar in combined.active_records] 
+        return [(cmn.S2_cell_ID(ar.location).to_token(), (mmsi, ar)) 
+                        for ar in combined.active_records] 
 
 
     def expand(self, ais_source):
@@ -88,7 +90,8 @@ class FindAnchoragePoints(beam.PTransform):
         active =     combined | beam.FlatMap(self.extract_active)
         return ((stationary, active)
             | beam.CoGroupByKey()
-            | beam.FlatMap(cmn.AnchoragePts_from_cell_visits, dest_limit=10, fishing_vessel_set=self.fishing_vessels)
+            | beam.FlatMap(cmn.AnchoragePts_from_cell_visits, dest_limit=MAX_DESTINATIONS, 
+                           fishing_vessel_set=self.fishing_vessels)
             | beam.Filter(lambda x: len(x.vessels) >= self.min_unique_vessels)
             )
 
@@ -127,11 +130,11 @@ def parse_command_line_args():
 
     known_args, pipeline_args = parser.parse_known_args()
 
-    # if known_args.output is None:
-    #     known_args.output = 'machine_learning_dev_ttl_30d.in_out_events_{}'.format(known_args.name)
-
     if known_args.output is None:
-        known_args.output = 'gs://machine-learning-dev-ttl-30d/anchorages/{}/output'.format(known_args.name)
+        known_args.output = 'machine_learning_dev_ttl_30d.in_out_events_{}'.format(known_args.name)
+
+    # if known_args.output is None:
+    #     known_args.output = 'gs://machine-learning-dev-ttl-30d/anchorages/{}/output'.format(known_args.name)
 
     cmn.add_pipeline_defaults(pipeline_args, known_args.name)
 
@@ -174,7 +177,7 @@ def run():
     p = beam.Pipeline(options=pipeline_options)
 
     tagged_records = (p 
-        | "ReadAis" >> Source(query)
+        | "ReadAis" >> QuerySource(query)
         | cmn.CreateVesselRecords(config['blacklisted_mmsis'])
         | cmn.CreateTaggedRecords(config['min_required_positions'])
         )
@@ -188,7 +191,9 @@ def run():
 
     (anchorage_points 
         | "convertAPToJson" >> beam.Map(cmn.anchorage_point_to_json)
-        | "writeAnchoragesPoints" >> WriteToText(known_args.output + '/anchorages_points', file_name_suffix='.json')
+        | "writeAnchoragesPoints" >> AnchorageSink(table=known_args.output, 
+                                                   write_disposition="WRITE_TRUNCATE",
+                                                   max_destinations=MAX_DESTINATIONS)
     )
 
     result = p.run()

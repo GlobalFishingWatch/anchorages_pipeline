@@ -16,7 +16,7 @@ from .port_name_filter import normalized_valid_names
 from .union_find import UnionFind
 from .sparse_inland_mask import SparseInlandMask
 from .distance import distance
-from .nearest_port import port_finder, AnchorageFinder, BUFFER_KM as VISIT_BUFFER_KM
+from .nearest_port import wpi_finder, geo_finder
 
 import apache_beam as beam
 from apache_beam.io import ReadFromText
@@ -116,7 +116,7 @@ AnchoragePoint = namedtuple("AnchoragePoint", ['mean_location',
                                                'vessels',
                                                'fishing_vessels',
                                                'rms_drift_radius',
-                                               'top_destinations',
+                                               'top_destination',
                                                's2id',
                                                'neighbor_s2ids',
                                                'active_mmsi',
@@ -124,8 +124,10 @@ AnchoragePoint = namedtuple("AnchoragePoint", ['mean_location',
                                                'stationary_mmsi_days',
                                                'stationary_fishing_mmsi_days',
                                                'active_mmsi_days',
-                                               'port_name',
-                                               'port_distance'
+                                               'wpi_name',
+                                               'wpi_distance'
+                                               'geo_name',
+                                               'geo_distance'
                                                ])
 
 
@@ -141,8 +143,9 @@ def load_config(path):
 
     anchorage_visit_max_distance = max(config['anchorage_entry_distance_km'],
                                        config['anchorage_exit_distance_km'])
-    assert (anchorage_visit_max_distance + 
-            approx_visit_cell_size * VISIT_SAFETY_FACTOR < VISIT_BUFFER_KM)
+
+    # Ensure that S2 Cell sizes are large enough that we don't miss ports
+    assert (anchorage_visit_max_distance * VISIT_SAFETY_FACTOR < 2 * approx_visit_cell_size)
 
     return config
 
@@ -163,9 +166,8 @@ ANCHORAGES_S2_SCALE = 14
 # Around (16 km)^2
 VISITS_S2_SCALE = 9
 #
-# TODO: revisit
 approx_visit_cell_size = 2.0 ** (13 - VISITS_S2_SCALE) 
-VISIT_SAFETY_FACTOR = 2.0 # Extra margin factor to ensure VISIT_BUFFER_KM is large enough
+VISIT_SAFETY_FACTOR = 2.0 # Extra margin factor to ensure we don't miss ports
 
 def S2_cell_ID(loc, scale=ANCHORAGES_S2_SCALE):
     ll = s2sphere.LatLng.from_degrees(loc.lat, loc.lon)
@@ -187,8 +189,8 @@ def LatLon_mean(seq):
 
 bogus_destinations = set([''])
 
-def AnchoragePts_from_cell_visits(value, dest_limit, fishing_vessel_set):
-    s2id, (stationary_periods, active_points) = value
+def AnchoragePts_from_cell_visits(value, fishing_vessel_set):
+    s2id, (stationary_periods, active_points) = value # tagged_stationary_periods, tagged_active_points
 
     n = 0
     total_lat = 0.0
@@ -219,7 +221,8 @@ def AnchoragePts_from_cell_visits(value, dest_limit, fishing_vessel_set):
     if n:
         neighbor_s2ids = tuple(s2sphere.CellId.from_token(s2id).get_all_neighbors(ANCHORAGES_S2_SCALE))
         loc = LatLon(total_lat / n, total_lon / n)
-        port_name, port_distance = port_finder.find_nearest_port_and_distance(loc)
+        wpi_name, wpi_distance = wpi_finder.find_nearest_port_and_distance(loc)
+        geo_name, geo_distance = geo_finder.find_nearest_port_and_distance(loc)
 
         return [AnchoragePoint(
                     mean_location = loc,
@@ -227,7 +230,7 @@ def AnchoragePts_from_cell_visits(value, dest_limit, fishing_vessel_set):
                     vessels = frozenset(vessels),
                     fishing_vessels = frozenset(fishing_vessels),
                     rms_drift_radius =  math.sqrt(total_squared_drift_radius / n),    
-                    top_destinations = tuple(Counter(all_destinations).most_common(dest_limit)),
+                    top_destination = Counter(all_destinations).most_common(1)[0],
                     s2id = s2id,
                     neighbor_s2ids = neighbor_s2ids,
                     active_mmsi = active_mmsi_count,
@@ -235,8 +238,10 @@ def AnchoragePts_from_cell_visits(value, dest_limit, fishing_vessel_set):
                     stationary_mmsi_days = stationary_days,
                     stationary_fishing_mmsi_days = stationary_fishing_days,
                     active_mmsi_days = active_days,
-                    port_name = port_name,
-                    port_distance = port_distance
+                    wpi_name = wpi_name,
+                    wpi_distance = wpi_distance,
+                    geonames_name = geo_name,
+                    geonames_distance = geo_distance
                     )]
     else:
         return []
@@ -263,7 +268,7 @@ def find_anchorage_points(input, min_unique_vessels_for_anchorage, fishing_vesse
 
     return ((stationary_periods_by_s2id, active_points_by_s2id) 
         | "CogroupOnS2id" >> beam.CoGroupByKey()
-        | "createAnchoragePoints" >> beam.FlatMap(AnchoragePts_from_cell_visits, dest_limit=10, fishing_vessel_set=fishing_vessels)
+        | "createAnchoragePoints" >> beam.FlatMap(AnchoragePts_from_cell_visits, fishing_vessel_set=fishing_vessels)
         | "removeAPointsWFewVessels" >> beam.Filter(lambda x: len(x.vessels) >= min_unique_vessels_for_anchorage)
         )
 

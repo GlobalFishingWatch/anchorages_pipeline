@@ -2,11 +2,7 @@
 from apache_beam import PTransform
 from apache_beam import io
 
-class Source(PTransform):
-    @staticmethod
-    def read_query(path):
-        with open(path, 'r') as query_file:
-            return query_file.read()
+class QuerySource(PTransform):
 
     def __init__(self, query):
         self.query = query
@@ -16,4 +12,3 @@ class Source(PTransform):
             xs
             | io.Read(io.gcp.bigquery.BigQuerySource(query=self.query))
         )
-

@@ -47,30 +47,12 @@ class EventSink(PTransform):
         ))
 
 
-# def anchorage_point_to_json(a_pt):
-#     return json.dumps({
-#         'lat' : a_pt.mean_location.lat, 
-#         'lon': a_pt.mean_location.lon,
-#         'total_visits' : a_pt.total_visits,
-#         'drift_radius' : a_pt.rms_drift_radius,
-#         'destinations': a_pt.top_destinations,
-#         'unique_stationary_mmsi' : len(a_pt.vessels),
-#         'unique_stationary_fishing_mmsi' : len(a_pt.fishing_vessels),
-#         'unique_active_mmsi' : a_pt.active_mmsi,
-#         'unique_total_mmsi' : a_pt.total_mmsi,
-#         'active_mmsi_days': a_pt.active_mmsi_days,
-#         'stationary_mmsi_days': a_pt.stationary_mmsi_days,
-#         'stationary_fishing_mmsi_days': a_pt.stationary_fishing_mmsi_days,
-#         'port_name': a_pt.port_name,
-#         'port_distance': a_pt.port_distance,
-#         's2id' : a_pt.s2id
-#         })
-
 
 class AnchorageSink(PTransform):
-    def __init__(self, table, write_disposition):
+    def __init__(self, table, write_disposition, max_destinations=10):
         self.table = table
         self.write_disposition = write_disposition
+        self.max_destinations = max_destinations
 
     def expand(self, xs):
 
@@ -86,14 +68,30 @@ class AnchorageSink(PTransform):
 
             return schema
 
-        return xs | Map(encode_datetimes_to_iso) | io.Write(io.gcp.bigquery.BigQuerySink(
-            table=self.table,
-            write_disposition=self.write_disposition,
-            schema=build_table_schema({
+        def reencode(x):
+            x['unique_stationary_mmsi'] = len(x.pop('vessels'))
+            x['unique_stationary_fishing_mmsi'] = len(x.pop('fishing_vessels'))
+
+
+        spec = {
                 "lat": "float",
                 "lon": "float",
-                "anchorage_id": "string",
-                "port_label": "string",
-                "event_type": "string"
-            })
-        ))
+                "total_visits": "integer",
+                "drift_radius": "float",
+                "unique_stationary_mmsi": "integer",
+                "unique_active_mmsi": "integer",
+                "stationary_mmsi_days": "integer",
+                "stationary_fishing_mmsi_days": "integer",
+                "s2id": "string",
+                "top_destination": "string",
+                "wpi_name": "string",
+                "wpi_distance": "float",
+                "geonames_name": "string",
+                "geonames_distance": "float",
+            }
+                    
+        return xs | Map(reencode) | io.Write(io.gcp.bigquery.BigQuerySink(
+            table=self.table,
+            write_disposition=self.write_disposition,
+            schema=build_table_schema(spec)
+            ))
