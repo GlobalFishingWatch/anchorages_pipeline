@@ -22,7 +22,7 @@ def has_destination(msg):
 class VesselRecord(object):
 
     @staticmethod
-    def from_msg(msg):
+    def tagged_from_msg(msg):
 
         mmsi = msg['mmsi']
 

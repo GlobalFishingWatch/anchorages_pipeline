@@ -9,6 +9,10 @@ class EventSink(PTransform):
         self.write_disposition = write_disposition
 
     def expand(self, xs):
+
+        def as_dict(x):
+            return x._asdict()
+
         def encode_datetimes_to_iso(x):
             def encode_datetime_field(value):
                 return value.strftime('%Y-%m-%d %H:%M:%S.%f UTC')
@@ -30,7 +34,7 @@ class EventSink(PTransform):
 
             return schema
 
-        return xs | Map(encode_datetimes_to_iso) | io.Write(io.gcp.bigquery.BigQuerySink(
+        return xs | Map(as_dict)| Map(encode_datetimes_to_iso) | io.Write(io.gcp.bigquery.BigQuerySink(
             table=self.table,
             write_disposition=self.write_disposition,
             schema=build_table_schema({
@@ -49,10 +53,9 @@ class EventSink(PTransform):
 
 
 class AnchorageSink(PTransform):
-    def __init__(self, table, write_disposition, max_destinations=10):
+    def __init__(self, table, write_disposition):
         self.table = table
         self.write_disposition = write_disposition
-        self.max_destinations = max_destinations
 
     def expand(self, xs):
 
@@ -68,7 +71,8 @@ class AnchorageSink(PTransform):
 
             return schema
 
-        def reencode(x):
+        def encode(anchorage):
+            x = event._asdict()
             x['unique_stationary_mmsi'] = len(x.pop('vessels'))
             x['unique_stationary_fishing_mmsi'] = len(x.pop('fishing_vessels'))
 
@@ -90,7 +94,7 @@ class AnchorageSink(PTransform):
                 "geonames_distance": "float",
             }
                     
-        return xs | Map(reencode) | io.Write(io.gcp.bigquery.BigQuerySink(
+        return xs | Map(encode) | io.Write(io.gcp.bigquery.BigQuerySink(
             table=self.table,
             write_disposition=self.write_disposition,
             schema=build_table_schema(spec)

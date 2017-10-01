@@ -1,16 +1,10 @@
 from __future__ import absolute_import, print_function, division
 
 import argparse
-import ujson as json
-import json as classic_json
 import datetime
 from collections import namedtuple
-import itertools as it
-import s2sphere
-import logging
 
 import apache_beam as beam
-from apache_beam.io import ReadFromText
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
@@ -26,10 +20,6 @@ PseudoAnchorage = namedtuple("PseudoAnchorage",
 VisitEvent = namedtuple("VisitEvent", 
     ['anchorage_id', 'lat', 'lon', 'vessel_lat', 'vessel_lon', 'mmsi', 'timestamp', 'port_label', 'event_type'])
 
-IN_PORT = "IN_PORT"
-AT_SEA  = "AT_SEA"
-STOPPED = "STOPPED"
-
 
 class CreateTaggedAnchorages(beam.PTransform):
 
@@ -40,7 +30,7 @@ class CreateTaggedAnchorages(beam.PTransform):
                 port_name = obj['FINAL_NAME'])
 
     def tag_anchorage_with_s2ids(self, anchorage):
-        central_cell_id = cmn.S2_cell_ID(anchorage.mean_location, cmn.VISITS_S2_SCALE)
+        central_cell_id = anchorage.mean_location.S2CellId(cmn.VISITS_S2_SCALE)
         s2ids = {central_cell_id.to_token()}
         for cell_id in central_cell_id.get_all_neighbors(cmn.VISITS_S2_SCALE):
             s2ids.add(cell_id.to_token())
@@ -56,6 +46,10 @@ class CreateTaggedAnchorages(beam.PTransform):
 
 
 class CreateInOutEvents(beam.PTransform):
+
+    IN_PORT = "IN_PORT"
+    AT_SEA  = "AT_SEA"
+    STOPPED = "STOPPED"
 
     transition_map = {
         (AT_SEA, AT_SEA)   : [],
@@ -84,7 +78,7 @@ class CreateInOutEvents(beam.PTransform):
         elif dist >= self.anchorage_exit_dist:
             return False
         else:
-            return (state in (IN_PORT, STOPPED))
+            return (state in (self.IN_PORT, self.STOPPED))
 
     def _is_stopped(self, state, speed):
         if speed <= self.stopped_begin_speed:
@@ -92,7 +86,7 @@ class CreateInOutEvents(beam.PTransform):
         elif speed >= self.stopped_end_speed:
             return False
         else:
-            return (state == STOPPED) 
+            return (state == self.STOPPED) 
 
     def _anchorage_distance(self, loc, anchorages):
         closest = None
@@ -110,7 +104,7 @@ class CreateInOutEvents(beam.PTransform):
         active_port = None
         events = []
         for rcd in records:
-            s2id = cmn.S2_cell_ID(rcd.location, cmn.VISITS_S2_SCALE).to_token()
+            s2id = rcd.location.S2CellId(cmn.VISITS_S2_SCALE).to_token()
             port, dist = self._anchorage_distance(rcd.location, anchorage_map.get(s2id, []))
 
             last_state = state
@@ -119,9 +113,9 @@ class CreateInOutEvents(beam.PTransform):
 
             if is_in_port:
                 active_port = port
-                state = STOPPED if is_stopped else IN_PORT
+                state = self.STOPPED if is_stopped else self.IN_PORT
             else:
-                state = AT_SEA
+                state = self.AT_SEA
 
             if (last_state is None) or (active_port is None):
                 # Not enough information yet.
@@ -139,14 +133,10 @@ class CreateInOutEvents(beam.PTransform):
                                          event_type=event_type)) 
         return events
 
-    def event_to_dict(self, event):
-        return event._asdict()
-
     def expand(self, tagged_records):
         anchorage_map = beam.pvalue.AsSingleton(self.anchorages)
         return (tagged_records
             | beam.FlatMap(self.create_in_out_events, anchorage_map=anchorage_map)
-            | beam.Map(self.event_to_dict)
             )
 
 
