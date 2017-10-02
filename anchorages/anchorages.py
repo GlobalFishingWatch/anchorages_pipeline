@@ -158,13 +158,18 @@ class AnchoragePoint(namedtuple("AnchoragePoint", ['mean_location',
             wpi_name, wpi_distance = wpi_finder.find_nearest_port_and_distance(loc)
             geo_name, geo_distance = geo_finder.find_nearest_port_and_distance(loc)
 
+            if len(all_destinations):
+                [(top_destination, top_count)] = Counter(all_destinations).most_common(1)
+            else:
+                top_destination = ''
+
             return AnchoragePoint(
                         mean_location = loc,
                         total_visits = n, 
                         vessels = frozenset(vessels),
                         fishing_vessels = frozenset(fishing_vessels),
                         rms_drift_radius =  math.sqrt(total_squared_drift_radius / n),    
-                        top_destination = (Counter(all_destinations).most_common(1) + [''])[0],
+                        top_destination = top_destination,
                         s2id = s2id,
                         neighbor_s2ids = neighbor_s2ids,
                         active_mmsi = active_mmsi_count,
