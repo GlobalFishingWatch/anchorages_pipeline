@@ -1,7 +1,7 @@
 import pytest
 import anchorages
 import re
-import port_name_filter
+from anchorages import port_name_filter
 
 
 bad_examples = """
