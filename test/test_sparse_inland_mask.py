@@ -1,12 +1,4 @@
-import os
-import pytest
-import json
-import datetime
-import pickle
-import s2sphere
-from anchorages import anchorages
 from anchorages import common
-from anchorages import nearest_port
 from anchorages import sparse_inland_mask 
 
 locations = {
@@ -37,25 +29,6 @@ class TestMask(object):
             is_inland  = key in inland_locations
             assert inland_mask.query(locations[key]) == is_inland, (key, locations[key], is_inland)
 
-
-class TestUtilities(object):
-    distances = {
-        'New York': 3443.706085594739,
-        "Chicago": 2336.340987950822,
-        "Los Angeles": 574.265826359301,
-        "Phoenix": 0,
-        "Scottsdale": 14.633197815695059,
-        "Tokyo": 9308.45399157672,
-    }
-
-    def test_distances(self):
-        phx = locations['Phoenix']
-
-        for key in sorted(locations):
-            if key.startswith("Ocean"):
-                continue
-            assert anchorages.distance(phx, locations[key]) == self.distances[key], (key, anchorages.distance(phx, locations[key]),  
-                self.distances[key])
 
 
 
