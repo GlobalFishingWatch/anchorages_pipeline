@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -e
+
+# Run python tests
+py.test
+
