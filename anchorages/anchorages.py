@@ -158,6 +158,7 @@ class AnchoragePoint(namedtuple("AnchoragePoint", ['mean_location',
             wpi_name, wpi_distance = wpi_finder.find_nearest_port_and_distance(loc)
             geo_name, geo_distance = geo_finder.find_nearest_port_and_distance(loc)
 
+            all_destinations = list(all_destinations)
             if len(all_destinations):
                 [(top_destination, top_count)] = Counter(all_destinations).most_common(1)
             else:
@@ -214,7 +215,7 @@ def parse_command_line_args():
     known_args, pipeline_args = parser.parse_known_args()
 
     if known_args.output is None:
-        known_args.output = 'machine_learning_dev_ttl_30d.in_out_events_{}'.format(known_args.name)
+        known_args.output = 'machine_learning_dev_ttl_30d.anchorages_{}'.format(known_args.name)
 
     cmn.add_pipeline_defaults(pipeline_args, known_args.name)
 
