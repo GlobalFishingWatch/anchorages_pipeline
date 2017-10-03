@@ -1,4 +1,13 @@
+# Anchorages
 
+## Creating Anchorage points
+
+Run:
+  
+    python -m anchorages_main --name updateanchorages \
+                              --start-date 2012-01-01 \
+                              --end-date 2017-12-31 \
+                              --output BQ_TABLE_NAME
 
 
 ## Updating Port Visits
