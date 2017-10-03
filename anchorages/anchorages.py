@@ -228,7 +228,7 @@ def parse_command_line_args():
     return known_args, pipeline_options
 
 
-def create_query(args):
+def create_queries(args):
     template = """
     SELECT mmsi, lat, lon, timestamp, destination, speed FROM   
       TABLE_DATE_RANGE([world-fishing-827:{table}.], 
@@ -237,9 +237,16 @@ def create_query(args):
     start_window = datetime.datetime.strptime(args.start_date, '%Y-%m-%d') 
     end_window = datetime.datetime.strptime(args.end_date, '%Y-%m-%d') 
 
-    query = template.format(table=args.input_table, start=start_window, end=end_window)
+    queries = []
+    start = start_window
+    while start < end_window:
+        # Add 999 days so that we get 1000 total days
+        end = min(start + datetime.timedelta(days=999), end_window)
+        queries.append(template.format(table=args.input_table, start=start, end=end))
+        # Add 1 day to end, so that we don't overlap.
+        start = end + datetime.timedelta(days=1)
 
-    return query
+    return queries
 
 
 
@@ -248,7 +255,7 @@ def run():
 
     config = cmn.load_config(known_args.config)
 
-    query = create_query(known_args)
+    queries = create_queries(known_args)
 
     with open(known_args.fishing_mmsi_list) as f:
         fishing_vessel_set = set([int(x.strip()) for x in f.readlines() if x.strip()])
@@ -257,8 +264,10 @@ def run():
 
     p = beam.Pipeline(options=pipeline_options)
 
-    tagged_records = (p 
-        | "ReadAis" >> QuerySource(query)
+    source = [(p | "Source_{}".format(i) >> QuerySource(query)) 
+                for (i, query) in enumerate(queries)] | beam.Flatten()
+
+    tagged_records = (source
         | cmn.CreateVesselRecords(config['blacklisted_mmsis'])
         | cmn.CreateTaggedRecords(config['min_required_positions'])
         )
