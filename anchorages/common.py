@@ -150,6 +150,7 @@ def add_pipeline_defaults(pipeline_args, name):
         '--setup_file' : './setup.py',
         '--runner': 'DataflowRunner',
         '--max_num_workers' : '200',
+        '--disk_size_gb' : '50',
         '--job_name': name,
     }
 

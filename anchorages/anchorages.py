@@ -28,11 +28,12 @@ ActiveAndStationary = namedtuple("ActiveAndStationary",
 
 class FindAnchoragePoints(beam.PTransform):
 
-    def __init__(self, min_duration, max_distance, min_unique_vessels, fishing_vessel_set):
+    def __init__(self, min_duration, max_distance, min_unique_vessels, fishing_vessel_set, inland_mask):
         self.min_duration = min_duration
         self.max_distance = max_distance
         self.min_unique_vessels = min_unique_vessels
         self.fishing_vessel_set = fishing_vessel_set
+        self.inland_mask = inland_mask
 
     def split_on_movement(self, item):
         # extract long stationary periods from the record. Stationary periods are returned 
@@ -90,6 +91,9 @@ class FindAnchoragePoints(beam.PTransform):
     def has_enough_vessels(self, item):
         return len(item.vessels) >= self.min_unique_vessels
 
+    def not_inland(self, item):
+        return self.inland_mask.query(item.mean_location)
+
     def expand(self, ais_source):
         combined = ais_source | beam.Map(self.split_on_movement)
         stationary = combined | beam.FlatMap(self.extract_stationary)
@@ -98,6 +102,7 @@ class FindAnchoragePoints(beam.PTransform):
             | beam.CoGroupByKey()
             | beam.FlatMap(self.create_anchorage_pts)
             | beam.Filter(self.has_enough_vessels)
+            | beam.Filter(self.not_inland)
             )
 
 
@@ -276,7 +281,8 @@ def run():
         | FindAnchoragePoints(datetime.timedelta(minutes=config['stationary_period_min_duration_minutes']), 
                               config['stationary_period_max_distance_km'],
                               config['min_unique_vessels_for_anchorage'],
-                              fishing_vessel_set)
+                              fishing_vessel_set,
+                              inland_mask)
         )
 
     (anchorage_points | AnchorageSink(table=known_args.output, 

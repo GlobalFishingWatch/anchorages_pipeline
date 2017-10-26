@@ -5,8 +5,8 @@
 Run:
   
     python -m anchorages_main --name updateanchorages \
-                              --start-date 2012-01-01 \
-                              --end-date 2017-12-31 \
+                              --start-date YYYY-MM-DD \
+                              --end-date YYYY-MM-DD \
                               --output BQ_TABLE_NAME
 
 
