@@ -1,11 +1,12 @@
 """
 
-    Minimal local run:
+    Minimal run:
 
-        python -m port_visits_main --name testvisits38abq \
-                                   --anchorages gfw_raw.anchorage_naming_20170928 \
+        python -m port_visits_main --name testvisits \
+                                   --anchorages gfw_raw.anchorage_naming_20171026 \
                                    --start-date 2016-02-01 \
-                                   --end-date 2016-02-28
+                                   --end-date 2016-02-01 \
+                                   --max_num_workers 50
             
 """
 import logging

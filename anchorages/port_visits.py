@@ -225,7 +225,7 @@ class CombineAnchoragesIntoMap(beam.CombineFn):
         return accumulator
 
 
-anchorage_query = 'SELECT anchor_lat, anchor_lon, anchor_id, FINAL_NAME FROM [{}]'
+anchorage_query = 'SELECT lat anchor_lat, lon anchor_lon, anchor_id, FINAL_NAME FROM [{}]'
 
 
 def run():
