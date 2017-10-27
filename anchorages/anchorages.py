@@ -198,8 +198,6 @@ def parse_command_line_args():
     parser.add_argument('--name', required=True, 
                         help='Name to prefix output and job name if not otherwise specified')
     # TODO: Replace
-    parser.add_argument('--input-patterns', default='all_years',
-                        help='Input file to patterns (comma separated) to process (glob)')
     parser.add_argument('--output', dest='output',
                         help='Output file to write results to.')
     parser.add_argument('--input-table', default='pipeline_classify_p_p429_resampling_2',
