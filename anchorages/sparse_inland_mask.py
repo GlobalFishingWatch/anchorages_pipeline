@@ -18,7 +18,7 @@ class SparseInlandMask(object):
         self._dlat = (self.MAX_LAT - self.MIN_LAT) / mask_info['n_lat']
         self._dlon = (self.MAX_LON - self.MIN_LON) / mask_info['n_lon']
 
-    def query(self, loc):
+    def is_inland(self, loc):
         lat, lon = loc
         i = (self.MAX_LAT - lat) // self._dlat
         j = (lon - self.MIN_LON) // self._dlon
@@ -29,4 +29,4 @@ class SparseInlandMask(object):
         lat, lon = loc
         assert self.MIN_LAT <= lat < self.MAX_LAT
         assert self.MIN_LON <= lat < self.MAX_LON
-        return self.query(loc)
+        return not self.is_inland(loc)

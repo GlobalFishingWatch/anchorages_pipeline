@@ -27,7 +27,7 @@ class TestMask(object):
     def test_locations(self):
         for key in sorted(locations):
             is_inland  = key in inland_locations
-            assert inland_mask.query(locations[key]) == is_inland, (key, locations[key], is_inland)
+            assert inland_mask.is_inland(locations[key]) == is_inland, (key, locations[key], is_inland)
 
 
 
