@@ -92,7 +92,7 @@ class FindAnchoragePoints(beam.PTransform):
         return len(item.vessels) >= self.min_unique_vessels
 
     def not_inland(self, item):
-        return self.inland_mask.query(item.mean_location)
+        return not self.inland_mask.is_inland(item.mean_location)
 
     def expand(self, ais_source):
         combined = ais_source | beam.Map(self.split_on_movement)
