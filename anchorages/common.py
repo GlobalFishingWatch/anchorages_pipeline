@@ -150,7 +150,7 @@ def add_pipeline_defaults(pipeline_args, name):
         '--setup_file' : './setup.py',
         '--runner': 'DataflowRunner',
         '--max_num_workers' : '200',
-        '--disk_size_gb' : '50',
+        '--disk_size_gb' : '100',
         '--job_name': name,
     }
 
@@ -166,7 +166,8 @@ def check_that_pipeline_args_consumed(pipeline):
     translations = {'--worker_machine_type' : '--machine_type'}
     flags = [translations.get(x, x) for x in pipeline._flags]
 
-    dash_flags = [x for x in flags if x.startswith('-') and x.replace('-', '') not in options]
+    dash_flags = [x for x in flags if x.startswith('-') and x.replace('-', '') not in options
+                    and x != '--experiments=shuffle_mode=service']
     if dash_flags:
         print(options)
         print(dash_flags)
