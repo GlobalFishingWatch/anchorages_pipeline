@@ -156,8 +156,6 @@ def parse_command_line_args():
                         help="First date to look for entry/exit events.")
     parser.add_argument('--end-date', required=True, 
                         help="Last date (inclusive) to look for entry/exit events.")
-    parser.add_argument('--start-window', 
-                        help="date to start tracking events to warm up vessel state")
     parser.add_argument('--config', default='config.yaml',
                         help="path to configuration file")
     parser.add_argument('--fast-test', action='store_true', 
@@ -179,24 +177,23 @@ def parse_command_line_args():
     return known_args, pipeline_options
 
 
-def create_query(args):
+def create_queries(args):
     template = """
     SELECT mmsi, lat, lon, timestamp, destination, speed FROM   
       TABLE_DATE_RANGE([world-fishing-827:{table}.], 
                         TIMESTAMP('{start:%Y-%m-%d}'), TIMESTAMP('{end:%Y-%m-%d}')) 
     """
     start_date = datetime.datetime.strptime(args.start_date, '%Y-%m-%d') 
-    end_window = end_date = datetime.datetime.strptime(args.end_date, '%Y-%m-%d') 
-    if args.start_window:
-        start_window = datetime.datetime.strptime(args.start_window, '%Y-%m-%d')
-    else:
+    end_date = datetime.datetime.strptime(args.end_date, '%Y-%m-%d') 
+    while start_date <= end_date:
         start_window = start_date - datetime.timedelta(days=1)
-
-    query = template.format(table=args.input_table, start=start_window, end=end_window)
-    if args.fast_test:
-        query += 'LIMIT 100000'
-
-    return query
+        end_of_year = datetime.datetime(year=start_date.year, month=12, day=31)
+        end_window = min(end_date, end_of_year)
+        query = template.format(table=args.input_table, start=start_window, end=end_window)
+        if args.fast_test:
+            query += 'LIMIT 100000'
+        yield query
+        start_date = datetime.datetime(year=start_date.year + 1, month=1, day=1)
 
 
 class CombineAnchoragesIntoMap(beam.CombineFn):
@@ -235,10 +232,13 @@ def run():
 
     config = cmn.load_config(known_args.config)
 
-    query = create_query(known_args)
+    queries = create_queries(known_args)
 
-    tagged_records = (p 
-        | "ReadAis" >> QuerySource(query)
+    sources = [(p | "Read_{}".format(i) >> beam.io.Read(beam.io.gcp.bigquery.BigQuerySource(query=x)))
+                        for (i, x) in enumerate(queries)]
+
+    tagged_records = (sources
+        | beam.Flatten()
         | cmn.CreateVesselRecords(config['blacklisted_mmsis'])
         | cmn.CreateTaggedRecords(config['min_required_positions'])
         )
