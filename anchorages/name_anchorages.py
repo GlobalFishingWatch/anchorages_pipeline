@@ -97,8 +97,9 @@ class AddNamesToAnchorages(beam.PTransform):
                 # If S2id's match, replace with new anchorage, but keep old stats
                 return named_anchorage._replace(label=min_row['label'],
                                                 sublabel=min_row['sublabel'],
-                                                lat=min_row['anchor_lat'],
-                                                lon=min_row['anchor_lon'])
+                                                mean_location=cmn.LatLon(
+                                                    lat=min_row['anchor_lat'],
+                                                    lon=min_row['anchor_lon']))
             dist = distance(named_anchorage.mean_location, row['latLon'])
             if dist < min_dist:
                 min_dist = dist
@@ -130,7 +131,7 @@ class FindUsedS2ids(beam.PTransform):
     def find_used_s2ids(self, named_anchorage):
         for row in self.override_list:
             if row['s2id'] == named_anchorage.s2id:
-                yield s2id
+                yield row['s2id']
                 break
 
     def expand(self, anchorages):
