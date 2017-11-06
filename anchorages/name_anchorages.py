@@ -62,7 +62,7 @@ class AddNamesToAnchorages(beam.PTransform):
     def __init__(self, shapefile_path, override_path):
         self.iso3finder = Iso3Finder(shapefile_path)
         self.override_list = []
-        with open(os.path.join(this_dir, override_path)) as csvfile:
+        with open(override_path) as csvfile:
             for x in  csv.DictReader(csvfile):
                 x['latLon'] = cmn.LatLon(float(x['anchor_lat']), float(x['anchor_lon']))
                 x['s2id'] = x['latLon'].S2CellId(scale=cmn.ANCHORAGES_S2_SCALE).to_token()
@@ -125,7 +125,7 @@ class FindUsedS2ids(beam.PTransform):
 
     def __init__(self, override_path):
         self.override_list = []
-        with open(os.path.join(this_dir, override_path)) as csvfile:
+        with open(override_path) as csvfile:
             for x in  csv.DictReader(csvfile):
                 x['latLon'] = cmn.LatLon(float(x['anchor_lat']), float(x['anchor_lon']))
                 x['s2id'] = x['latLon'].S2CellId(scale=cmn.ANCHORAGES_S2_SCALE).to_token()
@@ -146,7 +146,7 @@ class CreateOverrideAnchorages(beam.PTransform):
 
     def __init__(self, override_path, used_s2ids):
         self.override_list = []
-        with open(os.path.join(this_dir, override_path)) as csvfile:
+        with open(override_path) as csvfile:
             for x in  csv.DictReader(csvfile):
                 x['latLon'] = cmn.LatLon(float(x['anchor_lat']), float(x['anchor_lon']))
                 x['s2id'] = x['latLon'].S2CellId(scale=cmn.ANCHORAGES_S2_SCALE).to_token()
@@ -192,9 +192,9 @@ def parse_command_line_args():
     # TODO: Replace
     parser.add_argument('--output-table', 
                         help='Output table to write results to.')
-    parser.add_argument('--input-table', default='pipeline_classify_p_p429_resampling_2',
-                        help='Input table to pull data from')
-    parser.add_argument('--override-path', default='anchorage_overrides.csv')
+    parser.add_argument('--input-table', required=True,
+                        help='Input anchorage table to pull data from')
+    parser.add_argument('--override-path', required=True)
     parser.add_argument('--shapefile-path', default=os.path.join(this_dir, 'EEZ/EEZ_land_v2_201410.shp'),
                         help="path to configuration file")
 

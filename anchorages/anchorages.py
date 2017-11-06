@@ -200,7 +200,7 @@ def parse_command_line_args():
     # TODO: Replace
     parser.add_argument('--output', dest='output',
                         help='Output file to write results to.')
-    parser.add_argument('--input-table', default='pipeline_classify_p_p429_resampling_2',
+    parser.add_argument('--input-table', required=True,
                         help='Input table to pull data from')
     parser.add_argument('--start-date', required=True, 
                         help="First date to look for locations.")
