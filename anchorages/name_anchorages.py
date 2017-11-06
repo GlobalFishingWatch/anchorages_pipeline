@@ -95,11 +95,14 @@ class AddNamesToAnchorages(beam.PTransform):
         for row in self.override_list:
             if row['s2id'] == named_anchorage.s2id:
                 # If S2id's match, replace with new anchorage, but keep old stats
-                return named_anchorage._replace(label=min_row['label'],
-                                                sublabel=min_row['sublabel'],
+                sublabel = sublabel=row['sublabel'].strip()
+                if not sublabel:
+                    sublabel = None
+                return named_anchorage._replace(label=row['label'],
+                                                sublabel=sublabel,
                                                 mean_location=cmn.LatLon(
-                                                    lat=min_row['anchor_lat'],
-                                                    lon=min_row['anchor_lon']))
+                                                    lat=row['anchor_lat'],
+                                                    lon=row['anchor_lon']))
             dist = distance(named_anchorage.mean_location, row['latLon'])
             if dist < min_dist:
                 min_dist = dist
