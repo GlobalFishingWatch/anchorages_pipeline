@@ -34,10 +34,14 @@ After a set of anchorages is created, names are assigned using `name_anchorages_
 
 For example:
 
-    python -m name_anchorages \
-        --name testnameanchorages \
-        --input-table machine_learning_dev_ttl_30d.anchorages_testanchorages2016b \
-        --output-table machine_learning_dev_ttl_30d.test_anchorage_naming
+    python -m name_anchorages_main \
+                  --name testnameanchorages \
+                  --input-table machine_learning_dev_ttl_30d.anchorages_anchoragesallyears \
+                  --output-table machine_learning_dev_ttl_30d.test_anchorage_naming \
+                  --override-path ./anchorage_overrides.csv
+
+The override path points to a csv file containing anchorages that are either missing or incorrectly named.
+It should have the following fields: s2uid,label,iso3,anchor_lat,anchor_lon,sublabel.
 
 
 ## Updating Port Visits
