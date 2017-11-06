@@ -51,15 +51,20 @@ class CreateInOutEvents(beam.PTransform):
     AT_SEA  = "AT_SEA"
     STOPPED = "STOPPED"
 
+    EVT_ENTER = 'PORT_ENTRY'
+    EVT_EXIT  = 'PORT_EXIT'
+    EVT_STOP  = 'PORT_STOP_BEGIN'
+    EVT_START = 'PORT_STOP_END'
+
     transition_map = {
         (AT_SEA, AT_SEA)   : [],
-        (AT_SEA, IN_PORT)  : ['PORT_ENTRY'],
-        (AT_SEA, STOPPED)  : ['PORT_ENTRY', 'PORT_STOP'],
-        (IN_PORT, AT_SEA)  : ['PORT_EXIT'],
+        (AT_SEA, IN_PORT)  : [EVT_ENTER],
+        (AT_SEA, STOPPED)  : [EVT_ENTER, EVT_STOP],
+        (IN_PORT, AT_SEA)  : [EVT_EXIT],
         (IN_PORT, IN_PORT) : [],
-        (IN_PORT, STOPPED) : ['PORT_STOP'],
-        (STOPPED, AT_SEA)  : ['PORT_EXIT'],
-        (STOPPED, IN_PORT) : [],
+        (IN_PORT, STOPPED) : [EVT_STOP],
+        (STOPPED, AT_SEA)  : [EVT_START, EVT_EXIT],
+        (STOPPED, IN_PORT) : [EVT_START],
         (STOPPED, STOPPED) : [],
     }
 

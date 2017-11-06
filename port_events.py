@@ -1,6 +1,6 @@
 import logging
-from anchorages import port_visits
+from anchorages import port_events
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
-    port_visits.run()
+    port_events.run()

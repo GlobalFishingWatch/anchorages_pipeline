@@ -44,11 +44,11 @@ The override path points to a csv file containing anchorages that are either mis
 It should have the following fields: s2uid,label,iso3,anchor_lat,anchor_lon,sublabel.
 
 
-## Updating Port Visits
+## Updating Port Events
 
-To update a single day of visits, run:
+To update a single day of events, run:
 
-    python -m port_visits --name JOB_NAME \
+    python -m port_events --name JOB_NAME \
                           --anchorage-path GS_PATH_TO_ANCHORAGES \
                           --start-date YYYY-MM-DD \
                           --end-date YYYY-MM-DD 
@@ -56,7 +56,7 @@ To update a single day of visits, run:
 
 For example:
 
-    python -m port_visits --name portvisitsoneday \
+    python -m port_events --name portvisitsoneday \
                           --anchorages gfw_raw.anchorage_naming_20171026 \
                           --start-date 2016-01-01 \
                           --end-date 2016-01-01 \
