@@ -4,7 +4,7 @@ dist: trusty
 before_script:
   - export PATH=$HOME/.local/bin:$PATH
   - sudo pip install apache-beam[gcp]
-  - sudo pip install google-api-python-client pyyaml s2sphere pytest fiona
+  - sudo pip install google-api-python-client pyyaml s2sphere pytest fiona shapely
 
 
 script:
