@@ -2,7 +2,9 @@ import setuptools
 
 REQUIRED_PACKAGES = [
     's2sphere',
-    'ujson'
+    'ujson',
+    'fiona',
+    'shapely'
     ]
 
 setuptools.setup(

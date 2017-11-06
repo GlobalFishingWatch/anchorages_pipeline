@@ -1,686 +1,291 @@
 from __future__ import absolute_import, print_function, division
 
 import argparse
-import logging
-import re
-import ujson as json
 import datetime
-from collections import namedtuple, Counter, defaultdict
-import itertools as it
-import os
-import math
 import s2sphere
-from .port_name_filter import normalized_valid_names
-from .union_find import UnionFind
+import math
+from collections import namedtuple, Counter
 from .sparse_inland_mask import SparseInlandMask
 from .distance import distance
-from .nearest_port import port_finder, AnchorageFinder, BUFFER_KM as VISIT_BUFFER_KM
 
-# TODO put unit reg in package if we refactor
-# import pint
-# unit = pint.UnitRegistry()
+from . import common as cmn
+from .transforms.source import QuerySource
+from .transforms.sink import AnchorageSink
+from .port_name_filter import normalized_valid_names
+from .nearest_port import wpi_finder
+from .nearest_port import geo_finder
 
 import apache_beam as beam
-from apache_beam.io import ReadFromText
-from apache_beam.io import WriteToText
-from apache_beam.metrics import Metrics
-from apache_beam.metrics.metric import MetricsFilter
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
+StationaryPeriod = namedtuple("StationaryPeriod", 
+    ['location', 'start_time', 'duration', 'rms_drift_radius', 'destination'])
+
+ActiveAndStationary = namedtuple("ActiveAndStationary", 
+    ['active_records', 'stationary_periods'])
 
 
+class FindAnchoragePoints(beam.PTransform):
 
-inland_mask = SparseInlandMask()
+    def __init__(self, min_duration, max_distance, min_unique_vessels, fishing_vessel_set, inland_mask):
+        self.min_duration = min_duration
+        self.max_distance = max_distance
+        self.min_unique_vessels = min_unique_vessels
+        self.fishing_vessel_set = fishing_vessel_set
+        self.inland_mask = inland_mask
 
+    def split_on_movement(self, item):
+        # extract long stationary periods from the record. Stationary periods are returned 
+        # separately: anything over the threshold time will be reduced to just the start 
+        # and end points of the period. The remaining points will summarized and returned
+        # as a stationary period
+        mmsi, records = item
 
+        active_records = []
+        stationary_periods = []
+        current_period = []
 
-VesselMetadata = namedtuple('VesselMetadata', ['mmsi'])
+        for rcd in records:
+            if current_period:
+                first_rcd = current_period[0]
+                if distance(rcd.location, first_rcd.location) > self.max_distance:
+                    if current_period[-1].timestamp - first_rcd.timestamp > self.min_duration:
+                        active_records.append(first_rcd)
+                        if current_period[-1] != first_rcd:
+                            active_records.append(current_period[-1])
+                        num_points = len(current_period)
+                        duration = current_period[-1].timestamp - first_rcd.timestamp
+                        mean_lat = sum(x.location.lat for x in current_period) / num_points
+                        mean_lon = sum(x.location.lon for x in current_period) / num_points
+                        mean_location = cmn.LatLon(mean_lat, mean_lon)
+                        rms_drift_radius = math.sqrt(sum(distance(x.location, mean_location)**2 for x in current_period) / num_points)
+                        stationary_periods.append(StationaryPeriod(mean_location, 
+                                                                   first_rcd.timestamp,
+                                                                   duration, 
+                                                                   rms_drift_radius,
+                                                                   first_rcd.destination))
+                    else:
+                        active_records.extend(current_period)
+                    current_period = []
+            current_period.append(rcd)
+        active_records.extend(current_period)
 
-def VesselMetadata_from_msg(msg):
-    return VesselMetadata(msg['mmsi'])
+        return (mmsi, ActiveAndStationary(active_records=active_records, 
+                                          stationary_periods=stationary_periods))
 
+    def extract_stationary(self, item):
+        mmsi, combined = item
+        return [(sp.location.S2CellId(cmn.ANCHORAGES_S2_SCALE).to_token(), (mmsi, sp)) 
+                        for sp in combined.stationary_periods] 
 
-TaggedVesselLocationRecord = namedtuple('TaggedVesselLocationRecord',
-            ['destination', 's2id', 'is_new_id', 'timestamp', 'location', 'distance_from_shore', 'speed', 'course'])
+    def extract_active(self, item):
+        mmsi, combined = item
+        return [(ar.location.S2CellId(cmn.ANCHORAGES_S2_SCALE).to_token(), (mmsi, ar)) 
+                        for ar in combined.active_records] 
 
-VesselInfoRecord = namedtuple('VesselInfoRecord',
-            ['timestamp', 'destination'])
+    def create_anchorage_pts(self, item):
+        value = AnchoragePoint.from_cell_visits(item, self.fishing_vessel_set)
+        return [] if (value is None) else [value]
 
+    def has_enough_vessels(self, item):
+        return len(item.vessels) >= self.min_unique_vessels
 
-AnchorageVisit = namedtuple('AnchorageVisit',
-            ['anchorage', 'arrival', 'departure'])
+    def not_inland(self, item):
+        return not self.inland_mask.is_inland(item.mean_location)
 
-
-class VesselLocationRecord(
-    namedtuple("VesselLocationRecord",
-              ['timestamp', 'location', 'distance_from_shore', 'speed', 'course'])):
-
-    @classmethod
-    def from_msg(cls, msg):
-        latlon = LatLon(msg['lat'], msg['lon'])
-
-        return cls(
-            datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ'), 
-            latlon, 
-            msg['distance_from_shore'] / 1000.0,
-            round(msg['speed'], 1),
-            msg['course']            )
-
-
-
-def Records_from_msg(msg, blacklisted_mmsis):
-
-    mmsi = msg.get('mmsi')
-    if not isinstance(mmsi, int) or (mmsi in blacklisted_mmsis):
-        return []
-
-    metadata = VesselMetadata_from_msg(msg)
-
-    if is_location_message(msg):
-        return [(metadata, VesselLocationRecord.from_msg(msg))]
-    elif msg.get('destination') not in set(['', None]):
-        return [(metadata, VesselInfoRecord(
-            datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ'),
-            msg['destination']
-            ))]
-    else:
-        return []
-
-
-AnchoragePoint = namedtuple("AnchoragePoint", ['mean_location',
-                                               'total_visits',
-                                               'vessels',
-                                               'fishing_vessels',
-                                               'mean_distance_from_shore',
-                                               'rms_drift_radius',
-                                               'top_destinations',
-                                               's2id',
-                                               'neighbor_s2ids',
-                                               'active_mmsi',
-                                               'total_mmsi',
-                                               'stationary_mmsi_days',
-                                               'stationary_fishing_mmsi_days',
-                                               'active_mmsi_days',
-                                               'port_name',
-                                               'port_distance'
-                                               ])
-
-
-
-def is_location_message(msg):
-    return (
-                'lat' in msg and 
-                'lon' in msg and
-                'speed' in msg and
-                'distance_from_shore' in msg and
-                'course' in msg
-        )
-
-
-def is_not_bad_value(lr):
-    return isinstance(lr, VesselInfoRecord) or (
-    -90 <= lr.location.lat <= 90 and
-    -180 <= lr.location.lon <= 180 and
-    0 <= lr.distance_from_shore <= 20000 and
-    0 <= lr.course < 360 
-    )
-
-
-def read_json_records(input, blacklisted_mmsis, latlon_filters):
-    parsed =  (input 
-        | "Parse" >> beam.Map(json.loads)
-        )
-
-    if latlon_filters is not None:
-        parsed = (parsed 
-            | "filterByLatLon" >> beam.Filter(filter_by_latlon, latlon_filters)
-        )
-
-    return (parsed 
-        | "CreateLocationRecords" >> beam.FlatMap(Records_from_msg, blacklisted_mmsis)
-        | "FilterOutBadValues" >> beam.Filter(lambda (md, lr): is_not_bad_value(lr))
-        )
-
-def tag_with_destination_and_id(records):
-    """filter out info messages and use them to tag subsequent records"""
-    # TODO: think about is_new_id, we don't currently use it. Original thought was to count
-    # the average number of vessels in a cell at one time. For that we probably want to swithc
-    # to is_first, and is_last for the first and last points in the cell. Could be done by
-    # modifying the last item in the cell as well.
-    dest = ''
-    new = []
-    last_s2id = None
-    for rcd in records:
-        if isinstance(rcd, VesselInfoRecord):
-            # TODO: normalize here rather than later. And cache normalization in dictionary
-            dest = rcd.destination
-        else:
-            s2id = S2_cell_ID(rcd.location).to_token()
-            is_new_id = (s2id == last_s2id)
-            new.append(TaggedVesselLocationRecord(dest, s2id, is_new_id,
-                                                  *rcd)) 
-            last_s2id = is_new_id
-    return new
-
-def dedup_by_timestamp(element):
-    key, source = element
-    seen = set()
-    sink = []
-    for x in source:
-        if x.timestamp not in seen:
-            sink.append(x)
-            seen.add(x.timestamp)
-    return (key, sink)
-
-
-
-def filter_duplicate_timestamps(input, min_required_positions):
-    return (input
-           | "RemoveDupTStamps" >> beam.Map(dedup_by_timestamp)
-           | "RemoveShortSeries" >> beam.Filter(lambda x: len(x[1]) >= min_required_positions)
-           )
- 
-
-FIVE_MINUTES = datetime.timedelta(minutes=5)
-
-def thin_points(records):
-    # TODO: consider instead putting on five minute intervals? 
-    if not records:
-        return
-    last = records[0]
-    yield last
-    for vlr in records[1:]:
-        if (vlr.timestamp - last.timestamp) >= FIVE_MINUTES:
-            last = vlr
-            yield vlr
-
-
-StationaryPeriod = namedtuple("StationaryPeriod", ['location', 'start_time', 'duration', 'mean_distance_from_shore', 
-        'rms_drift_radius', 'destination', 's2id'])
-
-LatLon = namedtuple("LatLon", ["lat", "lon"])
-
-def LatLon_from_LatLng(latlng):
-    return LatLon(latlng.lat(), latlng.lon())
-
-ProcessedLocations = namedtuple("ProcessedLocations", ['locations', 'stationary_periods'])
-
-
-def remove_stationary_periods(records, stationary_period_min_duration, stationary_period_max_distance):
-    # Remove long stationary periods from the record: anything over the threshold
-    # time will be reduced to just the start and end points of the period.
-
-    without_stationary_periods = []
-    stationary_periods = []
-    current_period = []
-
-    for vr in records:
-        if current_period:
-            first_vr = current_period[0]
-            if distance(vr.location, first_vr.location) > stationary_period_max_distance:
-                if current_period[-1].timestamp - first_vr.timestamp > stationary_period_min_duration:
-                    without_stationary_periods.append(first_vr)
-                    if current_period[-1] != first_vr:
-                        without_stationary_periods.append(current_period[-1])
-                    num_points = len(current_period)
-                    duration = current_period[-1].timestamp - first_vr.timestamp
-                    mean_lat = sum(x.location.lat for x in current_period) / num_points
-                    mean_lon = sum(x.location.lon for x in current_period) / num_points
-                    mean_location = LatLon(mean_lat, mean_lon)
-                    mean_distance_from_shore = sum(x.distance_from_shore for x in current_period) / num_points
-                    rms_drift_radius = math.sqrt(sum(distance(x.location, mean_location)**2 for x in current_period) / num_points)
-                    stationary_periods.append(StationaryPeriod(mean_location, 
-                                                               first_vr.timestamp,
-                                                               duration, 
-                                                               mean_distance_from_shore, rms_drift_radius,
-                                                               first_vr.destination,
-                                                               s2id=S2_cell_ID(mean_location).to_token()))
-                else:
-                    without_stationary_periods.extend(current_period)
-                current_period = []
-        current_period.append(vr)
-    without_stationary_periods.extend(current_period)
-
-    return ProcessedLocations(without_stationary_periods, stationary_periods) 
-
-
-#  TODO: defunctionify
-def filter_and_process_vessel_records(input, stationary_period_min_duration, stationary_period_max_distance, prefix=''):
-    return ( input 
-            | prefix + "splitIntoStationaryNonstationaryPeriods" >> beam.Map( lambda (metadata, records):
-                        (metadata, 
-                         remove_stationary_periods(records, stationary_period_min_duration, stationary_period_max_distance)))
+    def expand(self, ais_source):
+        combined = ais_source | beam.Map(self.split_on_movement)
+        stationary = combined | beam.FlatMap(self.extract_stationary)
+        active =     combined | beam.FlatMap(self.extract_active)
+        return ((stationary, active)
+            | beam.CoGroupByKey()
+            | beam.FlatMap(self.create_anchorage_pts)
+            | beam.Filter(self.has_enough_vessels)
+            | beam.Filter(self.not_inland)
             )
 
-# # Around (1 km)^2
-# ANCHORAGES_S2_SCALE = 13
-# Around (0.5 km)^2
-ANCHORAGES_S2_SCALE = 14
-# Around (8 km)^2
-VISITS_S2_SCALE = 10
-#
-# TODO: revisit
-approx_visit_cell_size = 2.0 ** (13 - VISITS_S2_SCALE) 
-VISIT_SAFETY_FACTOR = 2.0 # Extra margin factor to ensure VISIT_BUFFER_KM is large enough
 
-def S2_cell_ID(loc):
-    ll = s2sphere.LatLng.from_degrees(loc.lat, loc.lon)
-    return s2sphere.CellId.from_lat_lng(ll).parent(ANCHORAGES_S2_SCALE)
-
-def mean(iterable):
-    n = 0
-    total = 0.0
-    for x in iterable:
-        total += x
-        n += 1
-    return (total / n) if n else 0
-
-def LatLon_mean(seq):
-    seq = list(seq)
-    return LatLon(mean(x.lat for x in seq), mean(x.lon for x in seq))
+class AnchoragePoint(namedtuple("AnchoragePoint", ['mean_location',
+                                                  'total_visits',
+                                                  'vessels',
+                                                  'fishing_vessels',
+                                                  'rms_drift_radius',
+                                                  'top_destination',
+                                                  's2id',
+                                                  'neighbor_s2ids',
+                                                  'active_mmsi',
+                                                  'total_mmsi',
+                                                  'stationary_mmsi_days',
+                                                  'stationary_fishing_mmsi_days',
+                                                  'active_mmsi_days',
+                                                  'wpi_name',
+                                                  'wpi_distance',
+                                                  'geonames_name',
+                                                  'geonames_distance'
+                                               ])):
+    __slots__ = ()
 
 
+    @staticmethod
+    def from_cell_visits(value, fishing_vessel_set):
+        s2id, (stationary_periods, active_points) = value
 
-bogus_destinations = set([''])
+        n = 0
+        total_lat = 0.0
+        total_lon = 0.0
+        fishing_vessels = set()
+        vessels = set()
+        total_squared_drift_radius = 0.0
+        active_mmsi = set(md for (md, loc) in active_points)
+        active_mmsi_count = len(active_mmsi)
+        active_days = len(set([(md, loc.timestamp.date()) for (md, loc) in active_points]))
+        stationary_days = 0
+        stationary_fishing_days = 0
 
-def AnchoragePts_from_cell_visits(value, dest_limit, fishing_vessel_set):
-    s2id, (stationary_periods, active_points) = value
+        for (mmsi, sp) in stationary_periods:
+            n += 1
+            total_lat += sp.location.lat
+            total_lon += sp.location.lon
+            vessels.add(mmsi)
+            stationary_days += sp.duration.total_seconds() / (24.0 * 60.0 * 60.0)
+            if mmsi in fishing_vessel_set:
+                fishing_vessels.add(mmsi)
+                stationary_fishing_days += sp.duration.total_seconds() / (24.0 * 60.0 * 60.0)
+            total_squared_drift_radius += sp.rms_drift_radius ** 2
+        all_destinations = normalized_valid_names(sp.destination for (md, sp) in stationary_periods)
 
-    n = 0
-    total_lat = 0.0
-    total_lon = 0.0
-    fishing_vessels = set()
-    vessels = set()
-    total_distance_from_shore = 0.0
-    total_squared_drift_radius = 0.0
-    active_mmsi = set(md for (md, loc) in active_points)
-    active_mmsi_count = len(active_mmsi)
-    active_days = len(set([(md, loc.timestamp.date()) for (md, loc) in active_points]))
-    stationary_days = 0
-    stationary_fishing_days = 0
+        total_mmsi_count = len(vessels | active_mmsi)
 
-    for (md, sp) in stationary_periods:
-        n += 1
-        total_lat += sp.location.lat
-        total_lon += sp.location.lon
-        vessels.add(md)
-        stationary_days += sp.duration.total_seconds() / (24.0 * 60.0 * 60.0)
-        if md.mmsi in fishing_vessel_set:
-            fishing_vessels.add(md)
-            stationary_fishing_days += sp.duration.total_seconds() / (24.0 * 60.0 * 60.0)
-        total_distance_from_shore += sp.mean_distance_from_shore
-        total_squared_drift_radius += sp.rms_drift_radius ** 2
-    all_destinations = normalized_valid_names(sp.destination for (md, sp) in stationary_periods)
+        if n:
+            neighbor_s2ids = tuple(s2sphere.CellId.from_token(s2id).get_all_neighbors(cmn.ANCHORAGES_S2_SCALE))
+            loc = cmn.LatLon(total_lat / n, total_lon / n)
+            wpi_name, wpi_distance = wpi_finder.find_nearest_port_and_distance(loc)
+            geo_name, geo_distance = geo_finder.find_nearest_port_and_distance(loc)
 
-    total_mmsi_count = len(vessels | active_mmsi)
+            all_destinations = list(all_destinations)
+            if len(all_destinations):
+                [(top_destination, top_count)] = Counter(all_destinations).most_common(1)
+            else:
+                top_destination = ''
 
-    if n:
-        neighbor_s2ids = tuple(s2sphere.CellId.from_token(s2id).get_all_neighbors(ANCHORAGES_S2_SCALE))
-        loc = LatLon(total_lat / n, total_lon / n)
-        port_name, port_distance = port_finder.find_nearest_port_and_distance(loc)
-
-        return [AnchoragePoint(
-                    mean_location = loc,
-                    total_visits = n, 
-                    vessels = frozenset(vessels),
-                    fishing_vessels = frozenset(fishing_vessels),
-                    mean_distance_from_shore = total_distance_from_shore / n,
-                    rms_drift_radius =  math.sqrt(total_squared_drift_radius / n),    
-                    top_destinations = tuple(Counter(all_destinations).most_common(dest_limit)),
-                    s2id = s2id,
-                    neighbor_s2ids = neighbor_s2ids,
-                    active_mmsi = active_mmsi_count,
-                    total_mmsi = total_mmsi_count,
-                    stationary_mmsi_days = stationary_days,
-                    stationary_fishing_mmsi_days = stationary_fishing_days,
-                    active_mmsi_days = active_days,
-                    port_name = port_name,
-                    port_distance = port_distance
-                    )]
-    else:
-        return []
-
-
-# def AnchoragePt_from_cell_visits(value, dest_limit):
-#     s2id, visits = value
-
-#     n = 0
-#     total_lat = 0.0
-#     total_lon = 0.0
-#     vessels = set()
-#     total_distance_from_shore = 0.0
-#     total_squared_drift_radius = 0.0
-
-#     for (md, pl) in visits:
-#         n += 1
-#         total_lat += pl.location.lat
-#         total_lon += pl.location.lon
-#         vessels.add(md)
-#         total_distance_from_shore += pl.mean_distance_from_shore
-#         total_squared_drift_radius += pl.rms_drift_radius ** 2
-#     all_destinations = normalized_valid_names(pl.destination for (md, pl) in visits)
-
-#     return AnchoragePoint(
-#                 mean_location = LatLon(total_lat / n, total_lon / n),
-#                 total_visits = n, 
-#                 vessels = frozenset(vessels),
-#                 mean_distance_from_shore = total_distance_from_shore / n,
-#                 rms_drift_radius =  math.sqrt(total_squared_drift_radius / n),    
-#                 top_destinations = tuple(Counter(all_destinations).most_common(dest_limit)),
-#                 s2id = s2id,
-#                 active_mmsi = 0,
-#                 total_mmsi = 0 
-#                 )                  
+            return AnchoragePoint(
+                        mean_location = loc,
+                        total_visits = n, 
+                        vessels = frozenset(vessels),
+                        fishing_vessels = frozenset(fishing_vessels),
+                        rms_drift_radius =  math.sqrt(total_squared_drift_radius / n),    
+                        top_destination = top_destination,
+                        s2id = s2id,
+                        neighbor_s2ids = neighbor_s2ids,
+                        active_mmsi = active_mmsi_count,
+                        total_mmsi = total_mmsi_count,
+                        stationary_mmsi_days = stationary_days,
+                        stationary_fishing_mmsi_days = stationary_fishing_days,
+                        active_mmsi_days = active_days,
+                        wpi_name = wpi_name,
+                        wpi_distance = wpi_distance,
+                        geonames_name = geo_name,
+                        geonames_distance = geo_distance
+                        )
+        else:
+            return None
 
 
-def find_anchorage_points(input, min_unique_vessels_for_anchorage, fishing_vessels):
-    """
-    input is a Pipeline object that contains [(md, processed_locations)]
-
-    """
-    # (md, stationary_periods) => (md (stationary_locs, )) 
-    stationary_periods_by_s2id = (input
-        | "addStationaryCellIds" >> beam.FlatMap(lambda (md, processed_locations):
-                [(sp.s2id, (md, sp)) for sp in processed_locations.stationary_periods])
-        )
-
-    active_points_by_s2id = (input
-        | "addActiveCellIds" >> beam.FlatMap(lambda (md, processed_locations):
-                [(loc.s2id, (md, loc)) for loc in processed_locations.locations])
-        )
-
-    return ((stationary_periods_by_s2id, active_points_by_s2id) 
-        | "CogroupOnS2id" >> beam.CoGroupByKey()
-        | "createAnchoragePoints" >> beam.FlatMap(AnchoragePts_from_cell_visits, dest_limit=10, fishing_vessel_set=fishing_vessels)
-        | "removeAPointsWFewVessels" >> beam.Filter(lambda x: len(x.vessels) >= min_unique_vessels_for_anchorage)
-        )
-
-
-
-
-def anchorage_point_to_json(a_pt):
-    return json.dumps({'lat' : a_pt.mean_location.lat, 'lon': a_pt.mean_location.lon,
-        'total_visits' : a_pt.total_visits,
-        'drift_radius' : a_pt.rms_drift_radius,
-        'destinations': a_pt.top_destinations,
-        'unique_stationary_mmsi' : len(a_pt.vessels),
-        'unique_stationary_fishing_mmsi' : len(a_pt.fishing_vessels),
-        'unique_active_mmsi' : a_pt.active_mmsi,
-        'unique_total_mmsi' : a_pt.total_mmsi,
-        'active_mmsi_days': a_pt.active_mmsi_days,
-        'stationary_mmsi_days': a_pt.stationary_mmsi_days,
-        'stationary_fishing_mmsi_days': a_pt.stationary_fishing_mmsi_days,
-        'port_name': a_pt.port_name,
-        'port_distance': a_pt.port_distance,
-        's2id' : a_pt.s2id
-        })
-
-             
-
-def datetime_to_text(dt):
-    return datetime.datetime.strftime(dt, '%Y-%m-%dT%H:%M:%SZ')
-
-def single_anchorage_visit_to_json(visit):
-    anchorage, stationary_period  = visit
-    return {'port_name' : anchorage.name,
-            'port_country' : anchorage.country,
-            'port_lat' : anchorage.lat,
-            'port_lon' : anchorage.lon,
-            'port_s2id' : anchorage.anchorage_point.s2id, 
-            'arrival': datetime_to_text(stationary_period.start_time),
-            'duration_hours': stationary_period.duration.total_seconds() / (60.0 * 60.0),
-            'mean_lat': stationary_period.location.lat,
-            'mean_lon': stationary_period.location.lon
-            }
-
-def tagged_anchorage_visits_to_json(tagged_visits):
-    metadata, visits = tagged_visits
-    return json.dumps({'mmsi' : metadata.mmsi, 
-        'visits': [single_anchorage_visit_to_json(x) for x in visits]})
-
-
-class GroupAll(beam.CombineFn):
-
-    def create_accumulator(self):
-        return []
-
-    def add_input(self, accumulator, value):
-        accumulator.append(value)
-        return accumulator
-
-    def merge_accumulators(self, accumulators):
-        return list(it.chain(*accumulators))
-
-    def extract_output(self, accumulator):
-        return accumulator
-
-
-def find_visits(s2id, md_sp_tuples, tagged_anchorage_points, max_distance):
-    # Filter anchorage points so we only keep ones in this and adjacent cells.
-    anchorage_points = [ap for (s2ids, ap) in tagged_anchorage_points if s2id in s2ids]
-    anchorage_finder = AnchorageFinder(anchorage_points)
-    visits = []
-    for md, sp in md_sp_tuples:
-        anch = anchorage_finder.is_within(max_distance, sp, s2id=s2id)
-        if anch is not None:
-            visits.append((md, (anch, sp)))
-    return visits
-
-
-
-def check_that_pipeline_args_consumed(pipeline):
-    options = pipeline.get_all_options(drop_default=True)
-
-    # Some options get translated on the way in (should be a better way to do this...)
-    translations = {'--worker_machine_type' : '--machine_type'}
-    flags = [translations.get(x, x) for x in pipeline._flags]
-
-    dash_flags = [x for x in flags if x.startswith('-') and x.replace('-', '') not in options]
-    if dash_flags:
-        print(options)
-        print(dash_flags)
-        raise ValueError('illegal options specified:\n    {}'.format('\n    '.join(dash_flags)))
-
-
-preset_runs = {
-
-    'tiny' : ['gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-01-01/001-of-*'],
-
-    '2016' : [
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-01-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-02-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-03-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-04-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-05-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-06-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-07-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-08-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-09-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-10-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-11-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-12-*/*-of-*'
-                ],
-
-    'all_years': [
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2012-*-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2013-*-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2014-*-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2015-*-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2016-*-*/*-of-*',
-                'gs://p_p429_resampling_3/data-production/classify-pipeline/classify/2017-*-*/*-of-*'
-                ]
-    }
-
-preset_runs['small'] = preset_runs['2016'][-3:]
-preset_runs['medium'] = preset_runs['2016'][-6:]
-
-
-
-def filter_by_latlon(msg, filters):
-    if not is_location_message(msg):
-        # Keep non-location messages for destination tagging
-        return True
-    # Keep any message that falls within a filter region
-    lat = msg['lat']
-    lon = msg['lon']
-    for bounds in filters:
-        if ((bounds['min_lat'] <= lat <= bounds['max_lat']) and 
-            (bounds['min_lon'] <= lon <= bounds['max_lon'])):
-                return True
-    # This message is not within any filter region.
-    return False
-
-
-def add_pipeline_defaults(pipeline_args, name):
-
-    defaults = {
-        '--project' : 'world-fishing-827',
-        '--staging_location' : 'gs://machine-learning-dev-ttl-30d/anchorages/{}/output/staging'.format(name),
-        '--temp_location' : 'gs://machine-learning-dev-ttl-30d/anchorages/temp',
-        '--setup_file' : './setup.py',
-        '--runner': 'DataflowRunner',
-        '--max_num_workers' : '200',
-        '--job_name': name,
-    }
-
-    for name, value in defaults.items():
-        if name not in pipeline_args:
-            pipeline_args.extend((name, value))
-
-
-def tag_apts_with_nbr_s2ids(apt):
-    """Tag anchorage pt with it's own and nbr ids at VISITS_S2_SCALE
-    """
-    s2_cell_id = s2sphere.CellId.from_token(apt.s2id).parent(VISITS_S2_SCALE)
-    s2ids = [s2_cell_id.to_token()]
-    for cell_id in s2_cell_id.get_all_neighbors(VISITS_S2_SCALE):
-        s2ids.append(cell_id.to_token())
-    return (frozenset(s2ids), apt)
-
-
-def run(argv=None):
-    """Main entry point; defines and runs the wordcount pipeline.
-    """
-
+def parse_command_line_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--name', required=True, help='Name to prefix output and job name if not otherwise specified')
-
-    parser.add_argument('--input-patterns', default='all_years',
-                                            help='Input file to patterns (comma separated) to process (glob)')
-    parser.add_argument('--output',
-                                            dest='output',
-                                            help='Output file to write results to.')
-
+    parser.add_argument('--name', required=True, 
+                        help='Name to prefix output and job name if not otherwise specified')
+    # TODO: Replace
+    parser.add_argument('--output', dest='output',
+                        help='Output file to write results to.')
+    parser.add_argument('--input-table', required=True,
+                        help='Input table to pull data from')
+    parser.add_argument('--start-date', required=True, 
+                        help="First date to look for locations.")
+    parser.add_argument('--end-date', required=True, 
+                        help="Last date (inclusive) to look for locations.")
+    parser.add_argument('--start-window', 
+                        help="date to start tracking events to warm up vessel state")
+    parser.add_argument('--config', default='config.yaml',
+                        help="path to configuration file")
     parser.add_argument('--fishing-mmsi-list',
                          dest='fishing_mmsi_list',
                          default='../treniformis/treniformis/_assets/GFW/FISHING_MMSI/KNOWN_LIKELY_AND_SUSPECTED/ANY_YEAR.txt',
                          help='location of list of newline separated fishing mmsi')
 
-    parser.add_argument('--latlon-filters',
-                                            dest='latlon_filter',
-                                            help='newline separated json file containing dicts of min_lat, max_lat, min_lon, max_lon, name')
-
-    known_args, pipeline_args = parser.parse_known_args(argv)
+    known_args, pipeline_args = parser.parse_known_args()
 
     if known_args.output is None:
-        known_args.output = 'gs://machine-learning-dev-ttl-30d/anchorages/{}/output'.format(known_args.name)
+        known_args.output = 'machine_learning_dev_ttl_30d.anchorages_{}'.format(known_args.name)
 
-    add_pipeline_defaults(pipeline_args, known_args.name)
-
-    with open(known_args.fishing_mmsi_list) as f:
-        fishing_vessels = set([int(x.strip()) for x in f.readlines() if x.strip()])
+    cmn.add_pipeline_defaults(pipeline_args, known_args.name)
 
     # We use the save_main_session option because one or more DoFn's in this
     # workflow rely on global context (e.g., a module imported at module level).
     pipeline_options = PipelineOptions(pipeline_args)
-    check_that_pipeline_args_consumed(pipeline_options)
+    cmn.check_that_pipeline_args_consumed(pipeline_options)
     pipeline_options.view_as(SetupOptions).save_main_session = True
+
+    return known_args, pipeline_options
+
+
+def create_queries(args):
+    template = """
+    SELECT mmsi, lat, lon, timestamp, destination, speed FROM   
+      TABLE_DATE_RANGE([world-fishing-827:{table}.], 
+                        TIMESTAMP('{start:%Y-%m-%d}'), TIMESTAMP('{end:%Y-%m-%d}')) 
+    """
+    start_window = datetime.datetime.strptime(args.start_date, '%Y-%m-%d') 
+    end_window = datetime.datetime.strptime(args.end_date, '%Y-%m-%d') 
+
+    queries = []
+    start = start_window
+    while start < end_window:
+        # Add 999 days so that we get 1000 total days
+        end = min(start + datetime.timedelta(days=999), end_window)
+        queries.append(template.format(table=args.input_table, start=start, end=end))
+        # Add 1 day to end, so that we don't overlap.
+        start = end + datetime.timedelta(days=1)
+
+    return queries
+
+
+
+def run():
+    known_args, pipeline_options = parse_command_line_args()
+
+    config = cmn.load_config(known_args.config)
+
+    queries = create_queries(known_args)
+
+    with open(known_args.fishing_mmsi_list) as f:
+        fishing_vessel_set = set([int(x.strip()) for x in f.readlines() if x.strip()])
+
+    inland_mask = SparseInlandMask()
 
     p = beam.Pipeline(options=pipeline_options)
 
+    source = [(p | "Source_{}".format(i) >> QuerySource(query)) 
+                for (i, query) in enumerate(queries)] | beam.Flatten()
 
-    # TODO: Should go in config file or arguments >>>
-    min_required_positions = 200 
-    stationary_period_min_duration = datetime.timedelta(hours=12)
-    stationary_period_max_distance = 0.5 # km
-    min_unique_vessels_for_anchorage = 20
-    blacklisted_mmsis = [0, 12345]
-    anchorage_visit_max_distance = 3.0 # km
-
-    assert anchorage_visit_max_distance + approx_visit_cell_size * VISIT_SAFETY_FACTOR < VISIT_BUFFER_KM
-
-    anchorage_visit_min_duration = datetime.timedelta(minutes=180)
-    # ^^^
-
-    if known_args.input_patterns in preset_runs:
-        input_patterns = preset_runs[known_args.input_patterns]
-    else:
-        input_patterns = [x.strip() for x in known_args.input_patterns.split(',')]
-
-    ais_input_data_streams = [(p | 'read_{}'.format(i) >> ReadFromText(x)) for (i, x) in  enumerate(input_patterns)]
-
-    ais_input_data = ais_input_data_streams | beam.Flatten()
-
-    if known_args.latlon_filter:
-        with open(known_args.latlon_filter) as f:
-            latlon_filters = [json.loads(x) for x in f.readlines()]
-    else:
-        latlon_filters = None
-
-
-    location_records = read_json_records(ais_input_data, blacklisted_mmsis, latlon_filters)
-
-
-    grouped_records = (location_records 
-        | "GroupByMmsi" >> beam.GroupByKey()
-        | "OrderByTimestamp" >> beam.Map(lambda (md, records): (md, sorted(records, key=lambda x: x.timestamp)))
+    tagged_records = (source
+        | cmn.CreateVesselRecords(config['blacklisted_mmsis'])
+        | cmn.CreateTaggedRecords(config['min_required_positions'])
         )
 
-    deduped_records = filter_duplicate_timestamps(grouped_records, min_required_positions)
+    anchorage_points = (tagged_records
+        | FindAnchoragePoints(datetime.timedelta(minutes=config['stationary_period_min_duration_minutes']), 
+                              config['stationary_period_max_distance_km'],
+                              config['min_unique_vessels_for_anchorage'],
+                              fishing_vessel_set,
+                              inland_mask)
+        )
 
-    thinned_records =   ( deduped_records 
-                        | "ThinPoints" >> beam.Map(lambda (md, vlrs): (md, list(thin_points(vlrs)))))
-
-    tagged_records = ( thinned_records 
-                     | "TagWithDestinationAndId" >> beam.Map(lambda (md, records): (md, tag_with_destination_and_id(records))))
-
-    processed_records = filter_and_process_vessel_records(tagged_records, stationary_period_min_duration, stationary_period_max_distance) 
-
-    anchorage_points = (find_anchorage_points(processed_records, min_unique_vessels_for_anchorage, fishing_vessels) 
-        | 'filterOutInlandPorts' >> beam.Filter(lambda x: not inland_mask.query(x.mean_location)))
-
-
-    (anchorage_points 
-        | "convertAPToJson" >> beam.Map(anchorage_point_to_json)
-        | "writeAnchoragesPoints" >> WriteToText(known_args.output + '/anchorages_points', file_name_suffix='.json')
+    (anchorage_points | AnchorageSink(table=known_args.output, 
+                                      write_disposition="WRITE_TRUNCATE")
     )
-
-    # TODO: this is a very broad stationary distance.... is that what we want. Might be, but think about it.
-    visit_records = filter_and_process_vessel_records(tagged_records, anchorage_visit_min_duration, anchorage_visit_max_distance,
-                    prefix="anchorages")
-
-    tagged_anchorage_points = ( anchorage_points 
-                              | "tagAnchoragePointsWithNbrS2ids" >> beam.Map(tag_apts_with_nbr_s2ids)
-                              )
-
-    anchorage_visits = ( visit_records  
-                       | "TagSPWithS2id" >> beam.FlatMap(lambda (md, processed_locations): 
-                                                [(s2sphere.CellId.from_token(sp.s2id).parent(VISITS_S2_SCALE).to_token(), 
-                                                    (md, sp)) for sp in processed_locations.stationary_periods])
-                       | "GroupByS2id" >> beam.GroupByKey()
-                       | "FindVisits"  >> beam.FlatMap(lambda (s2id, md_sp_tuples), anch_points: 
-                                        (find_visits(s2id, md_sp_tuples, anch_points, anchorage_visit_max_distance)),
-                                                                        beam.pvalue.AsIter(tagged_anchorage_points))  
-                       | "GroupVisitsByMd" >> beam.GroupByKey()
-                       )
-
-    (anchorage_visits 
-        | "convertAVToJson" >> beam.Map(tagged_anchorage_visits_to_json)
-        | "writeAnchoragesVisits" >> WriteToText(known_args.output + '/anchorages_visits', file_name_suffix='.json')
-    )
-
 
     result = p.run()
     result.wait_until_finish()
