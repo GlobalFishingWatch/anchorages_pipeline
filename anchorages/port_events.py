@@ -153,7 +153,7 @@ def parse_command_line_args():
                         help='Name to prefix output and job name if not otherwise specified')
     parser.add_argument('--anchorages', 
                         help='Name of of anchorages table (BQ)')
-    parser.add_argument('--output', dest='output',
+    parser.add_argument('--output-table', 
                         help='Output table (BQ) to write results to.')
     parser.add_argument('--input-table', default='pipeline_classify_p_p429_resampling_2',
                         help='Input table to pull data from')
@@ -168,8 +168,8 @@ def parse_command_line_args():
 
     known_args, pipeline_args = parser.parse_known_args()
 
-    if known_args.output is None:
-        known_args.output = 'machine_learning_dev_ttl_30d.in_out_events_{}'.format(known_args.name)
+    if known_args.output_table is None:
+        known_args.output_table = 'machine_learning_dev_ttl_30d.in_out_events_{}'.format(known_args.name)
 
     cmn.add_pipeline_defaults(pipeline_args, known_args.name)
 
@@ -189,16 +189,15 @@ def create_queries(args):
                         TIMESTAMP('{start:%Y-%m-%d}'), TIMESTAMP('{end:%Y-%m-%d}')) 
     """
     start_date = datetime.datetime.strptime(args.start_date, '%Y-%m-%d') 
-    end_date = datetime.datetime.strptime(args.end_date, '%Y-%m-%d') 
-    while start_date <= end_date:
-        start_window = start_date - datetime.timedelta(days=1)
-        end_of_year = datetime.datetime(year=start_date.year, month=12, day=31)
-        end_window = min(end_date, end_of_year)
+    start_window = start_date - datetime.timedelta(days=1)
+    end_date= datetime.datetime.strptime(args.end_date, '%Y-%m-%d') 
+    while start_window <= end_date:
+        end_window = min(start_window + datetime.timedelta(days=999), end_date)
         query = template.format(table=args.input_table, start=start_window, end=end_window)
         if args.fast_test:
             query += 'LIMIT 100000'
         yield query
-        start_date = datetime.datetime(year=start_date.year + 1, month=1, day=1)
+        start_window = end_window + datetime.timedelta(days=1)
 
 
 class CombineAnchoragesIntoMap(beam.CombineFn):
@@ -259,7 +258,7 @@ def run():
                             anchorage_exit_dist=config['anchorage_exit_distance_km'], 
                             stopped_begin_speed=config['stopped_begin_speed_knots'],
                             stopped_end_speed=config['stopped_end_speed_knots'])
-        | "writeInOutEvents" >> EventSink(table=known_args.output, write_disposition="WRITE_APPEND")
+        | "writeInOutEvents" >> EventSink(table=known_args.output_table, write_disposition="WRITE_APPEND")
         )
 
     result = p.run()
