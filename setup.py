@@ -7,6 +7,11 @@ REQUIRED_PACKAGES = [
     'shapely'
     ]
 
+
+with open('VERSION') as f:
+    version = f.read().strip()
+
+    
 setuptools.setup(
     name='anchorages',
     version='0.0.1',
