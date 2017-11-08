@@ -6,7 +6,6 @@ Changes
 0.0.1
 -----
 
+# [`#3`](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/3)
+  Setup framework for tracking versions and changes.
 
-# [`#67`](https://github.com/GlobalFishingWatch/treniformis/pull/67)
-  Update pipeline file we are using and switch to using classify for
-  all queries.

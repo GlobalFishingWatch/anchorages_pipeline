@@ -80,9 +80,10 @@ a different configuration can be specified use the `--config` flag.
 
 Please perform the following steps.
 
-1. Branch the git repo
-2. Add description of changes with commit referenceces to `CHANGES.md`. 
-3. Bump version in VERSION
-4. Create PR
+1. Branch the git repo.
+2. Create a pull request (PR).
+3. Add description of changes with a link to the PR in `CHANGES.md`.  In some
+   cased multiple PRs may be involved in a single version change; list them all.
+4. Bump version in VERSION.
 5. Merge PR after review. Note that if using squash merge, you may need
    to fiddle with the commit references.
