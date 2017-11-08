@@ -75,3 +75,14 @@ Parameters controlling the generation of anchorages and port_visits is stored
 in a `.yaml` file. By default this information is read from `config.yaml`, but
 a different configuration can be specified use the `--config` flag.
 
+
+## Code / Data Updates:
+
+Please perform the following steps.
+
+1. Branch the git repo
+2. Add description of changes with commit referenceces to `CHANGES.md`. 
+3. Bump version in VERSION
+4. Create PR
+5. Merge PR after review. Note that if using squash merge, you may need
+   to fiddle with the commit references.
