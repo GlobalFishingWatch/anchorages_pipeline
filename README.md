@@ -101,12 +101,6 @@ For example:
                           --end-date 2016-01-01 \
                           --max_num_workers 100
 
-    docker-compose run port_events --name portvisitsoneday \
-                          --anchorages gfw_raw.anchorage_naming_20171026 \
-                          --start-date 2016-01-01 \
-                          --end-date 2016-01-01 \
-                          --max_num_workers 100
-
 Results are **appended** to the specified file.
 
 For a full list of options run:
