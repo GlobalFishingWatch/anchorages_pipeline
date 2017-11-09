@@ -1,10 +1,39 @@
 # Anchorages
 
-## Creating Anchorage Points
+This repository contains pipelines for finding anchorages and associated port-visit events.
+
+# Running
+
+## Dependencies
+
+You just need [docker](https://www.docker.com/) and
+[docker-compose](https://docs.docker.com/compose/) in your machine to run the
+pipeline. No other dependency is required.
+
+## Setup
+
+The pipeline reads it's input from BigQuery, so you need to first authenticate
+with your google cloud account inside the docker images. To do that, you need
+to run this command and follow the instructions:
+
+```
+docker-compose run gcloud auth application-default login
+```
+
+## CLI
+
+The pipeline includes a CLI that can be used to start both local test runs and
+remote full runs. Just run `docker-compose run [anchorages|name_anchorages|port_events] --help` and follow the
+instructions there.
+
+
+### Creating Anchorage Points
+
 
 Run:
   
-    python -m anchorages --name updateanchorages \
+    docker-compose run anchorages \
+                         --name updateanchorages \
                          --start-date YYYY-MM-DD \
                          --end-date YYYY-MM-DD \
                          --output BQ_TABLE_NAME \
@@ -16,29 +45,33 @@ Standard dataflow options can also be specified.
 
 For example, to run all years:
 
-    python -m anchorages --name anchoragesallyears \
+    docker-compose run anchorages \
+                         --name anchoragesallyears \
                          --start-date 2012-01-01 \
                          --end-date 2017-12-31 \
                          --input-table pipeline_classify_p_p516_daily \
                          --max_num_workers 200 \
-                         --fishing-mmsi-list ../../treniformis/treniformis/_assets/GFW/FISHING_MMSI/KNOWN_LIKELY_AND_SUSPECTED/ANY_YEAR.txt
+                         --fishing-mmsi-list fishing_list.txt
 
 Or to run a minimal testing run:
 
-    python -m anchorages --name testanchorages2016tiny \
+    docker-compose run anchorages \
+                         --name testanchorages2016tiny \
                          --start-date 2016-01-01 \
                          --end-date 2016-01-31 \
                          --input-table pipeline_classify_p_p516_daily \
-                         --fishing-mmsi-list ../../treniformis/treniformis/_assets/GFW/FISHING_MMSI/KNOWN_LIKELY_AND_SUSPECTED/ANY_YEAR.txt
+                         --fishing-mmsi-list fishing_list.txt
+
+*Note that `FISHING_LIST` must be a local file or docker will not be able to see it, so copy it to your local directory before launching.*
 
 
-## Naming Anchorage Points
+### Naming Anchorage Points
 
 After a set of anchorages is created, names are assigned using `name_anchorages_main`
 
 For example:
 
-    python -m name_anchorages_main \
+    docker-compose run name_anchorages \
                   --name testnameanchorages \
                   --input-table machine_learning_dev_ttl_30d.anchorages_anchoragesallyears \
                   --output-table machine_learning_dev_ttl_30d.test_anchorage_naming \
@@ -48,11 +81,12 @@ The override path points to a csv file containing anchorages that are either mis
 It should have the following fields: s2uid,label,iso3,anchor_lat,anchor_lon,sublabel.
 
 
-## Updating Port Events
+### Updating Port Events
 
 To update a single day of events, run:
 
-    python -m port_events --name JOB_NAME \
+    docker-compose run port_events \
+                          --name JOB_NAME \
                           --anchorage-path GS_PATH_TO_ANCHORAGES \
                           --start-date YYYY-MM-DD \
                           --end-date YYYY-MM-DD 
@@ -60,7 +94,14 @@ To update a single day of events, run:
 
 For example:
 
-    python -m port_events --name portvisitsoneday \
+    docker-compose run port_events \
+                          --name portvisitsoneday \
+                          --anchorages gfw_raw.anchorage_naming_20171026 \
+                          --start-date 2016-01-01 \
+                          --end-date 2016-01-01 \
+                          --max_num_workers 100
+
+    docker-compose run port_events --name portvisitsoneday \
                           --anchorages gfw_raw.anchorage_naming_20171026 \
                           --start-date 2016-01-01 \
                           --end-date 2016-01-01 \
@@ -70,10 +111,10 @@ Results are **appended** to the specified file.
 
 For a full list of options run:
 
-    python -m port_visits_main -h
+    python -m port_events -h
 
 
-## Config file
+### Config file
 
 Parameters controlling the generation of anchorages and port_visits is stored
 in a `.yaml` file. By default this information is read from `config.yaml`, but

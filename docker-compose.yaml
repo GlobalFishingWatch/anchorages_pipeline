@@ -1,0 +1,35 @@
+version: '2'
+services:
+  port_events:
+    image: gfw/pipe-anchorages
+    build: .
+    entrypoint: ["python", "-m", "port_events"]  
+    volumes:
+      - ".:/opt/project"
+      - "gcp:/root/.config/"
+  anchorages:
+    image: gfw/pipe-anchorages
+    build: .
+    entrypoint: ["python", "-m", "anchorages"]  
+    volumes:
+      - ".:/opt/project"
+      - "gcp:/root/.config/"
+  name_anchorages:
+    image: gfw/pipe-anchorages
+    build: .
+    entrypoint: ["python", "-m", "name_anchorages"]  
+    volumes:
+      - ".:/opt/project"
+      - "gcp:/root/.config/"
+  gcloud:
+    image: gfw/pipe-anchorages
+    build: .
+    entrypoint: gcloud
+    volumes:
+      - "gcp:/root/.config/"
+volumes:
+  gcp:
+
+
+
+
