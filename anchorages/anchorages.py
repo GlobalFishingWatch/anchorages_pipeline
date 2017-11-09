@@ -212,7 +212,6 @@ def parse_command_line_args():
                         help="path to configuration file")
     parser.add_argument('--fishing-mmsi-list',
                          dest='fishing_mmsi_list',
-                         default='../treniformis/treniformis/_assets/GFW/FISHING_MMSI/KNOWN_LIKELY_AND_SUSPECTED/ANY_YEAR.txt',
                          help='location of list of newline separated fishing mmsi')
 
     known_args, pipeline_args = parser.parse_known_args()

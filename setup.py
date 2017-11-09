@@ -1,3 +1,4 @@
+import os
 import setuptools
 
 REQUIRED_PACKAGES = [
@@ -8,15 +9,20 @@ REQUIRED_PACKAGES = [
     ]
 
 
-with open('VERSION') as f:
-    version = f.read().strip()
+if os.path.exists('VERSION'):
+    with open('VERSION') as f:
+        version = f.read().strip()
+else:
+    # When installed on dataflow instance for example
+    version = 'UNAVAILABLE'
 
     
 setuptools.setup(
     name='anchorages',
-    version='0.0.1',
+    version=version,
     description='anchorage pipeline.',
     install_requires=REQUIRED_PACKAGES,
     packages=setuptools.find_packages(),
-    package_data={'anchorages': ['*.pickle', '*.csv']},
+    package_data={'anchorages': ['*.pickle', '*.csv'],
+                                 '': ['VERSION']}
     )
