@@ -8,7 +8,9 @@ Run:
                          --start-date YYYY-MM-DD \
                          --end-date YYYY-MM-DD \
                          --output BQ_TABLE_NAME \
-                         --input-table INPUT_TABLE
+                         --input-table INPUT_TABLE \
+                         --fishing-mmsi-list FISHING_LIST
+
 
 Standard dataflow options can also be specified.
 
@@ -18,14 +20,16 @@ For example, to run all years:
                          --start-date 2012-01-01 \
                          --end-date 2017-12-31 \
                          --input-table pipeline_classify_p_p516_daily \
-                         --max_num_workers 200
+                         --max_num_workers 200 \
+                         --fishing-mmsi-list ../../treniformis/treniformis/_assets/GFW/FISHING_MMSI/KNOWN_LIKELY_AND_SUSPECTED/ANY_YEAR.txt
 
 Or to run a minimal testing run:
 
     python -m anchorages --name testanchorages2016tiny \
                          --start-date 2016-01-01 \
                          --end-date 2016-01-31 \
-                         --input-table pipeline_classify_p_p516_daily 
+                         --input-table pipeline_classify_p_p516_daily \
+                         --fishing-mmsi-list ../../treniformis/treniformis/_assets/GFW/FISHING_MMSI/KNOWN_LIKELY_AND_SUSPECTED/ANY_YEAR.txt
 
 
 ## Naming Anchorage Points
