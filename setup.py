@@ -6,7 +6,8 @@ DEPENDENCIES = [
     'ujson',
     'fiona',
     'shapely',
-    'pyyaml'
+    'pyyaml',
+    'unidecode'
     ]
 
 # Frozen dependencies for the google cloud dataflow dependency

@@ -26,7 +26,7 @@ RUN  \
   gcloud config set metrics/environment github_docker_image
 
 # Install extra packages
-RUN pip install ujson more_itertools statistics pytz s2sphere
+RUN pip install ujson more_itertools statistics pytz s2sphere unidecode
 
 # Setup a volume for configuration and auth data
 VOLUME ["/root/.config"]

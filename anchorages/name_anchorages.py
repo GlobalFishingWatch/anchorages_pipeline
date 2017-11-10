@@ -5,6 +5,7 @@ import csv
 import datetime
 import os
 import s2sphere
+import unidecode
 import math
 from collections import namedtuple
 import logging
@@ -29,8 +30,15 @@ this_dir = os.path.dirname(__file__)
 inf = float("inf")
 
 
+def normalize_label(lbl):
+    lbl = lbl.strip()
+    if not lbl:
+        return None
+    return unidecode.unidecode(lbl).upper()
+
+
 class NamedAnchoragePoint(namedtuple("NamedAnchoragePoint", 
-        AnchoragePoint._fields + ('label', 'sublabel'))):
+        AnchoragePoint._fields + ('label', 'sublabel', 'iso3'))):
 
     __slots__ = ()
 
@@ -48,6 +56,7 @@ class NamedAnchoragePoint(namedtuple("NamedAnchoragePoint",
                                     msg.pop('geonames_lat'), msg.pop('geonames_lon'))
         msg['label'] = None
         msg['sublabel'] = None
+        msg['iso3'] = None
         msg['neighbor_s2ids'] = None
         return NamedAnchoragePoint(**msg)
 
@@ -76,8 +85,9 @@ class AddNamesToAnchorages(beam.PTransform):
         else:
             label = anchorage.top_destination
         map = anchorage._asdict()
-        map['label'] = unicode(label)
+        map['label'] = normalize_label(label)
         map['sublabel'] = None
+        map['iso3'] = None
         return NamedAnchoragePoint(**map)
 
     def add_iso3(self, named_anchorage):
@@ -87,7 +97,8 @@ class AddNamesToAnchorages(beam.PTransform):
             iso3 = "---"
         if iso3 == "CHN":
             named_anchorage = named_anchorage._replace(label=named_anchorage.s2id)
-        return named_anchorage._replace(label=u"{},{}".format(named_anchorage.label, iso3))
+        return named_anchorage._replace(label=u"{},{}".format(named_anchorage.label, iso3),
+                                         iso3=iso3)
 
     def apply_override_list(self, named_anchorage):
         min_dist = inf
@@ -95,11 +106,8 @@ class AddNamesToAnchorages(beam.PTransform):
         for row in self.override_list:
             if row['s2id'] == named_anchorage.s2id:
                 # If S2id's match, replace with new anchorage, but keep old stats
-                sublabel = sublabel=row['sublabel'].strip()
-                if not sublabel:
-                    sublabel = None
-                return named_anchorage._replace(label=row['label'],
-                                                sublabel=sublabel,
+                return named_anchorage._replace(label=normalize_label(row['label']),
+                                                sublabel=normalize_label(row['sublabel']),
                                                 mean_location=cmn.LatLon(
                                                     lat=row['anchor_lat'],
                                                     lon=row['anchor_lon']))
@@ -175,8 +183,9 @@ class CreateOverrideAnchorages(beam.PTransform):
                         wpi_distance = None,
                         geonames_name = Port(None, None, None, None),
                         geonames_distance = None,
-                        label=row['label'],
-                        sublabel=row['sublabel']
+                        label=normalize_label(row['label']),
+                        sublabel=normalize_label(row['sublabel']),
+                        iso3=row['iso3']
                         )
 
     def expand(self, p):
