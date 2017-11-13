@@ -72,9 +72,9 @@ After a set of anchorages is created, names are assigned using `name_anchorages_
 For example:
 
     docker-compose run name_anchorages \
-                  --name testnameanchorages \
-                  --input-table machine_learning_dev_ttl_30d.anchorages_anchoragesallyears \
-                  --output-table machine_learning_dev_ttl_30d.test_anchorage_naming \
+                  --name nameanchorages \
+                  --input-table gfw_raw.unnamed_anchorages \
+                  --output-table machine_learning_dev_ttl_30d.named_anchorages_2017_11_9 \
                   --override-path ./anchorage_overrides.csv
 
 The override path points to a csv file containing anchorages that are either missing or incorrectly named.
