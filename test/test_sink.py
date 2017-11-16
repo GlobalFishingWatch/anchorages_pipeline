@@ -40,10 +40,6 @@ class TestAnchorageSink(object):
                                 stationary_mmsi_days = 4.1,
                                 stationary_fishing_mmsi_days = 3.3,
                                 active_mmsi_days = 7.2,
-                                wpi_name = nearest_port.Port('APORT', 'ACOUNTRY', 0.0, 0.1),
-                                wpi_distance = 10.0,
-                                geonames_name = nearest_port.Port('BPORT', 'BCOUNTRY', 1.1, 1.0),
-                                geonames_distance = 11.0
                                 )
 
 
