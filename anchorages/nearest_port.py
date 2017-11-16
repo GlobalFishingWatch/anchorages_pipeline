@@ -5,9 +5,8 @@ import math
 from collections import namedtuple
 from .distance import distance, EARTH_RADIUS, inf
 
-Port = namedtuple("Port", ["name", "country", "lat", "lon"])
+Port = namedtuple("Port", ["iso3", "label", "sublabel", "lat", "lon"])
 
-this_dir = os.path.dirname(__file__)
 
 BUFFER_KM = 64 + 1
 
@@ -16,11 +15,12 @@ class PortFinder(object):
     def __init__(self, path):
         self.ports_near = {}
         self.ports = []
-        with open(os.path.join(this_dir, path)) as f:
+        with open(path) as f:
             reader = csv.DictReader(f)
             for row in reader:
-                self.ports.append(Port(name=row['port_name'],
-                                       country=row['country'],
+                self.ports.append(Port(iso3=row['iso3'],
+                                       label=row['label'],
+                                       sublabel=row['sublabel'],
                                        lat=float(row['latitude']),
                                        lon=float(row['longitude'])))
 
@@ -41,5 +41,10 @@ class PortFinder(object):
 
    
 
-wpi_finder = PortFinder('WPI_ports.csv')
-geo_finder = PortFinder('geonames_1000.csv')
+_cache = {}
+
+def get_port_finder(path):
+    if path not in _cache:
+        _cache[path] = PortFinder(path)
+    return _cache[path]
+

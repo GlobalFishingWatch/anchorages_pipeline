@@ -69,6 +69,8 @@ setuptools.setup(
     description='anchorage pipeline.',
     install_requires=DEPENDENCIES + DATAFLOW_PINNED_DEPENDENCIES,
     packages=setuptools.find_packages(),
-    package_data={'anchorages': ['*.pickle', '*.csv'],
-                                 '': ['VERSION']}
+    package_data={
+                  'anchorages': ['data/EEZ/EEZ_land_v2_201410.*',
+                                 'data/port_lists/*.csv', 
+                                 'data/*.pickle']}
     )

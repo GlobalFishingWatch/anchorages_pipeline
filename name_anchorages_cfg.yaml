@@ -1,0 +1,7 @@
+
+label_distance_km: 4.0
+sublabel_distance_km: 1.0
+override_path: anchorage_overrides.csv
+port_list_paths:
+    - WPI_ports.csv
+    - geonames_1000.csv

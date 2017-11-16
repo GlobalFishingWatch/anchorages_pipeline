@@ -2,6 +2,13 @@ import fiona
 from shapely.geometry import shape, mapping, Point, Polygon, MultiPolygon
 
 
+_cache = {}
+
+def get_iso3_finder(shapefile_path):
+    if shapefile_path not in _cache:
+        _cache[shapefile_path] = Iso3Finder(shapefile_path)
+    return _cache[shapefile_path]
+
 class Iso3Finder(object):
 
     def __init__(self, shapefile_path):
