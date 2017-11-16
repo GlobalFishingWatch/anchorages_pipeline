@@ -3,10 +3,16 @@ CHANGES:
 Changes
 =======
 
+0.0.4
+-----
+
+* [`#7`](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/7)
+  Update name override file for Curacao anchorages
+
 0.0.3
 -----
 
-* [`#6](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/6)
+* [`#6`](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/6)
   Update name override file following top anchorages review.
 
 0.0.2
