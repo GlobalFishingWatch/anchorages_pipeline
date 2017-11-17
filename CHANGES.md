@@ -3,6 +3,15 @@ CHANGES:
 Changes
 =======
 
+
+0.1.0
+-----
+
+* [`#9`](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/9)
+  Reorganize port lists so that it is easier to add new lists. Add `label_source`
+  field. Reduce job file size.
+
+
 0.0.4
 -----
 
