@@ -74,7 +74,7 @@ For example:
     docker-compose run name_anchorages \
                   --name nameanchorages \
                   --input-table gfw_raw.unnamed_anchorages \
-                  --output-table machine_learning_dev_ttl_30d.named_anchorages_2017_11_15 \
+                  --output-table machine_learning_dev_ttl_30d.named_anchorages_test \
                   --config-path ./name_anchorages_cfg.yaml
 
 
