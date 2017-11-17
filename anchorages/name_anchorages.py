@@ -52,20 +52,20 @@ class PortInfoFinder(object):
         paths =  [config['override_path']] + config['port_list_paths']
         return cls(paths, config['label_distance_km'], config['sublabel_distance_km'])
 
-    def find(self, loc, fallback):
+    def find(self, loc, fallback, fallback_source):
         for path in self.port_finder_paths:
+            source = os.path.splitext(os.path.basename(path))[0]
             finder = get_port_finder(mangled_path(path, 'port_lists'))
             port, distance = finder.find_nearest_port_and_distance(loc)
             if distance <= self.sublabel_distance_km:
-                return port
+                return port, source
             elif distance <= self.label_distance_km:
-                return port._replace(sublabel='')
-        return fallback
-
+                return port._replace(sublabel=''), source
+        return fallback, fallback_source
 
 
 class NamedAnchoragePoint(namedtuple("NamedAnchoragePoint", 
-        AnchoragePoint._fields + ('label', 'sublabel', 'iso3'))):
+        AnchoragePoint._fields + ('label', 'sublabel', 'iso3', 'label_source'))):
 
     __slots__ = ()
 
@@ -80,6 +80,7 @@ class NamedAnchoragePoint(namedtuple("NamedAnchoragePoint",
         msg['label'] = None
         msg['sublabel'] = None
         msg['iso3'] = None
+        msg['label_source'] = None
         msg['neighbor_s2ids'] = None
 
         msg.pop('geonames_distance')
@@ -112,37 +113,20 @@ class AddNamesToAnchorages(beam.PTransform):
         self.config = config
         self.shapefile_path = shapefile_path 
 
-
-    # def label_for_loc(self, loc, fallback):
-    #     wpi_name, wpi_distance = wpi_finder.find_nearest_port_and_distance(loc)
-    #     if wpi_distance < 4:
-    #         return wpi_name.name
-
-    #     geo_name, geo_distance = geo_finder.find_nearest_port_and_distance(loc)
-    #     if geo_distance < 4:
-    #         return geo_name.name
-
-    #     return fallback
-
     @property
     def port_info_finder(self):
         if self._port_info_finder is None:
             self._port_info_finder = PortInfoFinder.from_config(self.config)
         return self._port_info_finder
 
-    # @property
-    # def iso3_finder(self):
-    #     if self._iso3_finder is None:
-    #         self._iso3_finder = Iso3Finder(self.shapefile_path)
-    #     return self._iso3_finder
-
     def add_best_label(self, anchorage):
         fallback = Port(iso3='', label=anchorage.top_destination, sublabel='', lat=None, lon=None)
-        port_info = self.port_info_finder.find(anchorage.mean_location, fallback)
+        port_info, source = self.port_info_finder.find(anchorage.mean_location, fallback, 'top_destination')
         map = anchorage._asdict()
         map['label'] = normalize_label(port_info.label)
         map['sublabel'] = normalize_label(port_info.sublabel)
         map['iso3'] = normalize_label(port_info.iso3)
+        map['label_source'] = source
         return NamedAnchoragePoint(**map)
 
     def add_iso3(self, named_anchorage):
@@ -156,7 +140,7 @@ class AddNamesToAnchorages(beam.PTransform):
             iso3 = named_anchorage.iso3
         if iso3 == "CHN":
             named_anchorage = named_anchorage._replace(label=named_anchorage.s2id)
-        return named_anchorage._replace(label=u"{}".format(named_anchorage.label, iso3),
+        return named_anchorage._replace(label=u"{},{}".format(named_anchorage.label, iso3),
                                          iso3=iso3)
 
     def expand(self, anchorages):
@@ -172,18 +156,7 @@ class FindUsedS2ids(beam.PTransform):
     _override_list = None
 
     def __init__(self, override_path):
-        self.override_path = override_path
-
-    # @property
-    # def override_list(self):
-    #     if self._override_list is None:
-    #         self._override_list = []
-    #         with open(mangled_path(self.override_path, 'port_lists')) as csvfile:
-    #             for x in  csv.DictReader(csvfile):
-    #                 x['latLon'] = cmn.LatLon(float(x['latitude']), float(x['longitude']))
-    #                 x['s2id'] = x['latLon'].S2CellId(scale=cmn.ANCHORAGES_S2_SCALE).to_token()
-    #                 self._override_list.append(x) 
-    #     return self._override_list   
+        self.override_path = override_path  
 
     def find_used_s2ids(self, named_anchorage):
         for row in get_override_list(mangled_path(self.override_path, 'port_lists')):
@@ -204,17 +177,6 @@ class CreateOverrideAnchorages(beam.PTransform):
         self.override_path = override_path
         self.used_s2ids = used_s2ids
 
-    # @property
-    # def override_list(self):
-    #     if self._override_list is None:
-    #         self._override_list = []
-    #         with open(mangled_path(self.override_path, 'port_lists')) as csvfile:
-    #             for x in  csv.DictReader(csvfile):
-    #                 x['latLon'] = cmn.LatLon(float(x['latitude']), float(x['longitude']))
-    #                 x['s2id'] = x['latLon'].S2CellId(scale=cmn.ANCHORAGES_S2_SCALE).to_token()
-    #                 self._override_list.append(x) 
-    #     return self._override_list   
-
     def create_override_anchorages(self, dummy, used_s2ids):
         used_s2ids = set(used_s2ids)
         for row in get_override_list(mangled_path(self.override_path, 'port_lists')):
@@ -233,9 +195,10 @@ class CreateOverrideAnchorages(beam.PTransform):
                         stationary_mmsi_days = None,
                         stationary_fishing_mmsi_days = None,
                         active_mmsi_days = None,
-                        label=normalize_label(row['label']),
+                        label=u"{},{}".format(normalize_label(row['label']), row['iso3']),
                         sublabel=normalize_label(row['sublabel']),
-                        iso3=row['iso3']
+                        label_source=os.path.splitext(os.path.basename(self.override_path))[0],
+                        iso3=row['iso3'],
                         )
 
     def expand(self, p):

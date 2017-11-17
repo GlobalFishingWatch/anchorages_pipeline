@@ -141,7 +141,8 @@ class NamedAnchorageSink(PTransform):
             'stationary_fishing_mmsi_days': anchorage.stationary_fishing_mmsi_days,
             's2id' : anchorage.s2id,  
             'label': anchorage.label,
-            'sublabel': anchorage.sublabel   
+            'sublabel': anchorage.sublabel, 
+            'label_source': anchorage.label_source,
             }
 
 
@@ -160,7 +161,8 @@ class NamedAnchorageSink(PTransform):
             "stationary_fishing_mmsi_days": "float",
             "s2id": "string",
             'label': 'string',
-            'sublabel': 'string'
+            'sublabel': 'string',
+            'label_source': 'string',
         }
 
 
