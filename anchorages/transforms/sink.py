@@ -73,7 +73,7 @@ class AnchorageSink(PTransform):
             'active_mmsi_days': anchorage.active_mmsi_days,
             'stationary_mmsi_days': anchorage.stationary_mmsi_days,
             'stationary_fishing_mmsi_days': anchorage.stationary_fishing_mmsi_days,
-            's2id' : anchorage.s2id,        
+            's2id': anchorage.s2id,   
             }
 
 
@@ -143,6 +143,7 @@ class NamedAnchorageSink(PTransform):
             'label': anchorage.label,
             'sublabel': anchorage.sublabel, 
             'label_source': anchorage.label_source,
+            'iso3': anchorage.iso3,  
             }
 
 
@@ -163,6 +164,7 @@ class NamedAnchorageSink(PTransform):
             'label': 'string',
             'sublabel': 'string',
             'label_source': 'string',
+            "iso3": "string",
         }
 
 
