@@ -34,6 +34,8 @@ def mangled_path(x, subdir):
 
 
 def normalize_label(lbl):
+    if not lbl:
+        return None
     lbl = lbl.strip()
     if not lbl:
         return None
