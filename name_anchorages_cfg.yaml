@@ -4,4 +4,5 @@ sublabel_distance_km: 1.0
 override_path: anchorage_overrides.csv
 port_list_paths:
     - WPI_ports.csv
+    - indonesia.csv
     - geonames_1000.csv
