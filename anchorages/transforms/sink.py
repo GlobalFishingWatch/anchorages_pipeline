@@ -73,17 +73,7 @@ class AnchorageSink(PTransform):
             'active_mmsi_days': anchorage.active_mmsi_days,
             'stationary_mmsi_days': anchorage.stationary_mmsi_days,
             'stationary_fishing_mmsi_days': anchorage.stationary_fishing_mmsi_days,
-            's2id' : anchorage.s2id,
-            'wpi_distance': anchorage.wpi_distance,
-            'wpi_name': anchorage.wpi_name.name,
-            'wpi_country': anchorage.wpi_name.country,
-            'wpi_lat': anchorage.wpi_name.lat,
-            'wpi_lon': anchorage.wpi_name.lon,
-            'geonames_distance': anchorage.geonames_distance, 
-            'geonames_name': anchorage.geonames_name.name,
-            'geonames_country': anchorage.geonames_name.country,
-            'geonames_lat': anchorage.geonames_name.lat,
-            'geonames_lon': anchorage.geonames_name.lon,          
+            's2id': anchorage.s2id,   
             }
 
 
@@ -101,16 +91,6 @@ class AnchorageSink(PTransform):
             "stationary_mmsi_days": "float",
             "stationary_fishing_mmsi_days": "float",
             "s2id": "string",
-            "wpi_name": "string",
-            "wpi_country": "string",
-            "wpi_lat": "float",
-            "wpi_lon": "float",
-            "wpi_distance": "float",
-            "geonames_name": "string",
-            "geonames_country": "string",
-            "geonames_lat": "float",
-            "geonames_lon": "float",
-            "geonames_distance": "float",
         }
 
 
@@ -159,19 +139,11 @@ class NamedAnchorageSink(PTransform):
             'active_mmsi_days': anchorage.active_mmsi_days,
             'stationary_mmsi_days': anchorage.stationary_mmsi_days,
             'stationary_fishing_mmsi_days': anchorage.stationary_fishing_mmsi_days,
-            's2id' : anchorage.s2id,
-            'wpi_distance': anchorage.wpi_distance,
-            'wpi_name': anchorage.wpi_name.name,
-            'wpi_country': anchorage.wpi_name.country,
-            'wpi_lat': anchorage.wpi_name.lat,
-            'wpi_lon': anchorage.wpi_name.lon,
-            'geonames_distance': anchorage.geonames_distance, 
-            'geonames_name': anchorage.geonames_name.name,
-            'geonames_country': anchorage.geonames_name.country,
-            'geonames_lat': anchorage.geonames_name.lat,
-            'geonames_lon': anchorage.geonames_name.lon,    
+            's2id' : anchorage.s2id,  
             'label': anchorage.label,
-            'sublabel': anchorage.sublabel   
+            'sublabel': anchorage.sublabel, 
+            'label_source': anchorage.label_source,
+            'iso3': anchorage.iso3,  
             }
 
 
@@ -189,18 +161,10 @@ class NamedAnchorageSink(PTransform):
             "stationary_mmsi_days": "float",
             "stationary_fishing_mmsi_days": "float",
             "s2id": "string",
-            "wpi_name": "string",
-            "wpi_country": "string",
-            "wpi_lat": "float",
-            "wpi_lon": "float",
-            "wpi_distance": "float",
-            "geonames_name": "string",
-            "geonames_country": "string",
-            "geonames_lat": "float",
-            "geonames_lon": "float",
-            "geonames_distance": "float",
             'label': 'string',
-            'sublabel': 'string'
+            'sublabel': 'string',
+            'label_source': 'string',
+            "iso3": "string",
         }
 
 

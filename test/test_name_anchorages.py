@@ -1,15 +1,31 @@
 # -*- coding: utf-8 -*-
 import os
+import yaml
 import pytest
+from anchorages import common as cmn
 
 from anchorages import name_anchorages
+
+config = yaml.load("""
+label_distance_km: 4.0
+sublabel_distance_km: 1.0
+override_path: anchorage_overrides.csv
+port_list_paths:
+    - WPI_ports.csv
+    - geonames_1000.csv
+    """)
 
 
 class TestNameAnchorages(object):
 
     def test_normalize(self):
         normalize = name_anchorages.normalize_label
-        assert normalize(u'Спецморнефтепорт') == "SPETSMORNEFTEPORT"
-        assert normalize(u'Tromsø') == "TROMSO"
+        assert normalize(u'Спецморнефтепорт'.encode('utf-8')) == "SPETSMORNEFTEPORT"
+        assert normalize(u'Tromsø'.encode('utf-8')) == "TROMSO"
+
+
+    def test_finder(self):
+        finder = name_anchorages.PortInfoFinder.from_config(config)
+        assert finder.find(cmn.LatLon(62.69251317945518, 6.640516316894406), None, None)[0].label == "Midsund"
 
 

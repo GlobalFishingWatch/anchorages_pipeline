@@ -12,8 +12,7 @@ from . import common as cmn
 from .transforms.source import QuerySource
 from .transforms.sink import AnchorageSink
 from .port_name_filter import normalized_valid_names
-from .nearest_port import wpi_finder
-from .nearest_port import geo_finder
+
 
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
@@ -119,10 +118,6 @@ class AnchoragePoint(namedtuple("AnchoragePoint", ['mean_location',
                                                   'stationary_mmsi_days',
                                                   'stationary_fishing_mmsi_days',
                                                   'active_mmsi_days',
-                                                  'wpi_name',
-                                                  'wpi_distance',
-                                                  'geonames_name',
-                                                  'geonames_distance'
                                                ])):
     __slots__ = ()
 
@@ -160,8 +155,6 @@ class AnchoragePoint(namedtuple("AnchoragePoint", ['mean_location',
         if n:
             neighbor_s2ids = tuple(s2sphere.CellId.from_token(s2id).get_all_neighbors(cmn.ANCHORAGES_S2_SCALE))
             loc = cmn.LatLon(total_lat / n, total_lon / n)
-            wpi_name, wpi_distance = wpi_finder.find_nearest_port_and_distance(loc)
-            geo_name, geo_distance = geo_finder.find_nearest_port_and_distance(loc)
 
             all_destinations = list(all_destinations)
             if len(all_destinations):
@@ -183,10 +176,6 @@ class AnchoragePoint(namedtuple("AnchoragePoint", ['mean_location',
                         stationary_mmsi_days = stationary_days,
                         stationary_fishing_mmsi_days = stationary_fishing_days,
                         active_mmsi_days = active_days,
-                        wpi_name = wpi_name,
-                        wpi_distance = wpi_distance,
-                        geonames_name = geo_name,
-                        geonames_distance = geo_distance
                         )
         else:
             return None

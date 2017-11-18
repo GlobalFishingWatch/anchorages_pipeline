@@ -1,7 +1,6 @@
 from __future__ import absolute_import, print_function, division
 
 import argparse
-import csv
 import datetime
 import os
 import s2sphere
@@ -9,36 +8,66 @@ import unidecode
 import math
 from collections import namedtuple
 import logging
+import yaml
 
 from . import common as cmn
 from .anchorages import AnchoragePoint
 from .distance import distance
 from .nearest_port import Port
-from .shapefile_to_iso3 import Iso3Finder
+from .shapefile_to_iso3 import get_iso3_finder
 from .transforms.source import QuerySource
 from .transforms.sink import NamedAnchorageSink
+from .nearest_port import get_port_finder
+from .nearest_port import Port
+from .get_override_list import get_override_list
 
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
-Port = namedtuple("Port", ["name", "country", "lat", "lon"])
-
-
 
 this_dir = os.path.dirname(__file__)
 inf = float("inf")
 
+def mangled_path(x, subdir):
+    return os.path.join(this_dir, 'data', subdir, x)
+
 
 def normalize_label(lbl):
+    if not lbl:
+        return None
     lbl = lbl.strip()
     if not lbl:
         return None
-    return unidecode.unidecode(lbl).upper()
+    return unidecode.unidecode(lbl.decode('utf8')).upper()
+
+
+class PortInfoFinder(object):
+
+    def __init__(self, port_finder_paths, label_distance_km, sublabel_distance_km):
+        self.port_finder_paths = port_finder_paths
+        self.label_distance_km = label_distance_km
+        self.sublabel_distance_km = sublabel_distance_km
+
+    @classmethod
+    def from_config(cls, config):
+        paths =  [config['override_path']] + config['port_list_paths']
+        return cls(paths, config['label_distance_km'], config['sublabel_distance_km'])
+
+    def find(self, loc, fallback, fallback_source):
+        for path in self.port_finder_paths:
+            source = os.path.splitext(os.path.basename(path))[0]
+            finder = get_port_finder(mangled_path(path, 'port_lists'))
+            port, distance = finder.find_nearest_port_and_distance(loc)
+            if distance <= self.sublabel_distance_km:
+                return port, source
+            elif distance <= self.label_distance_km:
+                return port._replace(sublabel=''), source
+        return fallback, fallback_source
 
 
 class NamedAnchoragePoint(namedtuple("NamedAnchoragePoint", 
-        AnchoragePoint._fields + ('label', 'sublabel', 'iso3'))):
+        AnchoragePoint._fields + ('label', 'sublabel', 'iso3', 'label_source'))):
 
     __slots__ = ()
 
@@ -50,14 +79,24 @@ class NamedAnchoragePoint(namedtuple("NamedAnchoragePoint",
         msg['fishing_vessels'] = [None] * msg.pop('unique_stationary_fishing_mmsi')
         msg['active_mmsi'] = msg.pop('unique_active_mmsi')
         msg['total_mmsi'] = msg.pop('unique_total_mmsi')
-        msg['wpi_name'] = Port(msg.pop('wpi_name'), msg.pop('wpi_country'), 
-                               msg.pop('wpi_lat'), msg.pop('wpi_lon'))
-        msg['geonames_name'] = Port(msg.pop('geonames_name'), msg.pop('geonames_country'), 
-                                    msg.pop('geonames_lat'), msg.pop('geonames_lon'))
         msg['label'] = None
         msg['sublabel'] = None
         msg['iso3'] = None
+        msg['label_source'] = None
         msg['neighbor_s2ids'] = None
+
+        msg.pop('geonames_distance')
+        msg.pop('wpi_distance')
+        msg.pop('geonames_name')
+        msg.pop('geonames_country')
+        msg.pop('geonames_lon')
+        msg.pop('geonames_lat')
+        msg.pop('wpi_name')
+        msg.pop('wpi_country')
+        msg.pop('wpi_lon')
+        msg.pop('wpi_lat')
+
+
         return NamedAnchoragePoint(**msg)
 
 
@@ -68,79 +107,61 @@ class NamedAnchoragePoint(namedtuple("NamedAnchoragePoint",
 
 class AddNamesToAnchorages(beam.PTransform):
 
-    def __init__(self, shapefile_path, override_path):
-        self.iso3finder = Iso3Finder(shapefile_path)
-        self.override_list = []
-        with open(override_path) as csvfile:
-            for x in  csv.DictReader(csvfile):
-                x['latLon'] = cmn.LatLon(float(x['anchor_lat']), float(x['anchor_lon']))
-                x['s2id'] = x['latLon'].S2CellId(scale=cmn.ANCHORAGES_S2_SCALE).to_token()
-                self.override_list.append(x)
+    _port_info_finder = None
+    _iso3_finder = None
+
+
+    def __init__(self, shapefile_path, config):
+        self.config = config
+        self.shapefile_path = shapefile_path 
+
+    @property
+    def port_info_finder(self):
+        if self._port_info_finder is None:
+            self._port_info_finder = PortInfoFinder.from_config(self.config)
+        return self._port_info_finder
 
     def add_best_label(self, anchorage):
-        if anchorage.wpi_distance < 4:
-            label = anchorage.wpi_name.name
-        elif anchorage.geonames_distance < 4:
-            label = anchorage.geonames_name.name
-        else:
-            label = anchorage.top_destination
+        fallback = Port(iso3='', label=anchorage.top_destination, sublabel='', lat=None, lon=None)
+        port_info, source = self.port_info_finder.find(anchorage.mean_location, fallback, 'top_destination')
         map = anchorage._asdict()
-        map['label'] = normalize_label(label)
-        map['sublabel'] = None
-        map['iso3'] = None
+        map['label'] = normalize_label(port_info.label)
+        map['sublabel'] = normalize_label(port_info.sublabel)
+        map['iso3'] = normalize_label(port_info.iso3)
+        map['label_source'] = source
         return NamedAnchoragePoint(**map)
 
     def add_iso3(self, named_anchorage):
-        iso3 = self.iso3finder.iso3(named_anchorage.mean_location.lat, 
-                                    named_anchorage.mean_location.lon)
-        if iso3 is None:
-            iso3 = "---"
+        if named_anchorage.iso3 is None:
+            finder = get_iso3_finder(mangled_path(self.shapefile_path, 'EEZ'))
+            iso3 = finder.iso3(named_anchorage.mean_location.lat, 
+                               named_anchorage.mean_location.lon)
+            if iso3 is None:
+                iso3 = "---"
+        else:
+            iso3 = named_anchorage.iso3
         if iso3 == "CHN":
             named_anchorage = named_anchorage._replace(label=named_anchorage.s2id)
         return named_anchorage._replace(label=u"{},{}".format(named_anchorage.label, iso3),
                                          iso3=iso3)
 
-    def apply_override_list(self, named_anchorage):
-        min_dist = inf
-        min_row = None
-        for row in self.override_list:
-            if row['s2id'] == named_anchorage.s2id:
-                # If S2id's match, replace with new anchorage, but keep old stats
-                return named_anchorage._replace(label=normalize_label(row['label']),
-                                                sublabel=normalize_label(row['sublabel']),
-                                                mean_location=cmn.LatLon(
-                                                    lat=row['anchor_lat'],
-                                                    lon=row['anchor_lon']))
-            dist = distance(named_anchorage.mean_location, row['latLon'])
-            if dist < min_dist:
-                min_dist = dist
-                min_row = row
-        if min_dist < 4:
-            # Otherwise if any vessels in the list are within 4 km, replace just the labe.
-            named_anchorage = named_anchorage._replace(label=min_row['label'])
-        return named_anchorage
-
     def expand(self, anchorages):
         return (anchorages
             | beam.Map(self.add_best_label)
             | beam.Map(self.add_iso3)
-            | beam.Map(self.apply_override_list)
             )
 
 
 
 class FindUsedS2ids(beam.PTransform):
 
+    _override_list = None
+
     def __init__(self, override_path):
-        self.override_list = []
-        with open(override_path) as csvfile:
-            for x in  csv.DictReader(csvfile):
-                x['latLon'] = cmn.LatLon(float(x['anchor_lat']), float(x['anchor_lon']))
-                x['s2id'] = x['latLon'].S2CellId(scale=cmn.ANCHORAGES_S2_SCALE).to_token()
-                self.override_list.append(x)
+        self.override_path = override_path  
 
     def find_used_s2ids(self, named_anchorage):
-        for row in self.override_list:
+        for row in get_override_list(mangled_path(self.override_path, 'port_lists')):
             if row['s2id'] == named_anchorage.s2id:
                 yield row['s2id']
                 break
@@ -152,18 +173,15 @@ class FindUsedS2ids(beam.PTransform):
 
 class CreateOverrideAnchorages(beam.PTransform):
 
+    _override_list = None
+
     def __init__(self, override_path, used_s2ids):
-        self.override_list = []
-        with open(override_path) as csvfile:
-            for x in  csv.DictReader(csvfile):
-                x['latLon'] = cmn.LatLon(float(x['anchor_lat']), float(x['anchor_lon']))
-                x['s2id'] = x['latLon'].S2CellId(scale=cmn.ANCHORAGES_S2_SCALE).to_token()
-                self.override_list.append(x)
+        self.override_path = override_path
         self.used_s2ids = used_s2ids
 
     def create_override_anchorages(self, dummy, used_s2ids):
         used_s2ids = set(used_s2ids)
-        for row in self.override_list:
+        for row in get_override_list(mangled_path(self.override_path, 'port_lists')):
             if row['s2id'] not in used_s2ids:
                 yield NamedAnchoragePoint(
                         mean_location = row['latLon'],
@@ -179,13 +197,10 @@ class CreateOverrideAnchorages(beam.PTransform):
                         stationary_mmsi_days = None,
                         stationary_fishing_mmsi_days = None,
                         active_mmsi_days = None,
-                        wpi_name = Port(None, None, None, None),
-                        wpi_distance = None,
-                        geonames_name = Port(None, None, None, None),
-                        geonames_distance = None,
-                        label=normalize_label(row['label']),
+                        label=u"{},{}".format(normalize_label(row['label']), row['iso3']),
                         sublabel=normalize_label(row['sublabel']),
-                        iso3=row['iso3']
+                        label_source=os.path.splitext(os.path.basename(self.override_path))[0],
+                        iso3=row['iso3'],
                         )
 
     def expand(self, p):
@@ -203,8 +218,8 @@ def parse_command_line_args():
                         help='Output table to write results to.')
     parser.add_argument('--input-table', required=True,
                         help='Input anchorage table to pull data from')
-    parser.add_argument('--override-path', required=True)
-    parser.add_argument('--shapefile-path', default=os.path.join(this_dir, 'EEZ/EEZ_land_v2_201410.shp'),
+    parser.add_argument('--config-path', required=True)
+    parser.add_argument('--shapefile-path', default='EEZ_land_v2_201410.shp',
                         help="path to configuration file")
 
     known_args, pipeline_args = parser.parse_known_args()
@@ -238,17 +253,19 @@ def run():
 
     source = p | QuerySource(create_query(known_args))
 
-    existiting_anchorages = (source
+    with open(known_args.config_path) as f:
+        config = yaml.load(f)
+
+    existing_anchorages = (source
         | beam.Map(NamedAnchoragePoint.from_msg)
-        | AddNamesToAnchorages(known_args.shapefile_path, known_args.override_path)
+        | AddNamesToAnchorages(known_args.shapefile_path, config)
     )
 
+    used_s2ids = beam.pvalue.AsList(existing_anchorages | FindUsedS2ids(config['override_path']))
 
-    used_s2ids = beam.pvalue.AsList(existiting_anchorages | FindUsedS2ids(known_args.override_path))
+    new_anchorages = p | CreateOverrideAnchorages(config['override_path'], used_s2ids)
 
-    new_anchorages = p | CreateOverrideAnchorages(known_args.override_path, used_s2ids)
-
-    named_anchorages = (existiting_anchorages, new_anchorages) | beam.Flatten()
+    named_anchorages = (existing_anchorages, new_anchorages) | beam.Flatten()
 
     (named_anchorages | NamedAnchorageSink(table=known_args.output_table, 
                                       write_disposition="WRITE_TRUNCATE")

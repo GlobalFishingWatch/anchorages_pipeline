@@ -74,8 +74,9 @@ For example:
     docker-compose run name_anchorages \
                   --name nameanchorages \
                   --input-table gfw_raw.unnamed_anchorages \
-                  --output-table machine_learning_dev_ttl_30d.named_anchorages_2017_11_9 \
-                  --override-path ./anchorage_overrides.csv
+                  --output-table machine_learning_dev_ttl_30d.named_anchorages_test \
+                  --config-path ./name_anchorages_cfg.yaml
+
 
 The override path points to a csv file containing anchorages that are either missing or incorrectly named.
 It should have the following fields: s2uid,label,iso3,anchor_lat,anchor_lon,sublabel.
