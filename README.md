@@ -96,10 +96,12 @@ To update a single day of events, run:
 For example:
 
     docker-compose run port_events \
-                          --name portvisitsoneday \
-                          --anchorages gfw_raw.anchorage_naming_20171026 \
+                          --job-name portvisitsoneday \
+                          --anchorage-table gfw_raw.anchorage_naming_20171026 \
                           --start-date 2016-01-01 \
                           --end-date 2016-01-01 \
+                          --output-table machine_learning_dev_ttl_30d.in_out_events_test \
+                          --project world-fishing-827 \
                           --max_num_workers 100
 
 Results are **appended** to the specified file.

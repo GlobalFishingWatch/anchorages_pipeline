@@ -2,9 +2,11 @@ from __future__ import absolute_import, print_function, division
 
 import argparse
 import datetime
+import logging
 from collections import namedtuple
 
 import apache_beam as beam
+from apache_beam.runners import PipelineState
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
@@ -12,6 +14,16 @@ from . import common as cmn
 from .distance import distance, inf
 from .transforms.source import QuerySource
 from .transforms.sink import EventSink
+
+def configure_logging(normalize_options): # TODO: rename
+    if normalize_options.startup_log_file:
+        logging.basicConfig(filename=normalize_options.startup_log_file)
+    else:
+        logging.basicConfig()
+    logging.getLogger().setLevel(logging.INFO)
+    logging.info('Running port_events with these command line params')
+    for arg in sys.argv:
+        logging.info('   %s' % arg)
 
 
 PseudoAnchorage = namedtuple("PseudoAnchorage", 
@@ -149,9 +161,9 @@ class CreateInOutEvents(beam.PTransform):
 def parse_command_line_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--name', required=True, 
+    parser.add_argument('--job-name', required=True, 
                         help='Name to prefix output and job name if not otherwise specified')
-    parser.add_argument('--anchorages', 
+    parser.add_argument('--anchorage-table', 
                         help='Name of of anchorages table (BQ)')
     parser.add_argument('--output-table', 
                         help='Output table (BQ) to write results to.')
@@ -165,13 +177,16 @@ def parse_command_line_args():
                         help="path to configuration file")
     parser.add_argument('--fast-test', action='store_true', 
                         help='limit query size for testing')
+    parser.add_argument(
+            '--startup_log_file',
+            help='file to send logging output to')    
 
     known_args, pipeline_args = parser.parse_known_args()
 
     if known_args.output_table is None:
         known_args.output_table = 'machine_learning_dev_ttl_30d.in_out_events_{}'.format(known_args.name)
 
-    cmn.add_pipeline_defaults(pipeline_args, known_args.name)
+    cmn.add_pipeline_defaults(pipeline_args, known_args.job_name)
 
     # We use the save_main_session option because one or more DoFn's in this
     # workflow rely on global context (e.g., a module imported at module level).
@@ -232,6 +247,8 @@ anchorage_query = 'SELECT lat anchor_lat, lon anchor_lon, anchor_id, FINAL_NAME 
 def run():
     known_args, pipeline_options = parse_command_line_args()
 
+    configure_logging(known_args)
+
     p = beam.Pipeline(options=pipeline_options)
 
     config = cmn.load_config(known_args.config)
@@ -248,7 +265,7 @@ def run():
         )
 
     anchorages = (p
-        | 'ReadAnchorages' >> QuerySource(anchorage_query.format(known_args.anchorages))
+        | 'ReadAnchorages' >> QuerySource(anchorage_query.format(known_args.anchorage_table))
         | CreateTaggedAnchorages()
         )
 
@@ -262,5 +279,13 @@ def run():
         )
 
     result = p.run()
-    result.wait_until_finish()
+
+    success_states = set([PipelineState.DONE])
+
+    success_states.add(PipelineState.RUNNING)
+    success_states.add(PipelineState.UNKNOWN)
+
+    logging.info('returning with result.state=%s' % result.state)
+    return 0 if result.state in success_states else 1
+
 
