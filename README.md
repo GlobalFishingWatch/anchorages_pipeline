@@ -84,6 +84,23 @@ It should have the following fields: s2uid,label,iso3,anchor_lat,anchor_lon,subl
 
 ### Updating Port Events
 
+#### Using Airflow
+
+Install airflow and setup using the instructions at https://github.com/GlobalFishingWatch/pipe-model/tree/18-pipe-classify-ident/issue-18-airflow.
+
+Create a link in the `dags` directory of your airflow setup to `port_events_dag.py`:
+
+    ln [PATH TO ANCHORAGES]/port_events_dag.py [PATH TO AIRFLOW]/dags/port_events_dag.py
+
+Define the following variables in your airflow distribution:
+
+- **PORT_EVENTS_ANCHORAGE_TABLE**
+- **PORT_EVENTS_INPUT_TABLE**
+- **PORT_EVENTS_OUTPUT_TABLE**
+
+
+#### Manually
+
 To update a single day of events, run:
 
     docker-compose run port_events \
@@ -96,7 +113,7 @@ To update a single day of events, run:
 For example:
 
     docker-compose run port_events \
-                          --job-name portvisitsoneday \
+                          --job_name portvisitsoneday \
                           --anchorage-table gfw_raw.anchorage_naming_20171026 \
                           --start-date 2016-01-01 \
                           --end-date 2016-01-01 \

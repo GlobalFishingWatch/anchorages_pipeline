@@ -3,6 +3,7 @@ from __future__ import absolute_import, print_function, division
 import argparse
 import datetime
 import logging
+import sys
 from collections import namedtuple
 
 import apache_beam as beam
@@ -161,7 +162,7 @@ class CreateInOutEvents(beam.PTransform):
 def parse_command_line_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--job-name', required=True, 
+    parser.add_argument('--job_name', required=True, 
                         help='Name to prefix output and job name if not otherwise specified')
     parser.add_argument('--anchorage-table', 
                         help='Name of of anchorages table (BQ)')
@@ -278,12 +279,10 @@ def run():
         | "writeInOutEvents" >> EventSink(table=known_args.output_table, write_disposition="WRITE_APPEND")
         )
 
+
     result = p.run()
 
-    success_states = set([PipelineState.DONE])
-
-    success_states.add(PipelineState.RUNNING)
-    success_states.add(PipelineState.UNKNOWN)
+    success_states = set([PipelineState.DONE, PipelineState.RUNNING, PipelineState.UNKNOWN])
 
     logging.info('returning with result.state=%s' % result.state)
     return 0 if result.state in success_states else 1

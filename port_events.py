@@ -12,7 +12,5 @@ if __name__ == '__main__':
         result = port_events.run()
     except StandardError, err:
         logging.exception('Exception in run()')
-        with open("XXX_last_err_XXX.txt", 'w') as f:
-            f.write(str(err))
         raise
     sys.exit(result)
