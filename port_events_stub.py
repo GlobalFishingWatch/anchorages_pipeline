@@ -9,7 +9,7 @@ if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
     logging.info('starting port_events')
     try:
-        from anchorages import port_events
+        from pipe_anchorages import port_events
         args = []
         # Special case fast_test
         args = [('--fast-test' if (x == 'fast_test=true') else x) for x in args]

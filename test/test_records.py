@@ -3,10 +3,10 @@ import pytest
 import json
 import datetime
 import pickle
-from anchorages import common
-from anchorages.records import is_location_message, has_valid_location
-from anchorages.records import VesselRecord
-from anchorages.records import VesselLocationRecord
+from pipe_anchorages import common
+from pipe_anchorages.records import is_location_message, has_valid_location
+from pipe_anchorages.records import VesselRecord
+from pipe_anchorages.records import VesselLocationRecord
 
 
 this_dir = os.path.dirname(__file__)

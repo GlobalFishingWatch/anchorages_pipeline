@@ -1,5 +1,5 @@
 import os
-from anchorages.shapefile_to_iso3 import Iso3Finder
+from pipe_anchorages.shapefile_to_iso3 import Iso3Finder
 
 def test():
 
@@ -12,7 +12,7 @@ def test():
      (51.5074, -0.1278, 'GBR'),
      (-33.8688, 151.2093, 'AUS')
     ]
-    finder = Iso3Finder(os.path.join(parent_dir, "anchorages/data/EEZ/EEZ_land_v2_201410.shp"))
+    finder = Iso3Finder(os.path.join(parent_dir, "pipe_anchorages/data/EEZ/EEZ_land_v2_201410.shp"))
     found = []
     expected = []
     for lat, lon, iso3 in items:

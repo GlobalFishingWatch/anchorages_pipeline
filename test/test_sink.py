@@ -5,13 +5,13 @@ import datetime
 import pickle
 import s2sphere
 
-from anchorages import anchorages
-from anchorages import common
-from anchorages import nearest_port
-from anchorages.records import is_location_message, has_valid_location
-from anchorages.records import VesselRecord
-from anchorages.records import VesselLocationRecord
-from anchorages.transforms import sink
+from pipe_anchorages import anchorages
+from pipe_anchorages import common
+from pipe_anchorages import nearest_port
+from pipe_anchorages.records import is_location_message, has_valid_location
+from pipe_anchorages.records import VesselRecord
+from pipe_anchorages.records import VesselLocationRecord
+from pipe_anchorages.transforms import sink
 
 
 class TestAnchorageSink(object):

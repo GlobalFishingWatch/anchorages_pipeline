@@ -11,8 +11,8 @@ from airflow.contrib.operators.bigquery_operator import BigQueryOperator
 from airflow.utils.decorators import apply_defaults
 
 # Determine the location of the anchorages code to run
-import anchorages
-ANCHORAGES_PATH = os.path.dirname(os.path.dirname(anchorages.__file__))
+import pipe_anchorages
+ANCHORAGES_PATH = os.path.dirname(os.path.dirname(pipe_anchorages.__file__))
 
 # The default operator doesn't template options
 class TemplatedDataFlowPythonOperator(DataFlowPythonOperator):
@@ -87,11 +87,10 @@ def table_sensor(task_id, table_id, dataset_id, dag, **kwargs):
     )
 
 
-with DAG('port_events_A2',  schedule_interval=timedelta(days=1), max_active_runs=3, default_args=default_args) as dag:
+with DAG('port_events_v0_1',  schedule_interval=timedelta(days=1), max_active_runs=3, default_args=default_args) as dag:
 
     yesterday_exists = table_sensor(task_id='yesterday_exists', dataset_id=INPUT_TABLE,
                                 table_id=YESTERDAY_TABLE, dag=dag)
-
 
     today_exists = table_sensor(task_id='today_exists', dataset_id=INPUT_TABLE,
                                 table_id=TODAY_TABLE, dag=dag)
@@ -116,8 +115,6 @@ with DAG('port_events_A2',  schedule_interval=timedelta(days=1), max_active_runs
             'max_num_workers': '100',
             'disk_size_gb': '50',
             'startup_log_file': NORMALIZED_LOG_FILE,
-
-            'fast-test': 'true' # <=== do a small run
         },
         dag=dag
     )

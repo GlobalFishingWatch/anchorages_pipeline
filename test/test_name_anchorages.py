@@ -2,9 +2,8 @@
 import os
 import yaml
 import pytest
-from anchorages import common as cmn
-
-from anchorages import name_anchorages
+from pipe_anchorages import common as cmn
+from pipe_anchorages import name_anchorages
 
 config = yaml.load("""
 label_distance_km: 4.0

@@ -88,6 +88,8 @@ It should have the following fields: s2uid,label,iso3,anchor_lat,anchor_lon,subl
 
 Install airflow and setup using the instructions at https://github.com/GlobalFishingWatch/pipe-model/tree/18-pipe-classify-ident/issue-18-airflow.
 
+Clone `anchorages_pipeline`, change into the cloned directory and install using `pip install -e .`
+
 Create a link in the `dags` directory of your airflow setup to `port_events_dag.py`:
 
     ln [PATH TO ANCHORAGES]/port_events_dag.py [PATH TO AIRFLOW]/dags/port_events_dag.py

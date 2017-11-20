@@ -174,7 +174,7 @@ def parse_command_line_args():
                         help="First date to look for entry/exit events.")
     parser.add_argument('--end-date', required=True, 
                         help="Last date (inclusive) to look for entry/exit events.")
-    parser.add_argument('--config', default='config.yaml',
+    parser.add_argument('--config', default='anchorage_cfg.yaml',
                         help="path to configuration file")
     parser.add_argument('--fast-test', action='store_true', 
                         help='limit query size for testing')
@@ -288,3 +288,11 @@ def run():
     return 0 if result.state in success_states else 1
 
 
+if __name__ == '__main__':
+    logging.getLogger().setLevel(logging.INFO)
+    logging.info('Starting port_events')
+    try:
+        sys.exit(run())
+    except StandardError, err:
+        logging.exception('Exception in run()')
+        raise

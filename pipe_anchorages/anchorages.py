@@ -3,6 +3,7 @@ from __future__ import absolute_import, print_function, division
 import argparse
 import datetime
 import s2sphere
+import logging
 import math
 from collections import namedtuple, Counter
 from .sparse_inland_mask import SparseInlandMask
@@ -197,7 +198,7 @@ def parse_command_line_args():
                         help="Last date (inclusive) to look for locations.")
     parser.add_argument('--start-window', 
                         help="date to start tracking events to warm up vessel state")
-    parser.add_argument('--config', default='config.yaml',
+    parser.add_argument('--config', default='anchorage_cfg.yaml',
                         help="path to configuration file")
     parser.add_argument('--fishing-mmsi-list',
                          dest='fishing_mmsi_list',
@@ -277,4 +278,8 @@ def run():
 
     result = p.run()
     result.wait_until_finish()
+
+if __name__ == "__main__":
+    logging.getLogger().setLevel(logging.INFO)
+    run()
 
