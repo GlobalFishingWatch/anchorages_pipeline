@@ -85,7 +85,7 @@ class FindAnchoragePoints(beam.PTransform):
                         for ar in combined.active_records] 
 
     def create_anchorage_pts(self, item):
-        value = AnchoragePoint.from_cell_visits(item, self.fishing_vessel_set)
+        value = AnchoragePoint_from_cell_visits(item, self.fishing_vessel_set)
         return [] if (value is None) else [value]
 
     def has_enough_vessels(self, item):
@@ -123,8 +123,7 @@ class AnchoragePoint(namedtuple("AnchoragePoint", ['mean_location',
     __slots__ = ()
 
 
-    @staticmethod
-    def from_cell_visits(value, fishing_vessel_set):
+def AnchoragePoint_from_cell_visits(value, fishing_vessel_set):
         s2id, (stationary_periods, active_points) = value
 
         n = 0
