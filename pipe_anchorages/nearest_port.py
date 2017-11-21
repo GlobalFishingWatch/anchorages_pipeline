@@ -8,8 +8,6 @@ from .distance import distance, EARTH_RADIUS, inf
 Port = namedtuple("Port", ["iso3", "label", "sublabel", "lat", "lon"])
 
 
-BUFFER_KM = 64 + 1
-
 class PortFinder(object):
 
     def __init__(self, path):
