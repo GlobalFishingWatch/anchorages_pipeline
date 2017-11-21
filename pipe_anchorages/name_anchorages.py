@@ -20,16 +20,16 @@ from .transforms.sink import NamedAnchorageSink
 from .nearest_port import get_port_finder
 from .nearest_port import Port
 from .get_override_list import get_override_list
-
+from . import dirnames
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
 
-this_dir = os.path.dirname(__file__)
 inf = float("inf")
 
 def mangled_path(x, subdir):
+    this_dir = dirnames.this_dir
     return os.path.join(this_dir, 'data', subdir, x)
 
 
