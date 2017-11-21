@@ -90,6 +90,8 @@ It should have the following fields: s2uid,label,iso3,anchor_lat,anchor_lon,subl
 
 2. Clone `anchorages_pipeline`
 
+    - Check out the correct branch. Currently `10-automate-using-airflow`
+
 3. `cd` into the cloned directory and install using `pip install -e .`
 
 4. Create a link in the `dags` directory of your airflow setup to `port_events_dag.py`:
