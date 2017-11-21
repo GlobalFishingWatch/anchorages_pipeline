@@ -11,7 +11,7 @@ import logging
 import yaml
 
 from . import common as cmn
-from .anchorages import AnchoragePoint
+from .find_anchorage_points import AnchoragePoint
 from .distance import distance
 from .nearest_port import Port
 from .shapefile_to_iso3 import get_iso3_finder

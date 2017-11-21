@@ -5,7 +5,7 @@ import datetime
 import pickle
 import s2sphere
 
-from pipe_anchorages import anchorages
+from pipe_anchorages import find_anchorage_points
 from pipe_anchorages import common
 from pipe_anchorages import nearest_port
 from pipe_anchorages.records import is_location_message, has_valid_location
@@ -26,7 +26,7 @@ class TestAnchorageSink(object):
     def AnchoragePoint_from_S2Token(cls, token, mmsis, total_visits=10, mean_drift_radius=0.2, 
                                     top_destination=''):
         token = unicode(token)
-        return anchorages.AnchoragePoint(
+        return find_anchorage_points.AnchoragePoint(
                                 mean_location = cls.LatLon_from_S2Token(token),
                                 total_visits = total_visits,
                                 vessels = tuple(mmsis),
