@@ -25,6 +25,6 @@ class TestNameAnchorages(object):
 
     def test_finder(self):
         finder = name_anchorages.PortInfoFinder.from_config(config)
-        assert finder.find(cmn.LatLon(62.69251317945518, 6.640516316894406), None, None)[0].label == "Midsund"
+        assert finder.find(cmn.LatLon(62.69251317945518, 6.640516316894406))[0].label == "Midsund"
 
 
