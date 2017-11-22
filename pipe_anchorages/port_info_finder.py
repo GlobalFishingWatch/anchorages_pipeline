@@ -1,3 +1,15 @@
+"""
+Find Port Information.
+
+Can be used from the command line to apply port information to a csv file of ports.
+For example:
+
+    python -m pipe_anchorages.port_info_finder UNNAMED_ANCHORAGES.csv NAMED_ANCHORAGES.csv
+
+Use `python -m pipe_anchorages.port_info_finder --help` to see full options.
+
+
+"""
 from __future__ import absolute_import, print_function, division
 import os
 import unidecode
