@@ -26,7 +26,8 @@ RUN  \
   gcloud config set metrics/environment github_docker_image
 
 # Install extra packages
-RUN pip install ujson more_itertools statistics pytz s2sphere unidecode
+RUN pip install ujson more_itertools statistics pytz s2sphere unidecode \
+    https://api.github.com/repos/GlobalFishingWatch/pipe-tools/tarball/14-logging-options
 
 # Setup a volume for configuration and auth data
 VOLUME ["/root/.config"]
