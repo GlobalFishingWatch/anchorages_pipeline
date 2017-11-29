@@ -116,8 +116,7 @@ To update a single day of events, run:
 
 For example:
 
-
-docker-compose run port_events \
+    docker-compose run port_events \
                           --job_name portvisitsoneday \
                           --anchorage_table gfw_raw.anchorage_naming_20171026 \
                           --start_date 2016-01-01 \
