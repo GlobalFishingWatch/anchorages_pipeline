@@ -1,5 +1,8 @@
 FROM python:2.7
 
+# Create a directory to mount dags onto
+RUN mkdir -p /dags
+
 # Configure the working directory
 RUN mkdir -p /opt/project
 WORKDIR /opt/project
