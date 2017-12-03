@@ -118,6 +118,7 @@ For example:
 
     docker-compose run port_events \
                           --job_name portvisitsoneday \
+                          --input_table pipeline_classify_p_p516_daily \
                           --anchorage_table gfw_raw.anchorage_naming_20171026 \
                           --start_date 2016-01-01 \
                           --end_date 2016-01-01 \

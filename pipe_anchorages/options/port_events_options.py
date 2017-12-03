@@ -12,7 +12,7 @@ class PortEventsOptions(PipelineOptions):
 
         required.add_argument('--anchorage_table', 
                             help='Name of of anchorages table (BQ)')
-        required.add_argument('--input_table', default='pipeline_classify_p_p429_resampling_2',
+        required.add_argument('--input_table',
                             help='Input table to pull data from')
         required.add_argument('--output_table', 
                             help='Output table (BQ) to write results to.')

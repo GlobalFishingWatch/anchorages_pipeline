@@ -1,3 +1,5 @@
+#!/bin/bash
+
 echo "Installing dags"
 cp ./port_events_dag.py /dags/port_events_dag.py
 echo "Installing post_install.sh"
