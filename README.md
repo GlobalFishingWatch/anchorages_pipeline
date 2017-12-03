@@ -133,7 +133,6 @@ Please perform the following steps.
 5. Merge PR after review. Note that if using squash merge, you may need
    to fiddle with the commit references.
 
-
 # License
 
 Copyright 2017 Global Fishing Watch
