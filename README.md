@@ -84,6 +84,9 @@ It should have the following fields: s2uid,label,iso3,anchor_lat,anchor_lon,subl
 
 ### Updating Port Events
 
+
+#### Manually
+
 To update a single day of events, run:
 
     docker-compose run port_events \
@@ -96,10 +99,12 @@ To update a single day of events, run:
 For example:
 
     docker-compose run port_events \
-                          --name portvisitsoneday \
-                          --anchorages gfw_raw.anchorage_naming_20171026 \
+                          --job_name portvisitsoneday \
+                          --anchorage-table gfw_raw.anchorage_naming_20171026 \
                           --start-date 2016-01-01 \
                           --end-date 2016-01-01 \
+                          --output-table machine_learning_dev_ttl_30d.in_out_events_test \
+                          --project world-fishing-827 \
                           --max_num_workers 100
 
 Results are **appended** to the specified file.
@@ -127,7 +132,7 @@ Please perform the following steps.
 4. Bump version in VERSION.
 5. Merge PR after review. Note that if using squash merge, you may need
    to fiddle with the commit references.
-   
+
 # License
 
 Copyright 2017 Global Fishing Watch

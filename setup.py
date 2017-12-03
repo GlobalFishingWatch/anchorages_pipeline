@@ -70,7 +70,7 @@ setuptools.setup(
     install_requires=DEPENDENCIES + DATAFLOW_PINNED_DEPENDENCIES,
     packages=setuptools.find_packages(),
     package_data={
-                  'anchorages': ['data/EEZ/EEZ_land_v2_201410.*',
-                                 'data/port_lists/*.csv', 
-                                 'data/*.pickle']}
+                  'pipe_anchorages': ['data/EEZ/EEZ_land_v2_201410.*',
+                                      'data/port_lists/*.csv', 
+                                      'data/*.pickle']}
     )

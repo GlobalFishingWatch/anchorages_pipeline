@@ -1,4 +1,4 @@
-from anchorages.port_events import create_queries
+from pipe_anchorages.port_events import create_queries
 
 class DummyOptions(object):
     def __init__(self, start_date, end_date, input_table="SOURCE_TABLE"):

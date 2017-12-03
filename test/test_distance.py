@@ -1,5 +1,5 @@
-from anchorages import common
-from anchorages import distance
+from pipe_anchorages import common
+from pipe_anchorages import distance
 
 locations = {
     'New York': common.LatLon(40.7128, -74.0059),

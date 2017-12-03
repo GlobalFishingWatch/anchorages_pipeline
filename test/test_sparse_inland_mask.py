@@ -1,5 +1,5 @@
-from anchorages import common
-from anchorages import sparse_inland_mask 
+from pipe_anchorages import common
+from pipe_anchorages import sparse_inland_mask 
 
 locations = {
     'New York': common.LatLon(40.7128, -74.0059),

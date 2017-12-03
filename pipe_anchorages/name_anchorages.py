@@ -4,66 +4,29 @@ import argparse
 import datetime
 import os
 import s2sphere
-import unidecode
 import math
 from collections import namedtuple
 import logging
 import yaml
 
 from . import common as cmn
-from .anchorages import AnchoragePoint
-from .distance import distance
+from .find_anchorage_points import AnchoragePoint
 from .nearest_port import Port
 from .shapefile_to_iso3 import get_iso3_finder
 from .transforms.source import QuerySource
 from .transforms.sink import NamedAnchorageSink
-from .nearest_port import get_port_finder
-from .nearest_port import Port
 from .get_override_list import get_override_list
+from .port_info_finder import PortInfoFinder
+from .port_info_finder import mangled_path
+from .port_info_finder import normalize_label
 
+from . import dirnames
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 
 
-this_dir = os.path.dirname(__file__)
 inf = float("inf")
-
-def mangled_path(x, subdir):
-    return os.path.join(this_dir, 'data', subdir, x)
-
-
-def normalize_label(lbl):
-    if not lbl:
-        return None
-    lbl = lbl.strip()
-    if not lbl:
-        return None
-    return unidecode.unidecode(lbl.decode('utf8')).upper()
-
-
-class PortInfoFinder(object):
-
-    def __init__(self, port_finder_paths, label_distance_km, sublabel_distance_km):
-        self.port_finder_paths = port_finder_paths
-        self.label_distance_km = label_distance_km
-        self.sublabel_distance_km = sublabel_distance_km
-
-    @classmethod
-    def from_config(cls, config):
-        paths =  [config['override_path']] + config['port_list_paths']
-        return cls(paths, config['label_distance_km'], config['sublabel_distance_km'])
-
-    def find(self, loc, fallback, fallback_source):
-        for path in self.port_finder_paths:
-            source = os.path.splitext(os.path.basename(path))[0]
-            finder = get_port_finder(mangled_path(path, 'port_lists'))
-            port, distance = finder.find_nearest_port_and_distance(loc)
-            if distance <= self.sublabel_distance_km:
-                return port, source
-            elif distance <= self.label_distance_km:
-                return port._replace(sublabel=''), source
-        return fallback, fallback_source
 
 
 class NamedAnchoragePoint(namedtuple("NamedAnchoragePoint", 
@@ -122,8 +85,10 @@ class AddNamesToAnchorages(beam.PTransform):
         return self._port_info_finder
 
     def add_best_label(self, anchorage):
-        fallback = Port(iso3='', label=anchorage.top_destination, sublabel='', lat=None, lon=None)
-        port_info, source = self.port_info_finder.find(anchorage.mean_location, fallback, 'top_destination')
+        port_info, source = self.port_info_finder.find(anchorage.mean_location)
+        if port_info is None:
+            port_info = Port(iso3='', label=anchorage.top_destination, sublabel='', lat=None, lon=None)
+            source = 'top_destination' 
         map = anchorage._asdict()
         map['label'] = normalize_label(port_info.label)
         map['sublabel'] = normalize_label(port_info.sublabel)
@@ -274,3 +239,7 @@ def run():
     result = p.run()
     result.wait_until_finish()
 
+
+if __name__ == "__main__":
+    logging.getLogger().setLevel(logging.INFO)
+    run()
