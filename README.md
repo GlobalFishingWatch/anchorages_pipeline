@@ -84,29 +84,6 @@ It should have the following fields: s2uid,label,iso3,anchor_lat,anchor_lon,subl
 
 ### Updating Port Events
 
-#### Using Airflow
-
-1. Install airflow and setup using the instructions at https://github.com/GlobalFishingWatch/pipe-model/tree/18-pipe-classify-ident/issue-18-airflow.
-
-2. Clone `anchorages_pipeline`
-
-    - Check out the correct branch. Currently `10-automate-using-airflow`
-
-3. `cd` into the cloned directory and install using `pip install -e .`
-
-4. Create a link in the `dags` directory of your airflow setup to `port_events_dag.py`:
-
-    ln [PATH TO ANCHORAGES]/port_events_dag.py [PATH TO AIRFLOW]/dags/port_events_dag.py
-
-5. Define the following variables in your airflow distribution:
-
-- **PORT_EVENTS_ANCHORAGE_TABLE**  (for example `gfw_raw.anchorage_naming_20171026`)
-- **PORT_EVENTS_INPUT_TABLE** (for example `pipeline_classify_p_p429_resampling_2`)
-- **PORT_EVENTS_OUTPUT_TABLE** (for example `machine_learning_dev_ttl_30d.in_out_events_test_dag`)
-
-Note that `start_date` is currently set to `2017-08-01` this will need to be updated before production
-deployment.
-
 
 #### Manually
 
