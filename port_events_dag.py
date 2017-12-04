@@ -10,14 +10,9 @@ from airflow.contrib.operators.dataflow_operator import DataFlowPythonOperator
 from airflow.contrib.operators.bigquery_operator import BigQueryOperator
 from airflow.utils.decorators import apply_defaults
 
-# Determine the location of the anchorages code to run
-import pipe_anchorages
-ANCHORAGES_PATH = os.path.dirname(os.path.dirname(pipe_anchorages.__file__))
-
 # The default operator doesn't template options
 class TemplatedDataFlowPythonOperator(DataFlowPythonOperator):
     template_fields = ['options']
-
 
 CONNECTION_ID = 'google_cloud_default' 
 PROJECT_ID='{{ var.value.GCP_PROJECT_ID }}'
@@ -28,14 +23,11 @@ SOURCE_DATASET='{{ var.value.IDENT_SOURCE_DATASET }}'
 THIS_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DAG_FILES = THIS_SCRIPT_DIR
 
+ANCHORAGE_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_ANCHORAGE_TABLE }}'
+INPUT_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_INPUT_TABLE }}'
+OUTPUT_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_OUTPUT_TABLE }}'
 
-ANCHORAGE_TABLE = '{{ var.value.PORT_EVENTS_ANCHORAGE_TABLE }}'
-INPUT_TABLE = '{{ var.value.PORT_EVENTS_INPUT_TABLE }}'
-OUTPUT_TABLE = '{{ var.value.PORT_EVENTS_OUTPUT_TABLE }}'
-
-# TODO use database variables instead
-DOCKER_DATAFLOW_STUB = '/Users/timothyhochberg/Documents/SkyTruth/Code/pipelines/docker-airflow/utils/dataflow_docker_stub.py'
-GCP_VOLUME = 'anchorages_gcp'
+GCP_VOLUME = '{{ var.value.GCP_VOLUME }}'
 
 # See note about logging in readme.md
 LOG_DIR = pp.join(THIS_SCRIPT_DIR, 'logs')
@@ -93,13 +85,15 @@ with DAG('port_events_v0_1',  schedule_interval=timedelta(days=1), max_active_ru
     today_exists = table_sensor(task_id='today_exists', dataset_id=INPUT_TABLE,
                                 table_id=TODAY_TABLE, dag=dag)
 
+    python_target = Variable.get('DOCKER_DATAFLOW_STUB')
+
     logging.info("target: %s", python_target)
 
     # Note: task_id must use '-' instead of '_' because it gets used to create the dataflow job name, and
     # only '-' is allowed
     find_port_events=TemplatedDataFlowPythonOperator(
         task_id='issue-10-port-events',
-        py_file=DOCKER_DATAFLOW_STUB,
+        py_file=python_target,
         options={
             'startup_log_path': NORMALIZED_LOG_FILE,
             'docker_image': 'gfw/pipe-anchorage',
