@@ -22,7 +22,8 @@ BQ_CONNECTION_ID = 'google_cloud_default'
 PROJECT_ID='{{ var.value.GCP_PROJECT_ID }}'
 
 DATASET_ID='{{ var.value.IDENT_DATASET }}'
-SOURCE_DATASET='{{ var.value.IDENT_SOURCE_DATASET }}'
+
+DOCKER_IMAGE = '{{ var.json.PIPE_ANCHORAGES.DOCKER_IMAGE }}'
 
 THIS_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DAG_FILES = THIS_SCRIPT_DIR
@@ -52,7 +53,7 @@ default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
     'start_date': datetime(2017, 8, 1),
-    'email': ['airflow@airflow.com'],
+    'email': ['tim@globalfishingwatch.org'],
     'email_on_failure': False,
     'email_on_retry': False,
     'retries': 1,
@@ -100,7 +101,7 @@ with DAG('port_events_v0_2',  schedule_interval=timedelta(days=1), max_active_ru
         py_file=python_target,
         options={
             'startup_log_path': NORMALIZED_LOG_FILE,
-            'docker_image': 'gfw/pipe-anchorage',
+            'docker_image': DOCKER_IMAGE,
             'gcp_volume': GCP_VOLUME,
             'python_module': 'pipe_anchorages.port_events',
             'project': PROJECT_ID,
