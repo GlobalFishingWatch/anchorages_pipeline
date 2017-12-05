@@ -43,7 +43,7 @@ TODAY_TABLE='{{ ds_nodash }}'
 YESTERDAY_TABLE='{{ yesterday_ds_nodash }}'
 
 
-BUCKET='{{ var.value.GCS_BUCKET }}'
+BUCKET='{{ var.json.PIPE_ANCHORAGES.GCS_BUCKET }}'
 GCS_TEMP_DIR='gs://%s/dataflow-temp' % BUCKET
 GCS_STAGING_DIR='gs://%s/dataflow-staging' % BUCKET
 
