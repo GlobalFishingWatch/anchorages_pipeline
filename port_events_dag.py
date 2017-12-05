@@ -9,6 +9,8 @@ from airflow.contrib.sensors.bigquery_sensor import BigQueryTableSensor
 from airflow.contrib.operators.dataflow_operator import DataFlowPythonOperator
 from airflow.contrib.operators.bigquery_operator import BigQueryOperator
 from airflow.utils.decorators import apply_defaults
+from airflow.models import Variable
+
 
 # The default operator doesn't template options
 class TemplatedDataFlowPythonOperator(DataFlowPythonOperator):
