@@ -16,7 +16,9 @@ from airflow.models import Variable
 class TemplatedDataFlowPythonOperator(DataFlowPythonOperator):
     template_fields = ['options']
 
-CONNECTION_ID = 'google_cloud_default' 
+GC_CONNECTION_ID = 'google_cloud_default' 
+BQ_CONNECTION_ID = 'bigquery_default_conn'
+
 PROJECT_ID='{{ var.value.GCP_PROJECT_ID }}'
 
 DATASET_ID='{{ var.value.IDENT_DATASET }}'
@@ -56,8 +58,8 @@ default_args = {
     'retries': 1,
     'retry_delay': timedelta(minutes=5),
     'project_id': PROJECT_ID,
-    'bigquery_conn_id': CONNECTION_ID,
-    'gcp_conn_id': CONNECTION_ID,
+    'bigquery_conn_id': BQ_CONNECTION_ID,
+    'gcp_conn_id': GC_CONNECTION_ID,
     'write_disposition': 'WRITE_TRUNCATE',
     'allow_large_results': True,
 }
