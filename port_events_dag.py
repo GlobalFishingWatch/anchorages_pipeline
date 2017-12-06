@@ -82,7 +82,7 @@ def table_sensor(task_id, table_id, dataset_id, dag, **kwargs):
     )
 
 
-with DAG('port_events_v0_2',  schedule_interval=timedelta(days=1), max_active_runs=3, default_args=default_args) as dag:
+with DAG('port_events_v0_4',  schedule_interval=timedelta(days=1), max_active_runs=3, default_args=default_args) as dag:
 
     yesterday_exists = table_sensor(task_id='yesterday_exists', dataset_id=INPUT_TABLE,
                                 table_id=YESTERDAY_TABLE, dag=dag)
@@ -97,7 +97,7 @@ with DAG('port_events_v0_2',  schedule_interval=timedelta(days=1), max_active_ru
     # Note: task_id must use '-' instead of '_' because it gets used to create the dataflow job name, and
     # only '-' is allowed
     find_port_events=TemplatedDataFlowPythonOperator(
-        task_id='issue-10-port-events',
+        task_id='create-port-events',
         py_file=python_target,
         options={
             'startup_log_path': NORMALIZED_LOG_FILE,
@@ -114,6 +114,8 @@ with DAG('port_events_v0_2',  schedule_interval=timedelta(days=1), max_active_ru
             'temp_location': GCS_TEMP_DIR,
             'max_num_workers': '100',
             'disk_size_gb': '50',
+            'setup_file': './setup.py',
+            'requirements_file': 'requirements.txt',
         },
         dag=dag
     )
