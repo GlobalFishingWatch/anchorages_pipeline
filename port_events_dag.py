@@ -90,7 +90,7 @@ with DAG('port_events_v0_11',  schedule_interval=timedelta(days=1), max_active_r
     today_exists = table_sensor(task_id='today_exists', dataset_id=INPUT_TABLE,
                                 table_id=TODAY_TABLE, dag=dag)
 
-    python_target = Variable.get('DOCKER_DATAFLOW_STUB')
+    python_target = Variable.get('DATAFLOW_DOCKER_STUB')
 
     logging.info("target: %s", python_target)
 
