@@ -21,8 +21,6 @@ BQ_CONNECTION_ID = 'google_cloud_default'
 
 PROJECT_ID='{{ var.value.GCP_PROJECT_ID }}'
 
-DATASET_ID='{{ var.value.IDENT_DATASET }}'
-
 THIS_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 ANCHORAGE_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_ANCHORAGE_TABLE }}'
@@ -68,7 +66,7 @@ def table_sensor(task_id, table_id, dataset_id, dag, **kwargs):
     )
 
 
-with DAG('port_events_v0_17',  schedule_interval=timedelta(days=1), max_active_runs=3, default_args=default_args) as dag:
+with DAG('port_events_v0_18',  schedule_interval=timedelta(days=1), max_active_runs=3, default_args=default_args) as dag:
 
     yesterday_exists = table_sensor(task_id='yesterday_exists', dataset_id=INPUT_TABLE,
                                 table_id=YESTERDAY_TABLE, dag=dag)
@@ -88,7 +86,8 @@ with DAG('port_events_v0_17',  schedule_interval=timedelta(days=1), max_active_r
         options={
             'startup_log_file': pp.join(Variable.get('DATAFLOW_WRAPPER_LOG_PATH'), 
                                          'pipe_anchorages/create-port-events.log'),
-            'command': '{{ var.value.DOCKER_RUN }} python -m pipe_anchorages.port_events',
+            'command': '{{ var.value.DOCKER_RUN }} {{ var.json.PIPE_ANCHORAGES.DOCKER_IMAGE }} '
+                       'python -m pipe_anchorages.port_events',
             'project': PROJECT_ID,
             'anchorage_table': ANCHORAGE_TABLE,
             'start_date': '{{ ds }}',
