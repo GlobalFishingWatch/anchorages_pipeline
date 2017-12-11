@@ -23,22 +23,11 @@ PROJECT_ID='{{ var.value.GCP_PROJECT_ID }}'
 
 DATASET_ID='{{ var.value.IDENT_DATASET }}'
 
-DOCKER_IMAGE = '{{ var.json.PIPE_ANCHORAGES.DOCKER_IMAGE }}'
-
 THIS_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DAG_FILES = THIS_SCRIPT_DIR
 
 ANCHORAGE_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_ANCHORAGE_TABLE }}'
 INPUT_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_INPUT_TABLE }}'
 OUTPUT_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_OUTPUT_TABLE }}'
-
-GCP_VOLUME = '{{ var.value.GCP_VOLUME }}'
-
-# See note about logging in readme.md
-LOG_DIR = pp.join(THIS_SCRIPT_DIR, 'logs')
-if not os.path.exists(LOG_DIR):
-    os.makedirs(LOG_DIR)
-NORMALIZED_LOG_FILE = pp.join(LOG_DIR, 'normalized_startup.log')
 
 TODAY_TABLE='{{ ds_nodash }}' 
 YESTERDAY_TABLE='{{ yesterday_ds_nodash }}'
@@ -66,9 +55,6 @@ default_args = {
 }
 
 
-@apply_defaults
-def full_table (project_id, dataset_id, table_id, **kwargs):
-    return '%s:%s.%s' % (project_id, dataset_id, table_id)
 
 @apply_defaults
 def table_sensor(task_id, table_id, dataset_id, dag, **kwargs):
@@ -90,7 +76,7 @@ with DAG('port_events_v0_13',  schedule_interval=timedelta(days=1), max_active_r
     today_exists = table_sensor(task_id='today_exists', dataset_id=INPUT_TABLE,
                                 table_id=TODAY_TABLE, dag=dag)
 
-    python_target = Variable.get('DATAFLOW_DOCKER_STUB')
+    python_target = Variable.get('DATAFLOW_WRAPPER_STUB')
 
     logging.info("target: %s", python_target)
 
@@ -100,10 +86,9 @@ with DAG('port_events_v0_13',  schedule_interval=timedelta(days=1), max_active_r
         task_id='create-port-events',
         py_file=python_target,
         options={
-            'startup_log_path': NORMALIZED_LOG_FILE,
-            'docker_image': DOCKER_IMAGE,
-            'gcp_volume': GCP_VOLUME,
-            'python_module': 'pipe_anchorages.port_events',
+            'startup_log_file': pp.join(Variable.get('DATAFLOW_WRAPPER_LOG_PATH'), 
+                                         'pipe_anchorages/create-port-events.log'),
+            'command': '{{ var.value.DOCKER_RUN }} python -m pipe_anchorages.port_events'
             'project': PROJECT_ID,
             'anchorage_table': ANCHORAGE_TABLE,
             'start_date': '{{ ds }}',
