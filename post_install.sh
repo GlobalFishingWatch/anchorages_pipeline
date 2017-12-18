@@ -1,5 +1,5 @@
 python $AIRFLOW_HOME/utils/set_default_variables.py \
-    --force DOCKER_IMAGE=gcr.io/world-fishing-827/$1 \
+    --force DOCKER_IMAGE=$1 \
     PIPE_ANCHORAGES \
     PORT_EVENTS_ANCHORAGE_TABLE=gfw_raw.anchorage_naming_20171026 \
     PORT_EVENTS_INPUT_TABLE=pipeline_classify_p_p516_daily \

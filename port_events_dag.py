@@ -62,7 +62,9 @@ def table_sensor(task_id, table_id, dataset_id, dag, **kwargs):
         dataset_id=dataset_id,
         poke_interval=0,
         timeout=10,
-        dag=dag
+        dag=dag,
+        retry_delay=timedelta(minutes=60),
+        retries=24*7
     )
 
 
