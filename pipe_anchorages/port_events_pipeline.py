@@ -4,6 +4,7 @@ import datetime
 import logging
 
 import apache_beam as beam
+from apache_beam.options.pipeline_options import GoogleCloudOptions
 from apache_beam.runners import PipelineState
 
 from . import common as cmn
@@ -39,6 +40,7 @@ anchorage_query = 'SELECT lat anchor_lat, lon anchor_lon, anchor_id, FINAL_NAME 
 def run(options):
 
     known_args = options.view_as(PortEventsOptions)
+    cloud_options = options.view_as(GoogleCloudOptions)
 
     p = beam.Pipeline(options=options)
 
@@ -66,7 +68,9 @@ def run(options):
                             anchorage_exit_dist=config['anchorage_exit_distance_km'], 
                             stopped_begin_speed=config['stopped_begin_speed_knots'],
                             stopped_end_speed=config['stopped_end_speed_knots'])
-        | "writeInOutEvents" >> EventSink(table=known_args.output_table, write_disposition="WRITE_APPEND")
+        | "writeInOutEvents" >> EventSink(table=known_args.output_table, 
+                                          temp_location=cloud_options.temp_location,
+                                          project=cloud_options.project)
         )
 
 
