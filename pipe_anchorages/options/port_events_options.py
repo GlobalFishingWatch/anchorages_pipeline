@@ -12,14 +12,15 @@ class PortEventsOptions(PipelineOptions):
 
         required.add_argument('--anchorage_table', 
                             help='Name of of anchorages table (BQ)')
-        required.add_argument('--input_table',
+        required.add_argument('--input_table', required=True,
                             help='Input table to pull data from')
-        required.add_argument('--output_table', 
+        required.add_argument('--output_table', required=True,
                             help='Output table (BQ) to write results to.')
         required.add_argument('--start_date', required=True, 
                               help="First date to look for entry/exit events.")
         required.add_argument('--end_date', required=True, 
                             help="Last date (inclusive) to look for entry/exit events.")
+        
         optional.add_argument('--config', default='anchorage_cfg.yaml',
                             help="path to configuration file")
         optional.add_argument('--fast_test', action='store_true', 
