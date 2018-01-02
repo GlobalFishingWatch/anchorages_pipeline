@@ -1,5 +1,8 @@
 FROM python:2.7
 
+# Create a directory to mount dags onto
+RUN mkdir -p /dags
+
 # Configure the working directory
 RUN mkdir -p /opt/project
 WORKDIR /opt/project
@@ -26,7 +29,8 @@ RUN  \
   gcloud config set metrics/environment github_docker_image
 
 # Install extra packages
-RUN pip install ujson more_itertools statistics pytz s2sphere unidecode
+RUN pip install ujson more_itertools statistics pytz s2sphere unidecode \
+    https://api.github.com/repos/GlobalFishingWatch/pipe-tools/tarball/14-logging-options
 
 # Setup a volume for configuration and auth data
 VOLUME ["/root/.config"]

@@ -89,23 +89,26 @@ It should have the following fields: s2uid,label,iso3,anchor_lat,anchor_lon,subl
 
 To update a single day of events, run:
 
-    docker-compose run port_events \
-                          --name JOB_NAME \
-                          --anchorage-path GS_PATH_TO_ANCHORAGES \
-                          --start-date YYYY-MM-DD \
-                          --end-date YYYY-MM-DD 
-                          --output BQ_TABLE_NAME
+    TODO: FILL IN
 
 For example:
 
     docker-compose run port_events \
                           --job_name portvisitsoneday \
-                          --anchorage-table gfw_raw.anchorage_naming_20171026 \
-                          --start-date 2016-01-01 \
-                          --end-date 2016-01-01 \
-                          --output-table machine_learning_dev_ttl_30d.in_out_events_test \
+                          --input_table pipeline_classify_p_p516_daily \
+                          --anchorage_table gfw_raw.anchorage_naming_20171026 \
+                          --start_date 2016-01-01 \
+                          --end_date 2016-01-01 \
+                          --output_table machine_learning_dev_ttl_30d.in_out_events_test \
                           --project world-fishing-827 \
-                          --max_num_workers 100
+                          --max_num_workers 100 \
+                          --requirements_file requirements.txt \
+                          --project world-fishing-827 \
+                          --staging_location gs://machine-learning-dev-ttl-30d/anchorages/portevents/output/staging \
+                          --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp \
+                          --setup_file ./setup.py \
+                          --runner DataflowRunner \
+                          --disk_size_gb 100
 
 Results are **appended** to the specified file.
 
