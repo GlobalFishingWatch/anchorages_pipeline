@@ -1,1 +1,1 @@
-https://api.github.com/repos/GlobalFishingWatch/pipe-tools/tarball/14-logging-options
+https://api.github.com/repos/GlobalFishingWatch/pipe-tools/tarball/master
