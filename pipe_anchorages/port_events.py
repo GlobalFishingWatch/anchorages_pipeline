@@ -6,7 +6,7 @@ from pipe_tools.beam import logging_monkeypatch
 from pipe_tools.options import validate_options
 from pipe_tools.options import LoggingOptions
 
-from pipe_anchorages.options import PortEventsOptions
+from .options.port_events_options import PortEventsOptions
 
 
 def run(args=None):

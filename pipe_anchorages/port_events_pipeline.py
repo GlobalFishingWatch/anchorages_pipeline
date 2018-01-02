@@ -12,7 +12,7 @@ from .transforms.source import QuerySource
 from .transforms.create_tagged_anchorages import CreateTaggedAnchorages
 from .transforms.create_in_out_events import CreateInOutEvents
 from .transforms.sink import EventSink
-from .options import PortEventsOptions
+from .options.port_events_options import PortEventsOptions
 
 
 def create_queries(args):

@@ -7,6 +7,13 @@ services:
     volumes:
       - ".:/opt/project"
       - "gcp:/root/.config/"
+  port_visits:
+    image: gfw/pipe-anchorages
+    build: .
+    entrypoint: ["python", "-m", "pipe_anchorages.port_visits"]  
+    volumes:
+      - ".:/opt/project"
+      - "gcp:/root/.config/"
   anchorages:
     image: gfw/pipe-anchorages
     build: .
