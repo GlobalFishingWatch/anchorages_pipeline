@@ -38,7 +38,6 @@ def visit_to_msg(x):
     x['events'] = [event_to_msg(y) for y in x['events']]
     x['start_timestamp'] = _datetime_to_s(x['start_timestamp'])
     x['end_timestamp'] = _datetime_to_s(x['end_timestamp'])
-    logging.info("VISIT:\n%s", x)
     return JSONDict(x)
 
 
@@ -67,8 +66,9 @@ def run(options):
     queries = VisitEvent.create_queries(visit_args.events_table, 
                                         start_date, end_date)
 
-    sources = [(p | "Read_{}".format(i) >> beam.io.Read(beam.io.gcp.bigquery.BigQuerySource(query=x)))
-                        for (i, x) in enumerate(queries)]
+    sources = [(p | "Read_{}".format(i) >> beam.io.Read(
+                        beam.io.gcp.bigquery.BigQuerySource(query=x)))
+                            for (i, x) in enumerate(queries)]
 
     tagged_records = (sources
         | beam.Flatten()
