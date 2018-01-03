@@ -24,8 +24,8 @@ PROJECT_ID='{{ var.value.GCP_PROJECT_ID }}'
 THIS_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 ANCHORAGE_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_ANCHORAGE_TABLE }}'
-INPUT_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_INPUT_TABLE }}'
-OUTPUT_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_OUTPUT_TABLE }}'
+EVENTS_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_OUTPUT_TABLE }}'
+OUTPUT_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_VISITS_OUTPUT_TABLE }}'
 
 TODAY_TABLE='{{ ds_nodash }}' 
 YESTERDAY_TABLE='{{ yesterday_ds_nodash }}'
@@ -68,13 +68,7 @@ def table_sensor(task_id, table_id, dataset_id, dag, **kwargs):
     )
 
 
-with DAG('port_events_v0_18',  schedule_interval=timedelta(days=1), max_active_runs=3, default_args=default_args) as dag:
-
-    yesterday_exists = table_sensor(task_id='yesterday_exists', dataset_id=INPUT_TABLE,
-                                table_id=YESTERDAY_TABLE, dag=dag)
-
-    today_exists = table_sensor(task_id='today_exists', dataset_id=INPUT_TABLE,
-                                table_id=TODAY_TABLE, dag=dag)
+with DAG('port_visits_v0_01',  schedule_interval=timedelta(days=1), max_active_runs=3, default_args=default_args) as dag:
 
     python_target = Variable.get('DATAFLOW_WRAPPER_STUB')
 
@@ -82,20 +76,20 @@ with DAG('port_events_v0_18',  schedule_interval=timedelta(days=1), max_active_r
 
     # Note: task_id must use '-' instead of '_' because it gets used to create the dataflow job name, and
     # only '-' is allowed
-    find_port_events = TemplatedDataFlowPythonOperator(
-        task_id='create-port-events',
+    find_port_visits = TemplatedDataFlowPythonOperator(
+        task_id='create-port-visits',
         py_file=python_target,
         options={
             'startup_log_file': pp.join(Variable.get('DATAFLOW_WRAPPER_LOG_PATH'), 
                                          'pipe_anchorages/create-port-events.log'),
             'command': '{{ var.value.DOCKER_RUN }} {{ var.json.PIPE_ANCHORAGES.DOCKER_IMAGE }} '
-                       'python -m pipe_anchorages.port_events',
+                       'python -m pipe_anchorages.port_visits',
             'project': PROJECT_ID,
-            'anchorage_table': ANCHORAGE_TABLE,
+            'events_table': EVENTS_TABLE,
             'start_date': '{{ ds }}',
             'end_date': '{{ ds }}',
-            'input_table': INPUT_TABLE,
-            'output_table': OUTPUT_TABLE,
+            'start_date': '{{ var.json.PIPE_ANCHORAGES.PORT_VISIT_START_PADDING }}',
+            'output_table': OUTPUT_TABLE,,
             'staging_location': GCS_STAGING_DIR,
             'temp_location': GCS_TEMP_DIR,
             'max_num_workers': '100',
@@ -107,5 +101,18 @@ with DAG('port_events_v0_18',  schedule_interval=timedelta(days=1), max_active_r
     )
 
 
-    yesterday_exists >> today_exists >> find_port_events
+    dataset, table_prefix = Variable.get('{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_OUTPUT_TABLE }}').split('.')
 
+    def days_before_exist(n):
+        template = '%s{{ macros.ds_format(macros.ds_add(ds, -%s), "%%Y-%%m-%%d", "%%Y%%m%%d") }}'
+        table = template % (table_prefix, n)
+        return table_sensor(task_id='{}_days_before_exist'.format(n), dataset_id=dataset,
+                                table_id=table, dag=dag)
+
+
+    required_days = int(Variable.get('PORT_VISIT_REQUIRED_DAYS'))
+    dependencies = days_before_exist(required_days)
+    for i in reversed(range(required_days)):
+        dependencies >>= days_before_exist(i)
+
+    dependencies >> find_port_visits

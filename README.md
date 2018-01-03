@@ -110,15 +110,16 @@ deployment.
 
 #### Manually
 
-To update a single day of events, run, for example:
+To update a month of events, run, for example:
 
     docker-compose run port_events \
-        --job_name portvisitssharded \
+        --job_name porteventssharded \
         --input_table pipeline_classify_p_p516_daily \
         --anchorage_table gfw_raw.anchorage_naming_20171026 \
         --start_date 2016-01-01 \
-        --end_date 2016-01-01 \
-        --output_table machine_learning_dev_ttl_30d.in_out_events_sharded                           --project world-fishing-827 \
+        --end_date 2016-01-31 \
+        --output_table machine_learning_dev_ttl_30d.port_events_ \
+        --project world-fishing-827 \
         --max_num_workers 200 \
         --requirements_file requirements.txt \
         --project world-fishing-827 \
@@ -132,23 +133,24 @@ For a full list of options run:
     python -m port_events -h
 
 
-To create a corresponding day of visits do:
+To create a corresponding month of visits do:
 
-    docker-compose run port_visits
-        --job_name portvisitssharded
-        --events_table machine_learning_dev_ttl_30d.in_out_events_sharded
-        --start_date 2016-01-01
-        --end_date 2016-12-31
-        --sink_table machine_learning_dev_ttl_30d.visits_events_sharded
-        --project world-fishing-827
-        --max_num_workers 200
-        --requirements_file requirements.txt
-        --project world-fishing-827
-        --staging_location gs://machine-learning-dev-ttl-30d/anchorages/portevents/output/staging
-        --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp
-        --setup_file ./setup.py
-        --runner DataflowRunner
-        --disk_size_gb 100
+    docker-compose run port_visits \
+        --job_name portvisitssharded \
+        --events_table machine_learning_dev_ttl_30d.in_out_events_sharded \
+        --start_date 2016-01-01 \
+        --end_date 2016-01-31 \
+        --start_padding 365 \
+        --output_table machine_learning_dev_ttl_30d.port_visits_ \
+        --project world-fishing-827 \
+        --max_num_workers 200 \
+        --requirements_file requirements.txt \
+        --project world-fishing-827 \
+        --staging_location gs://machine-learning-dev-ttl-30d/anchorages/portevents/output/staging \
+        --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp \
+        --setup_file ./setup.py \
+        --runner DataflowRunner \
+        --disk_size_gb 100 
 
 
 ### Config file

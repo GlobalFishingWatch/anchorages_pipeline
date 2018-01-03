@@ -12,11 +12,13 @@ class PortVisitsOptions(PipelineOptions):
 
         required.add_argument('--events_table', 
                             help='Name of of events table (BQ)')
-        required.add_argument('--sink_table', required=True,
+        required.add_argument('--output_table', required=True,
                             help='Output table (BQ) to write results to.')
         required.add_argument('--start_date', required=True, 
-                              help="First date to look for entry/exit events.")
+                              help="First date to generate visits.")
         required.add_argument('--end_date', required=True, 
-                            help="Last date (inclusive) to look for entry/exit events.")
+                            help="Last date (inclusive) to generate visits.")
+        required.add_argument('--start_padding', required=True, type=int,
+                              help="number of days before start to look at port events.")
         
    

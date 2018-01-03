@@ -6,6 +6,7 @@ import pytz
 
 import apache_beam as beam
 from apache_beam import Map
+from apache_beam import Filter
 from apache_beam.options.pipeline_options import GoogleCloudOptions
 from apache_beam.runners import PipelineState
 from apache_beam.transforms.window import TimestampedValue
@@ -48,10 +49,11 @@ def run(options):
 
     p = beam.Pipeline(options=options)
 
-    start_date = datetime.datetime.strptime(visit_args.start_date, '%Y-%m-%d') 
-    end_date = datetime.datetime.strptime(visit_args.end_date, '%Y-%m-%d') 
+    start_date = datetime.datetime.strptime(visit_args.start_date, '%Y-%m-%d').replace(tzinfo=pytz.utc) 
+    start_window = start_date - datetime.timedelta(days=visit_args.start_padding)
+    end_date = datetime.datetime.strptime(visit_args.end_date, '%Y-%m-%d').replace(tzinfo=pytz.utc)
 
-    dataset, table = visit_args.sink_table.split('.') 
+    dataset, table = visit_args.output_table.split('.') 
 
     sink = WriteToBigQueryDatePartitioned(
         temp_gcs_location=cloud_args.temp_location,
@@ -64,7 +66,7 @@ def run(options):
 
 
     queries = VisitEvent.create_queries(visit_args.events_table, 
-                                        start_date, end_date)
+                                        start_window, end_date)
 
     sources = [(p | "Read_{}".format(i) >> beam.io.Read(
                         beam.io.gcp.bigquery.BigQuerySource(query=x)))
@@ -74,8 +76,9 @@ def run(options):
         | beam.Flatten()
         | beam.Map(from_msg)
         | CreatePortVisits()
+        | "FilterVisits" >> Filter(lambda x: start_date <= x.end_timestamp <= end_date)
         | Map(lambda x: TimestampedValue(visit_to_msg(x), 
-                                        _datetime_to_s(x.start_timestamp)))
+                                        _datetime_to_s(x.end_timestamp)))
         | sink
         )
 
