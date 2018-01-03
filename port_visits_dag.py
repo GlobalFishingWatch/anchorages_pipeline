@@ -68,7 +68,7 @@ def table_sensor(task_id, table_id, dataset_id, dag, **kwargs):
     )
 
 
-with DAG('port_visits_v0_01',  schedule_interval=timedelta(days=1), max_active_runs=3, default_args=default_args) as dag:
+with DAG('port_visits_v0_19',  schedule_interval=timedelta(days=1), max_active_runs=3, default_args=default_args) as dag:
 
     python_target = Variable.get('DATAFLOW_WRAPPER_STUB')
 

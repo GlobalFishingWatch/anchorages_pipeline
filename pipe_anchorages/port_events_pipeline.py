@@ -2,8 +2,10 @@ from __future__ import absolute_import, print_function, division
 
 import datetime
 import logging
+import pytz
 
 import apache_beam as beam
+from apache_beam import Filter
 from apache_beam.options.pipeline_options import GoogleCloudOptions
 from apache_beam.runners import PipelineState
 
@@ -42,6 +44,9 @@ def run(options):
     known_args = options.view_as(PortEventsOptions)
     cloud_options = options.view_as(GoogleCloudOptions)
 
+    start_date = datetime.datetime.strptime(known_args.start_date, '%Y-%m-%d').replace(tzinfo=pytz.utc) 
+    end_date = datetime.datetime.strptime(known_args.end_date, '%Y-%m-%d').replace(tzinfo=pytz.utc)
+
     p = beam.Pipeline(options=options)
 
     config = cmn.load_config(known_args.config)
@@ -68,6 +73,7 @@ def run(options):
                             anchorage_exit_dist=config['anchorage_exit_distance_km'], 
                             stopped_begin_speed=config['stopped_begin_speed_knots'],
                             stopped_end_speed=config['stopped_end_speed_knots'])
+        | "FilterEvents" >> Filter(lambda x: start_date.date() <= x.timestamp.date() <= end_date.date())
         | "writeInOutEvents" >> EventSink(table=known_args.output_table, 
                                           temp_location=cloud_options.temp_location,
                                           project=cloud_options.project)

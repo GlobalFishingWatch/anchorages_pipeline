@@ -76,7 +76,7 @@ def run(options):
         | beam.Flatten()
         | beam.Map(from_msg)
         | CreatePortVisits()
-        | "FilterVisits" >> Filter(lambda x: start_date <= x.end_timestamp <= end_date)
+        | "FilterVisits" >> Filter(lambda x: start_date.date() <= x.end_timestamp.date() <= end_date.date())
         | Map(lambda x: TimestampedValue(visit_to_msg(x), 
                                         _datetime_to_s(x.end_timestamp)))
         | sink
