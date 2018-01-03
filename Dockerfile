@@ -30,7 +30,7 @@ RUN  \
 
 # Install extra packages
 RUN pip install ujson more_itertools statistics pytz s2sphere unidecode \
-    https://api.github.com/repos/GlobalFishingWatch/pipe-tools/tarball/14-logging-options
+    https://api.github.com/repos/GlobalFishingWatch/pipe-tools/tarball/master
 
 # Setup a volume for configuration and auth data
 VOLUME ["/root/.config"]
