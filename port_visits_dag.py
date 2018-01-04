@@ -30,6 +30,12 @@ OUTPUT_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_VISITS_OUTPUT_TABLE }}'
 TODAY_TABLE='{{ ds_nodash }}' 
 YESTERDAY_TABLE='{{ yesterday_ds_nodash }}'
 
+start_date_string = Variable.get('PIPE_ANCHORAGES', deserialize_json=True)['START_DATE'].strip()
+if not start_date_string:
+    default_start_date = (datetime.now() - timedelta(days=7))
+else:
+    default_start_date = datetime.strptime(start_date_string, "%Y-%m-%d")
+
 
 BUCKET='{{ var.json.PIPE_ANCHORAGES.GCS_BUCKET }}'
 GCS_TEMP_DIR='gs://%s/dataflow-temp' % BUCKET
@@ -39,7 +45,7 @@ GCS_STAGING_DIR='gs://%s/dataflow-staging' % BUCKET
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
-    'start_date': datetime(2017, 8, 8),
+    'start_date': default_start_date,
     'email': ['tim@globalfishingwatch.org'],
     'email_on_failure': False,
     'email_on_retry': False,
@@ -68,51 +74,66 @@ def table_sensor(task_id, table_id, dataset_id, dag, **kwargs):
     )
 
 
-with DAG('port_visits_v0_19',  schedule_interval=timedelta(days=1), max_active_runs=3, default_args=default_args) as dag:
 
-    python_target = Variable.get('DATAFLOW_WRAPPER_STUB')
+def build_dag(dag_id, schedule_interval):
 
-    logging.info("target: %s", python_target)
+    if schedule_interval=='@daily':
+        source_sensor_date = '{{ ds_nodash }}'
+        start_date = '{{ ds }}'
+        end_date = '{{ ds }}'
+    elif schedule_interval == '@monthly':
+        source_sensor_date = '{last_day_of_month_nodash}'.format(**config)
+        start_date = FIRST_DAY_OF_MONTH
+        end_date = LAST_DAY_OF_MONTH
+    else:
+        raise ValueError('Unsupported schedule interval {}'.format(schedule_interval))
 
-    # Note: task_id must use '-' instead of '_' because it gets used to create the dataflow job name, and
-    # only '-' is allowed
-    find_port_visits = TemplatedDataFlowPythonOperator(
-        task_id='create-port-visits',
-        py_file=python_target,
-        options={
-            'startup_log_file': pp.join(Variable.get('DATAFLOW_WRAPPER_LOG_PATH'), 
-                                         'pipe_anchorages/create-port-events.log'),
-            'command': '{{ var.value.DOCKER_RUN }} {{ var.json.PIPE_ANCHORAGES.DOCKER_IMAGE }} '
-                       'python -m pipe_anchorages.port_visits',
-            'project': PROJECT_ID,
-            'events_table': EVENTS_TABLE,
-            'start_date': '{{ ds }}',
-            'end_date': '{{ ds }}',
-            'start_padding': '{{ var.json.PIPE_ANCHORAGES.PORT_VISIT_START_PADDING }}',
-            'output_table': OUTPUT_TABLE,
-            'staging_location': GCS_STAGING_DIR,
-            'temp_location': GCS_TEMP_DIR,
-            'max_num_workers': '100',
-            'disk_size_gb': '50',
-            'setup_file': './setup.py',
-            'requirements_file': 'requirements.txt',
-        },
-        dag=dag
-    )
 
-    dataset, table_prefix = Variable.get('PIPE_ANCHORAGES', deserialize_json=True)[
-        'PORT_EVENTS_OUTPUT_TABLE'].split('.')
+    with DAG(dag_id,  schedule_interval=schedule_interval, default_args=default_args) as dag:
 
-    def days_before_exist(n):
-        template = '%s{{ macros.ds_format(macros.ds_add(ds, -%s), "%%Y-%%m-%%d", "%%Y%%m%%d") }}'
-        table = template % (table_prefix, n)
-        return table_sensor(task_id='{}_days_before_exist'.format(n), dataset_id=dataset,
-                                table_id=table, dag=dag)
+        source_exists = table_sensor(task_id='source_exists', dataset_id=INPUT_TABLE,
+                                    table_id=source_sensor_date, dag=dag)
 
-    required_days = int(Variable.get('PIPE_ANCHORAGES', deserialize_json=True)[
-        'PORT_VISIT_REQUIRED_DAYS'])
-    dependencies = days_before_exist(required_days)
-    for i in reversed(range(required_days)):
-        dependencies >>= days_before_exist(i)
+        python_target = Variable.get('DATAFLOW_WRAPPER_STUB')
 
-    dependencies >> find_port_visits
+        logging.info("target: %s", python_target)
+
+        # Note: task_id must use '-' instead of '_' because it gets used to create the dataflow job name, and
+        # only '-' is allowed
+        find_port_visits = TemplatedDataFlowPythonOperator(
+            task_id='create-port-visits',
+            depends_on_past=True,
+            py_file=python_target,
+            options={
+                'startup_log_file': pp.join(Variable.get('DATAFLOW_WRAPPER_LOG_PATH'), 
+                                             'pipe_anchorages/create-port-events.log'),
+                'command': '{{ var.value.DOCKER_RUN }} {{ var.json.PIPE_ANCHORAGES.DOCKER_IMAGE }} '
+                           'python -m pipe_anchorages.port_visits',
+                'project': PROJECT_ID,
+                'events_table': EVENTS_TABLE,
+                'start_date': start_date,
+                'end_date': end_date,
+                'start_padding': '{{ var.json.PIPE_ANCHORAGES.PORT_VISIT_START_PADDING }}',
+                'output_table': OUTPUT_TABLE,
+                'staging_location': GCS_STAGING_DIR,
+                'temp_location': GCS_TEMP_DIR,
+                'max_num_workers': '100',
+                'disk_size_gb': '50',
+                'setup_file': './setup.py',
+                'requirements_file': 'requirements.txt',
+            },
+            dag=dag
+        )
+
+        dataset, table_prefix = Variable.get('PIPE_ANCHORAGES', deserialize_json=True)[
+            'PORT_EVENTS_OUTPUT_TABLE'].split('.')
+
+        table_id = '%s{{ ds_nodash }}' % table_prefix
+        source_exists = table_sensor(task_id='source_exist'.format(n), dataset_id=dataset,
+                                    table_id=table_id, dag=dag)
+
+        source_exists >> find_port_visits
+
+
+port_visits_daily_dag = build_dag('port_visits_daily_v0_20', '@daily')
+port_visits_monthly_dag = build_dag('port_visits_monthly_v0_20', '@monthly')
