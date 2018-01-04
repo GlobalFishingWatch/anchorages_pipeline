@@ -89,7 +89,7 @@ with DAG('port_visits_v0_19',  schedule_interval=timedelta(days=1), max_active_r
             'start_date': '{{ ds }}',
             'end_date': '{{ ds }}',
             'start_date': '{{ var.json.PIPE_ANCHORAGES.PORT_VISIT_START_PADDING }}',
-            'output_table': OUTPUT_TABLE,,
+            'output_table': OUTPUT_TABLE,
             'staging_location': GCS_STAGING_DIR,
             'temp_location': GCS_TEMP_DIR,
             'max_num_workers': '100',
