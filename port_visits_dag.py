@@ -100,8 +100,8 @@ with DAG('port_visits_v0_19',  schedule_interval=timedelta(days=1), max_active_r
         dag=dag
     )
 
-
-    dataset, table_prefix = Variable.get('{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_OUTPUT_TABLE }}').split('.')
+    dataset, table_prefix = Variable.get('PIPE_ANCHORAGES', deserialize_json=True)[
+        'PORT_EVENTS_OUTPUT_TABLE'].split('.')
 
     def days_before_exist(n):
         template = '%s{{ macros.ds_format(macros.ds_add(ds, -%s), "%%Y-%%m-%%d", "%%Y%%m%%d") }}'
