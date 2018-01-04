@@ -123,7 +123,7 @@ def build_dag(dag_id, schedule_interval):
             'PORT_EVENTS_OUTPUT_TABLE'].split('.')
 
         table_id = '%s{{ ds_nodash }}' % table_prefix
-        source_exists = table_sensor(task_id='source_exist'.format(n), dataset_id=dataset,
+        source_exists = table_sensor(task_id='source_exists', dataset_id=dataset,
                                     table_id=table_id, dag=dag)
 
         source_exists >> find_port_visits
