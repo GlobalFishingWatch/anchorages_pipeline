@@ -39,7 +39,7 @@ GCS_STAGING_DIR='gs://%s/dataflow-staging' % BUCKET
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
-    'start_date': datetime(2017, 8, 1),
+    'start_date': datetime(2017, 8, 8),
     'email': ['tim@globalfishingwatch.org'],
     'email_on_failure': False,
     'email_on_retry': False,
@@ -88,7 +88,7 @@ with DAG('port_visits_v0_19',  schedule_interval=timedelta(days=1), max_active_r
             'events_table': EVENTS_TABLE,
             'start_date': '{{ ds }}',
             'end_date': '{{ ds }}',
-            'start_date': '{{ var.json.PIPE_ANCHORAGES.PORT_VISIT_START_PADDING }}',
+            'start_padding': '{{ var.json.PIPE_ANCHORAGES.PORT_VISIT_START_PADDING }}',
             'output_table': OUTPUT_TABLE,
             'staging_location': GCS_STAGING_DIR,
             'temp_location': GCS_TEMP_DIR,
