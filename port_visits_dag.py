@@ -127,6 +127,8 @@ def build_dag(dag_id, schedule_interval):
 
         source_exists >> find_port_visits
 
+        return dag
+
 
 port_visits_daily_dag = build_dag('port_visits_daily_v0_20', '@daily')
 port_visits_monthly_dag = build_dag('port_visits_monthly_v0_20', '@monthly')
