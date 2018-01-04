@@ -37,6 +37,7 @@ GCS_STAGING_DIR='gs://%s/dataflow-staging' % BUCKET
 
 FIRST_DAY_OF_MONTH = '{{ execution_date.replace(day=1).strftime("%Y-%m-%d") }}'
 LAST_DAY_OF_MONTH = '{{ (execution_date.replace(day=1) + macros.dateutil.relativedelta.relativedelta(months=1, days=-1)).strftime("%Y-%m-%d") }}'
+LAST_DAY_OF_MONTH_NODASH = '{{ (execution_date.replace(day=1) + macros.dateutil.relativedelta.relativedelta(months=1, days=-1)).strftime("%Y%m%d") }}'
 
 
 def day_of_month_nodash(n):
@@ -46,7 +47,7 @@ def days_before_end_of_month(n):
     return ('{{ (execution_date.replace(day=1) + macros.dateutil.relativedelta.relativedelta'
             '(months=1, days=-%s)).strftime("%%Y%%m%%d") }}' % (n+1))
 
-start_date_string = Variable.get('PIPE_ANCHORAGES', deserialize_json=True)['START_DATE'].strip()
+start_date_string = Variable.get('PIPE_ANCHORAGES', deserialize_json=True)['PORT_EVENTS_START_DATE'].strip()
 default_start_date = datetime.strptime(start_date_string, "%Y-%m-%d")
 
 default_args = {
@@ -88,7 +89,7 @@ def build_dag(dag_id, schedule_interval):
         start_date = '{{ ds }}'
         end_date = '{{ ds }}'
     elif schedule_interval == '@monthly':
-        source_sensor_date = '{last_day_of_month_nodash}'.format(**config)
+        source_sensor_date = LAST_DAY_OF_MONTH_NODASH
         start_date = FIRST_DAY_OF_MONTH
         end_date = LAST_DAY_OF_MONTH
     else:

@@ -30,7 +30,7 @@ OUTPUT_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_VISITS_OUTPUT_TABLE }}'
 TODAY_TABLE='{{ ds_nodash }}' 
 YESTERDAY_TABLE='{{ yesterday_ds_nodash }}'
 
-start_date_string = Variable.get('PIPE_ANCHORAGES', deserialize_json=True)['START_DATE'].strip()
+start_date_string = Variable.get('PIPE_ANCHORAGES', deserialize_json=True)['PORT_VISITS_START_DATE'].strip()
 default_start_date = datetime.strptime(start_date_string, "%Y-%m-%d")
 
 
@@ -87,9 +87,6 @@ def build_dag(dag_id, schedule_interval):
 
 
     with DAG(dag_id,  schedule_interval=schedule_interval, default_args=default_args) as dag:
-
-        source_exists = table_sensor(task_id='source_exists', dataset_id=INPUT_TABLE,
-                                    table_id=source_sensor_date, dag=dag)
 
         python_target = Variable.get('DATAFLOW_WRAPPER_STUB')
 
