@@ -27,6 +27,8 @@ ANCHORAGE_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_ANCHORAGE_TABLE }}'
 EVENTS_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_OUTPUT_TABLE }}'
 OUTPUT_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_VISITS_OUTPUT_TABLE }}'
 
+FIRST_DAY_OF_MONTH = '{{ execution_date.replace(day=1).strftime("%Y-%m-%d") }}'
+LAST_DAY_OF_MONTH = '{{ (execution_date.replace(day=1) + macros.dateutil.relativedelta.relativedelta(months=1, days=-1)).strftime("%Y-%m-%d") }}'
 LAST_DAY_OF_MONTH_NODASH = '{{ (execution_date.replace(day=1) + macros.dateutil.relativedelta.relativedelta(months=1, days=-1)).strftime("%Y%m%d") }}'
 
 start_date_string = Variable.get('PIPE_ANCHORAGES', deserialize_json=True)['PORT_VISITS_START_DATE'].strip()
