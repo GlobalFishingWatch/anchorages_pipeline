@@ -31,10 +31,7 @@ TODAY_TABLE='{{ ds_nodash }}'
 YESTERDAY_TABLE='{{ yesterday_ds_nodash }}'
 
 start_date_string = Variable.get('PIPE_ANCHORAGES', deserialize_json=True)['START_DATE'].strip()
-if not start_date_string:
-    default_start_date = (datetime.now() - timedelta(days=7))
-else:
-    default_start_date = datetime.strptime(start_date_string, "%Y-%m-%d")
+default_start_date = datetime.strptime(start_date_string, "%Y-%m-%d")
 
 
 BUCKET='{{ var.json.PIPE_ANCHORAGES.GCS_BUCKET }}'

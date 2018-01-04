@@ -47,13 +47,7 @@ def days_before_end_of_month(n):
             '(months=1, days=-%s)).strftime("%%Y%%m%%d") }}' % (n+1))
 
 start_date_string = Variable.get('PIPE_ANCHORAGES', deserialize_json=True)['START_DATE'].strip()
-if not start_date_string:
-    default_start_date = (datetime.now() - timedelta(days=7))
-else:
-    default_start_date = datetime.strptime(start_date_string, "%Y-%m-%d")
-
-
-
+default_start_date = datetime.strptime(start_date_string, "%Y-%m-%d")
 
 default_args = {
     'owner': 'airflow',
