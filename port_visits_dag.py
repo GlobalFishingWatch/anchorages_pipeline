@@ -107,7 +107,7 @@ def build_dag(dag_id, schedule_interval):
                 'events_table': EVENTS_TABLE,
                 'start_date': start_date,
                 'end_date': end_date,
-                'start_padding': '{{ var.json.PIPE_ANCHORAGES.PORT_VISIT_START_PADDING }}',
+                'start_padding': '{{ var.json.PIPE_ANCHORAGES.PORT_VISITS_START_PADDING }}',
                 'output_table': OUTPUT_TABLE,
                 'staging_location': GCS_STAGING_DIR,
                 'temp_location': GCS_TEMP_DIR,
