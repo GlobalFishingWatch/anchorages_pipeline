@@ -109,8 +109,8 @@ with DAG('port_visits_v0_19',  schedule_interval=timedelta(days=1), max_active_r
         return table_sensor(task_id='{}_days_before_exist'.format(n), dataset_id=dataset,
                                 table_id=table, dag=dag)
 
-
-    required_days = int(Variable.get('PORT_VISIT_REQUIRED_DAYS'))
+    required_days = int(Variable.get('PIPE_ANCHORAGES', deserialize_json=True)[
+        'PORT_VISIT_REQUIRED_DAYS'])
     dependencies = days_before_exist(required_days)
     for i in reversed(range(required_days)):
         dependencies >>= days_before_exist(i)
