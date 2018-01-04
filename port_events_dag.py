@@ -27,10 +27,6 @@ ANCHORAGE_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_ANCHORAGE_TABLE }}'
 INPUT_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_INPUT_TABLE }}'
 OUTPUT_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_OUTPUT_TABLE }}'
 
-TODAY_TABLE='{{ ds_nodash }}' 
-YESTERDAY_TABLE='{{ yesterday_ds_nodash }}'
-
-
 BUCKET='{{ var.json.PIPE_ANCHORAGES.GCS_BUCKET }}'
 GCS_TEMP_DIR='gs://%s/dataflow-temp' % BUCKET
 GCS_STAGING_DIR='gs://%s/dataflow-staging' % BUCKET

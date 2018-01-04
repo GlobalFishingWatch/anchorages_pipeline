@@ -27,8 +27,7 @@ ANCHORAGE_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_ANCHORAGE_TABLE }}'
 EVENTS_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_OUTPUT_TABLE }}'
 OUTPUT_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_VISITS_OUTPUT_TABLE }}'
 
-TODAY_TABLE='{{ ds_nodash }}' 
-YESTERDAY_TABLE='{{ yesterday_ds_nodash }}'
+LAST_DAY_OF_MONTH_NODASH = '{{ (execution_date.replace(day=1) + macros.dateutil.relativedelta.relativedelta(months=1, days=-1)).strftime("%Y%m%d") }}'
 
 start_date_string = Variable.get('PIPE_ANCHORAGES', deserialize_json=True)['PORT_VISITS_START_DATE'].strip()
 default_start_date = datetime.strptime(start_date_string, "%Y-%m-%d")
@@ -79,7 +78,7 @@ def build_dag(dag_id, schedule_interval):
         start_date = '{{ ds }}'
         end_date = '{{ ds }}'
     elif schedule_interval == '@monthly':
-        source_sensor_date = '{last_day_of_month_nodash}'.format(**config)
+        source_sensor_date = LAST_DAY_OF_MONTH_NODASH
         start_date = FIRST_DAY_OF_MONTH
         end_date = LAST_DAY_OF_MONTH
     else:
