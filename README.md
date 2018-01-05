@@ -87,34 +87,47 @@ It should have the following fields: s2uid,label,iso3,anchor_lat,anchor_lon,subl
 
 #### Manually
 
-To update a single day of events, run:
-
-    TODO: FILL IN
-
-For example:
+To update a month of events, run, for example:
 
     docker-compose run port_events \
-                          --job_name portvisitsoneday \
-                          --input_table pipeline_classify_p_p516_daily \
-                          --anchorage_table gfw_raw.anchorage_naming_20171026 \
-                          --start_date 2016-01-01 \
-                          --end_date 2016-01-01 \
-                          --output_table machine_learning_dev_ttl_30d.in_out_events_test \
-                          --project world-fishing-827 \
-                          --max_num_workers 100 \
-                          --requirements_file requirements.txt \
-                          --project world-fishing-827 \
-                          --staging_location gs://machine-learning-dev-ttl-30d/anchorages/portevents/output/staging \
-                          --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp \
-                          --setup_file ./setup.py \
-                          --runner DataflowRunner \
-                          --disk_size_gb 100
-
-Results are **appended** to the specified file.
+        --job_name porteventssharded \
+        --input_table pipeline_classify_p_p516_daily \
+        --anchorage_table gfw_raw.anchorage_naming_20171026 \
+        --start_date 2016-01-01 \
+        --end_date 2016-01-31 \
+        --output_table machine_learning_dev_ttl_30d.port_events_ \
+        --project world-fishing-827 \
+        --max_num_workers 200 \
+        --requirements_file requirements.txt \
+        --project world-fishing-827 \
+        --staging_location gs://machine-learning-dev-ttl-30d/anchorages/portevents/output/staging \
+        --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp                           --setup_file ./setup.py \
+        --runner DataflowRunner \
+        --disk_size_gb 100
 
 For a full list of options run:
 
     python -m port_events -h
+
+
+To create a corresponding month of visits do:
+
+    docker-compose run port_visits \
+        --job_name portvisitssharded \
+        --events_table machine_learning_dev_ttl_30d.in_out_events_sharded \
+        --start_date 2016-01-01 \
+        --end_date 2016-01-31 \
+        --start_padding 365 \
+        --output_table machine_learning_dev_ttl_30d.port_visits_ \
+        --project world-fishing-827 \
+        --max_num_workers 200 \
+        --requirements_file requirements.txt \
+        --project world-fishing-827 \
+        --staging_location gs://machine-learning-dev-ttl-30d/anchorages/portevents/output/staging \
+        --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp \
+        --setup_file ./setup.py \
+        --runner DataflowRunner \
+        --disk_size_gb 100 
 
 
 ### Config file

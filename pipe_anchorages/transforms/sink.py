@@ -1,26 +1,31 @@
+import logging
+import pytz
 from apache_beam import PTransform
 from apache_beam import Map
 from apache_beam import io
+from apache_beam.transforms.window import TimestampedValue
+from pipe_tools.coders.jsoncoder import JSONDict
+from pipe_tools.io import WriteToBigQueryDatePartitioned
+from ..objects.namedtuples import epoch
 
 
-#TODO: refactor
+
 
 class EventSink(PTransform):
-    def __init__(self, table, write_disposition):
+    def __init__(self, table, temp_location, project):
         self.table = table
-        self.write_disposition = write_disposition
+        self.temp_location = temp_location
+        self.project = project
 
     def expand(self, xs):
 
         def as_dict(x):
-            return x._asdict()
+            return JSONDict(**x._asdict())
 
-        def encode_datetimes_to_iso(x):
-            def encode_datetime_field(value):
-                return value.strftime('%Y-%m-%d %H:%M:%S.%f UTC')
+        def encode_datetimes_to_s(x):
 
             for field in ['timestamp']:
-                x[field] = encode_datetime_field(x[field])
+                x[field] = (x[field].replace(tzinfo=pytz.utc) - epoch).total_seconds()
 
             return x
 
@@ -36,21 +41,37 @@ class EventSink(PTransform):
 
             return schema
 
-        return xs | Map(as_dict)| Map(encode_datetimes_to_iso) | io.Write(io.gcp.bigquery.BigQuerySink(
-            table=self.table,
-            write_disposition=self.write_disposition,
+        dataset, table = self.table.split('.')
+
+
+        sink = WriteToBigQueryDatePartitioned(
+            temp_gcs_location=self.temp_location,
+            dataset=dataset,
+            table=table,
+            project=self.project,
+            write_disposition="WRITE_TRUNCATE",
             schema=build_table_schema({
-                "mmsi": "integer",
-                "timestamp": "timestamp",
-                "lat": "float",
-                "lon": "float",
-                "vessel_lat": "float",
-                "vessel_lon": "float",
-                "anchorage_id": "string",
-                "port_label": "string",
-                "event_type": "string"
-            })
-        ))
+                    "mmsi": "integer",
+                    "timestamp": "timestamp",
+                    "lat": "float",
+                    "lon": "float",
+                    "vessel_lat": "float",
+                    "vessel_lon": "float",
+                    "anchorage_id": "string",
+                    "port_label": "string",
+                    "event_type": "string"
+                })
+            )
+
+
+        logging.info('sink params: \n\t%s\n\t%s\n\t%s\n\t%s', self.temp_location, dataset, table, self.project)
+
+        return (xs 
+            | Map(as_dict)
+            | Map(encode_datetimes_to_s)
+            | Map(lambda x: TimestampedValue(x, x['timestamp'])) 
+            | sink
+            )
 
 
 

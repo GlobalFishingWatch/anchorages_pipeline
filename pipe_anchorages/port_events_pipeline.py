@@ -2,8 +2,11 @@ from __future__ import absolute_import, print_function, division
 
 import datetime
 import logging
+import pytz
 
 import apache_beam as beam
+from apache_beam import Filter
+from apache_beam.options.pipeline_options import GoogleCloudOptions
 from apache_beam.runners import PipelineState
 
 from . import common as cmn
@@ -11,7 +14,7 @@ from .transforms.source import QuerySource
 from .transforms.create_tagged_anchorages import CreateTaggedAnchorages
 from .transforms.create_in_out_events import CreateInOutEvents
 from .transforms.sink import EventSink
-from .options import PortEventsOptions
+from .options.port_events_options import PortEventsOptions
 
 
 def create_queries(args):
@@ -39,6 +42,10 @@ anchorage_query = 'SELECT lat anchor_lat, lon anchor_lon, anchor_id, FINAL_NAME 
 def run(options):
 
     known_args = options.view_as(PortEventsOptions)
+    cloud_options = options.view_as(GoogleCloudOptions)
+
+    start_date = datetime.datetime.strptime(known_args.start_date, '%Y-%m-%d').replace(tzinfo=pytz.utc) 
+    end_date = datetime.datetime.strptime(known_args.end_date, '%Y-%m-%d').replace(tzinfo=pytz.utc)
 
     p = beam.Pipeline(options=options)
 
@@ -66,7 +73,10 @@ def run(options):
                             anchorage_exit_dist=config['anchorage_exit_distance_km'], 
                             stopped_begin_speed=config['stopped_begin_speed_knots'],
                             stopped_end_speed=config['stopped_end_speed_knots'])
-        | "writeInOutEvents" >> EventSink(table=known_args.output_table, write_disposition="WRITE_APPEND")
+        | "FilterEvents" >> Filter(lambda x: start_date.date() <= x.timestamp.date() <= end_date.date())
+        | "writeInOutEvents" >> EventSink(table=known_args.output_table, 
+                                          temp_location=cloud_options.temp_location,
+                                          project=cloud_options.project)
         )
 
 
