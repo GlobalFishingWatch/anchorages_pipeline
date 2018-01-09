@@ -7,12 +7,11 @@ class DummyOptions(object):
         self.input_table = input_table
         self.fast_test = False
 
-
 def test_create_queries_1():
     args = DummyOptions("2016-01-01", "2016-01-01")
     assert list(create_queries(args)) == ["""
-    SELECT mmsi, lat, lon, timestamp, destination, speed FROM   
-      TABLE_DATE_RANGE([world-fishing-827:SOURCE_TABLE.], 
+    SELECT STRING(ssvid) as mmsi, lat, lon, timestamp, speed FROM   
+      TABLE_DATE_RANGE([world-fishing-827:SOURCE_TABLE], 
                         TIMESTAMP('2015-12-31'), TIMESTAMP('2016-01-01')) 
     """]
     
@@ -21,13 +20,13 @@ def test_create_queries_2():
     # print list(create_queries(args))[0]
     # print list(create_queries(args))[1]
     assert list(create_queries(args)) == ["""
-    SELECT mmsi, lat, lon, timestamp, destination, speed FROM   
-      TABLE_DATE_RANGE([world-fishing-827:SOURCE_TABLE.], 
+    SELECT STRING(ssvid) as mmsi, lat, lon, timestamp, speed FROM   
+      TABLE_DATE_RANGE([world-fishing-827:SOURCE_TABLE], 
                         TIMESTAMP('2012-04-30'), TIMESTAMP('2015-01-24')) 
     """, 
     """
-    SELECT mmsi, lat, lon, timestamp, destination, speed FROM   
-      TABLE_DATE_RANGE([world-fishing-827:SOURCE_TABLE.], 
+    SELECT STRING(ssvid) as mmsi, lat, lon, timestamp, speed FROM   
+      TABLE_DATE_RANGE([world-fishing-827:SOURCE_TABLE], 
                         TIMESTAMP('2015-01-25'), TIMESTAMP('2017-05-15')) 
     """
         ]
