@@ -91,11 +91,11 @@ To update a month of events, run, for example:
 
     docker-compose run port_events \
         --job_name porteventssharded \
-        --input_table pipeline_classify_p_p516_daily \
+        --input_table pipe_test_b_ttl30.position_messages_20180103 \
         --anchorage_table gfw_raw.anchorage_naming_20171026 \
         --start_date 2016-01-01 \
         --end_date 2016-01-31 \
-        --output_table machine_learning_dev_ttl_30d.port_events_ \
+        --output_table machine_learning_dev_ttl_30d.new_pipeline_port_events_ \
         --project world-fishing-827 \
         --max_num_workers 200 \
         --requirements_file requirements.txt \
@@ -118,7 +118,7 @@ To create a corresponding month of visits do:
         --start_date 2016-01-01 \
         --end_date 2016-01-31 \
         --start_padding 365 \
-        --output_table machine_learning_dev_ttl_30d.port_visits_ \
+        --output_table machine_learning_dev_ttl_30d.new_pipeline_port_visits_ \
         --project world-fishing-827 \
         --max_num_workers 200 \
         --requirements_file requirements.txt \

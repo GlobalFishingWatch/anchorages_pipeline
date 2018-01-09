@@ -51,7 +51,7 @@ class EventSink(PTransform):
             project=self.project,
             write_disposition="WRITE_TRUNCATE",
             schema=build_table_schema({
-                    "mmsi": "integer",
+                    "id": "string",
                     "timestamp": "timestamp",
                     "lat": "float",
                     "lon": "float",
@@ -66,8 +66,13 @@ class EventSink(PTransform):
 
         logging.info('sink params: \n\t%s\n\t%s\n\t%s\n\t%s', self.temp_location, dataset, table, self.project)
 
+        def replace_mmsi(x):
+            x['id'] = x.pop('mmsi')
+            return x
+
         return (xs 
             | Map(as_dict)
+            | Map(replace_mmsi)
             | Map(encode_datetimes_to_s)
             | Map(lambda x: TimestampedValue(x, x['timestamp'])) 
             | sink
