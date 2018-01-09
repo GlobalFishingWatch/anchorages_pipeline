@@ -35,7 +35,7 @@ class CreateVesselRecords(beam.PTransform):
         mmsi, rcd = item
         assert isinstance(rcd, VesselRecord), type(rcd)
         return (not isinstance(rcd, InvalidRecord) and 
-                isinstance(mmsi, int) and
+                isinstance(mmsi, (str, int)) and
                 (mmsi not in self.blacklisted_mmsis)) 
 
     def add_defaults(self, x):
