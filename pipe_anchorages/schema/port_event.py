@@ -4,7 +4,7 @@ def build():
 
     builder = SchemaBuilder()
 
-    builder.add("mmsi", "INTEGER")
+    builder.add("vessel_id", "STRING")
     builder.add("timestamp", "TIMESTAMP")
     builder.add("lat", "FLOAT")
     builder.add("lon", "FLOAT")

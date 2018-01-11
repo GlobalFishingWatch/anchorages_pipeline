@@ -94,7 +94,7 @@ class CreateInOutEvents(beam.PTransform):
                                          lon=active_port.mean_location.lon, 
                                          vessel_lat=rcd.location.lat,
                                          vessel_lon=rcd.location.lon,
-                                         mmsi=mmsi, 
+                                         vessel_id=mmsi, 
                                          timestamp=rcd.timestamp, 
                                          port_label=active_port.port_name, 
                                          event_type=event_type)) 

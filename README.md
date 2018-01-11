@@ -87,15 +87,15 @@ It should have the following fields: s2uid,label,iso3,anchor_lat,anchor_lon,subl
 
 #### Manually
 
-To update a month of events, run, for example:
+To update a day of events, run, for example:
 
     docker-compose run port_events \
         --job_name porteventssharded \
-        --input_table pipe_test_b_ttl30.position_messages_20180103 \
+        --input_table pipe_test_b_ttl30.position_messages_ \
         --anchorage_table gfw_raw.anchorage_naming_20171026 \
-        --start_date 2016-01-01 \
-        --end_date 2016-01-31 \
-        --output_table machine_learning_dev_ttl_30d.new_pipeline_port_events_ \
+        --start_date 2017-12-01 \
+        --end_date 2017-12-01 \
+        --output_table machine_learning_dev_ttl_30d.new_pipeline_port_events_test \
         --project world-fishing-827 \
         --max_num_workers 200 \
         --requirements_file requirements.txt \
@@ -110,15 +110,15 @@ For a full list of options run:
     python -m port_events -h
 
 
-To create a corresponding month of visits do:
+To create a corresponding day of visits do:
 
     docker-compose run port_visits \
         --job_name portvisitssharded \
-        --events_table machine_learning_dev_ttl_30d.in_out_events_sharded \
-        --start_date 2016-01-01 \
-        --end_date 2016-01-31 \
+        --events_table machine_learning_dev_ttl_30d.new_pipeline_port_events_test \
+        --start_date 2017-12-01 \
+        --end_date 2017-12-01 \
         --start_padding 365 \
-        --output_table machine_learning_dev_ttl_30d.new_pipeline_port_visits_ \
+        --output_table machine_learning_dev_ttl_30d.new_pipeline_port_visits_test \
         --project world-fishing-827 \
         --max_num_workers 200 \
         --requirements_file requirements.txt \
