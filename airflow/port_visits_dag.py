@@ -16,29 +16,21 @@ from airflow.models import Variable
 class TemplatedDataFlowPythonOperator(DataFlowPythonOperator):
     template_fields = ['options']
 
+config = Variable.get('PIPE_ENCOUNTERS', deserialize_json=True)
+config['ds_nodash'] = '{{ ds_nodash }}'
+config['first_day_of_month'] = '{{ execution_date.replace(day=1).strftime("%Y-%m-%d") }}'
+config['last_day_of_month'] = '{{ (execution_date.replace(day=1) + macros.dateutil.relativedelta.relativedelta(months=1, days=-1)).strftime("%Y-%m-%d") }}'
+config['first_day_of_month_nodash'] = '{{ execution_date.replace(day=1).strftime("%Y%m%d") }}'
+config['last_day_of_month_nodash'] = '{{ (execution_date.replace(day=1) + macros.dateutil.relativedelta.relativedelta(months=1, days=-1)).strftime("%Y%m%d") }}'
+config['temp_bucket'] = '{{ var.value.TEMP_BUCKET }}'
+
 GC_CONNECTION_ID = 'google_cloud_default' 
 BQ_CONNECTION_ID = 'google_cloud_default'
 
-PROJECT_ID='{{ var.value.GCP_PROJECT_ID }}'
+PROJECT_ID='{{ var.value.PROJECT_ID }}'
 
-THIS_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-
-ANCHORAGE_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_ANCHORAGE_TABLE }}'
-EVENTS_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_EVENTS_OUTPUT_TABLE }}'
-OUTPUT_TABLE = '{{ var.json.PIPE_ANCHORAGES.PORT_VISITS_OUTPUT_TABLE }}'
-
-FIRST_DAY_OF_MONTH = '{{ execution_date.replace(day=1).strftime("%Y-%m-%d") }}'
-LAST_DAY_OF_MONTH = '{{ (execution_date.replace(day=1) + macros.dateutil.relativedelta.relativedelta(months=1, days=-1)).strftime("%Y-%m-%d") }}'
-LAST_DAY_OF_MONTH_NODASH = '{{ (execution_date.replace(day=1) + macros.dateutil.relativedelta.relativedelta(months=1, days=-1)).strftime("%Y%m%d") }}'
-
-start_date_string = Variable.get('PIPE_ANCHORAGES', deserialize_json=True)['PORT_VISITS_START_DATE'].strip()
+start_date_string = config['PORT_VISITS_START_DATE'].strip()
 default_start_date = datetime.strptime(start_date_string, "%Y-%m-%d")
-
-
-BUCKET='{{ var.json.PIPE_ANCHORAGES.GCS_BUCKET }}'
-GCS_TEMP_DIR='gs://%s/dataflow-temp' % BUCKET
-GCS_STAGING_DIR='gs://%s/dataflow-staging' % BUCKET
-
 
 default_args = {
     'owner': 'airflow',
@@ -80,12 +72,11 @@ def build_dag(dag_id, schedule_interval):
         start_date = '{{ ds }}'
         end_date = '{{ ds }}'
     elif schedule_interval == '@monthly':
-        source_sensor_date = LAST_DAY_OF_MONTH_NODASH
-        start_date = FIRST_DAY_OF_MONTH
-        end_date = LAST_DAY_OF_MONTH
+        source_sensor_date = config['last_day_of_month_nodash']
+        start_date = config['first_day_of_month']
+        end_date = config['last_day_of_month']
     else:
         raise ValueError('Unsupported schedule interval {}'.format(schedule_interval))
-
 
     with DAG(dag_id,  schedule_interval=schedule_interval, default_args=default_args) as dag:
 
@@ -105,13 +96,13 @@ def build_dag(dag_id, schedule_interval):
                 'command': '{{ var.value.DOCKER_RUN }} {{ var.json.PIPE_ANCHORAGES.DOCKER_IMAGE }} '
                            'python -m pipe_anchorages.port_visits',
                 'project': PROJECT_ID,
-                'events_table': EVENTS_TABLE,
+                'events_table': config['PORT_EVENTS_OUTPUT_TABLE'],
                 'start_date': start_date,
                 'end_date': end_date,
                 'start_padding': '{{ var.json.PIPE_ANCHORAGES.PORT_VISITS_START_PADDING }}',
-                'output_table': OUTPUT_TABLE,
-                'staging_location': GCS_STAGING_DIR,
-                'temp_location': GCS_TEMP_DIR,
+                'output_table': config['PORT_VISITS_OUTPUT_TABLE'],
+                'staging_location': 'gs://{temp_bucket}/dataflow-staging'.format(**config),
+                'temp_location': 'gs://{temp_bucket}/dataflow-temp'.format(**config),
                 'max_num_workers': '100',
                 'disk_size_gb': '50',
                 'setup_file': './setup.py',
@@ -120,8 +111,7 @@ def build_dag(dag_id, schedule_interval):
             dag=dag
         )
 
-        dataset, table_prefix = Variable.get('PIPE_ANCHORAGES', deserialize_json=True)[
-            'PORT_EVENTS_OUTPUT_TABLE'].split('.')
+        dataset, table_prefix = config['PORT_EVENTS_OUTPUT_TABLE'].split('.')
 
         table_id = '%s{{ ds_nodash }}' % table_prefix
         source_exists = table_sensor(task_id='source_exists', dataset_id=dataset,
