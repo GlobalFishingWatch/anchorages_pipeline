@@ -9,11 +9,13 @@ import pytz
 
 epoch = datetime.datetime.utcfromtimestamp(0).replace(tzinfo=pytz.utc)
 
-def _datetime_to_s(x):
+def datetime_to_s(x):
     return (x - epoch).total_seconds()
+_datetime_to_s = datetime_to_s 
 
-def _s_to_datetime(x):
+def s_to_datetime(x):
     return epoch + datetime.timedelta(seconds=x)
+_s_to_datetime = s_to_datetime
 
 
 class NamedtupleCoder(beam.coders.Coder):
@@ -88,27 +90,32 @@ class NamedtupleCoder(beam.coders.Coder):
         class CreateQueries(object):
             def __init__(self, cls):
                 self.cls = cls
-            def __call__(self, table, start_date, end_date, template=None):
+            def __call__(self, table, start_date, end_date, template=None, mapping=None):
+                if mapping and template:
+                    raise ValueError("at most one of template or mapping may be specified")
                 start_window = start_date
                 while start_window <= end_date:
                     end_window = min(start_window + datetime.timedelta(days=999), end_date)
                     if template is None:
                         yield cls.target.create_query(table, start_window, end_window)
                     else:
-                        yield template.format(table=table, start=start_window, end=end_window)
+                        yield template.format(table=table, start=start_window, end=end_window, mapping=mapping)
                     start_window = end_window + datetime.timedelta(days=1)
         cls.target.create_queries = CreateQueries(cls)
 
         class CreateQuery(object):
             def __init__(self, cls):
                 self.cls = cls
-            def __call__(self, table, start_date, end_date):
+            def __call__(self, table, start_date, end_date, **mapping):
                 items_list = []
                 for x in self.cls.target._fields:
-                    if x in self.cls.time_fields:
+                    if x in mapping:
+                        items_list.append("{mapping} as {name}".format(mapping=mapping[x], name=x))
+                    elif x in self.cls.time_fields:
                         items_list.append("FLOAT(TIMESTAMP_TO_MSEC({name})) / 1000 AS {name}".format(name=x))
                     else:
                         items_list.append(x)
+
                 items = ",\n".join(items_list)
 
                 return """

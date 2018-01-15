@@ -19,8 +19,8 @@ from .options.port_events_options import PortEventsOptions
 
 def create_queries(args):
     template = """
-    SELECT mmsi, lat, lon, timestamp, destination, speed FROM   
-      TABLE_DATE_RANGE([world-fishing-827:{table}.], 
+    SELECT STRING(ssvid) as mmsi, lat, lon, timestamp, speed FROM   
+      TABLE_DATE_RANGE([world-fishing-827:{table}], 
                         TIMESTAMP('{start:%Y-%m-%d}'), TIMESTAMP('{end:%Y-%m-%d}')) 
     """
     start_date = datetime.datetime.strptime(args.start_date, '%Y-%m-%d') 
@@ -58,7 +58,7 @@ def run(options):
 
     tagged_records = (sources
         | beam.Flatten()
-        | cmn.CreateVesselRecords(config['blacklisted_mmsis'])
+        | cmn.CreateVesselRecords(config['blacklisted_mmsis'], destination=None)
         | cmn.CreateTaggedRecords(config['min_required_positions'])
         )
 

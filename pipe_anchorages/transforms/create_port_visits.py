@@ -30,7 +30,7 @@ class CreatePortVisits(beam.PTransform):
             return (state in (self.IN_PORT, self.STOPPED))
 
     def create_visit(self, visit_events):
-        return PortVisit(vessel_id=str(visit_events[0].mmsi),
+        return PortVisit(vessel_id=str(visit_events[0].vessel_id),
                          start_timestamp=visit_events[0].timestamp,
                          start_lat=visit_events[0].lat,
                          start_lon=visit_events[0].lon,
@@ -42,7 +42,7 @@ class CreatePortVisits(beam.PTransform):
                          events=visit_events)
 
     def create_port_visits(self, tagged_events):
-        mmsi, events = tagged_events
+        vessel_id, events = tagged_events
         # Sort events by timestamp, and also so that enter, stop, start,
         # exit are in the correct order.
         tagged = [(x.timestamp, self.TYPE_ORDER[x.event_type], x)
@@ -80,7 +80,7 @@ class CreatePortVisits(beam.PTransform):
 
     def expand(self, tagged_records):
         return (tagged_records
-            | beam.Map(lambda x: (x.mmsi, x))
+            | beam.Map(lambda x: (x.vessel_id, x))
             | beam.GroupByKey()
             | beam.FlatMap(self.create_port_visits)
             )

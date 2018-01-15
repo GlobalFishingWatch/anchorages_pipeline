@@ -7,7 +7,7 @@ from apache_beam.transforms.window import TimestampedValue
 from pipe_tools.coders.jsoncoder import JSONDict
 from pipe_tools.io import WriteToBigQueryDatePartitioned
 from ..objects.namedtuples import epoch
-
+from ..schema.port_event import build as build_event_schema
 
 
 
@@ -27,19 +27,10 @@ class EventSink(PTransform):
             for field in ['timestamp']:
                 x[field] = (x[field].replace(tzinfo=pytz.utc) - epoch).total_seconds()
 
+            # logging.info("Encoded: %s", str(x))
+
             return x
 
-        def build_table_schema(spec):
-            schema = io.gcp.internal.clients.bigquery.TableSchema()
-
-            for name, type in spec.iteritems():
-                field = io.gcp.internal.clients.bigquery.TableFieldSchema()
-                field.name = name
-                field.type = type
-                field.mode = 'nullable'
-                schema.fields.append(field)
-
-            return schema
 
         dataset, table = self.table.split('.')
 
@@ -50,17 +41,7 @@ class EventSink(PTransform):
             table=table,
             project=self.project,
             write_disposition="WRITE_TRUNCATE",
-            schema=build_table_schema({
-                    "mmsi": "integer",
-                    "timestamp": "timestamp",
-                    "lat": "float",
-                    "lon": "float",
-                    "vessel_lat": "float",
-                    "vessel_lon": "float",
-                    "anchorage_id": "string",
-                    "port_label": "string",
-                    "event_type": "string"
-                })
+            schema=build_event_schema()
             )
 
 

@@ -132,5 +132,5 @@ def build_dag(dag_id, schedule_interval):
         return dag
 
 
-port_visits_daily_dag = build_dag('port_visits_daily_v0_20', '@daily')
-port_visits_monthly_dag = build_dag('port_visits_monthly_v0_20', '@monthly')
+port_visits_daily_dag = build_dag('port_visits_daily_v0_21', '@daily')
+port_visits_monthly_dag = build_dag('port_visits_monthly_v0_21', '@monthly')

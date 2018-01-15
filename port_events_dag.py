@@ -93,8 +93,12 @@ def build_dag(dag_id, schedule_interval):
 
     with DAG(dag_id,  schedule_interval=schedule_interval, default_args=default_args) as dag:
 
-        source_exists = table_sensor(task_id='source_exists', dataset_id=INPUT_TABLE,
-                                    table_id=source_sensor_date, dag=dag)
+        dataset_id, table_prefix = Variable.get('PIPE_ANCHORAGES', deserialize_json=True)[
+            'PORT_EVENTS_INPUT_TABLE'].split('.')
+        table_id = '%s{{ ds_nodash }}' % table_prefix
+
+        source_exists = table_sensor(task_id='source_exists', dataset_id=dataset_id,
+                                    table_id=table_id, dag=dag)
 
         python_target = Variable.get('DATAFLOW_WRAPPER_STUB')
 
@@ -131,6 +135,6 @@ def build_dag(dag_id, schedule_interval):
 
         return dag
 
-port_events_daily_dag = build_dag('port_events_daily_v0_20', '@daily')
-port_events_monthly_dag = build_dag('port_events_monthly_v0_20', '@monthly')
+port_events_daily_dag = build_dag('port_events_daily_v0_21', '@daily')
+port_events_monthly_dag = build_dag('port_events_monthly_v0_21', '@monthly')
 
