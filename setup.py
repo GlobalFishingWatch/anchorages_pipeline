@@ -1,13 +1,21 @@
 import os
+import codecs
 import setuptools
 
+package = __import__('pipe_anchorages')
+
 DEPENDENCIES = [
+    'more_itertools',
+    'statistics',
+    'pytz',
     's2sphere',
     'ujson',
     'fiona',
     'shapely',
     'pyyaml',
-    'unidecode'
+    'unidecode',
+    'numpy',
+    "pipe-tools==0.1.3"
     ]
 
 # Frozen dependencies for the google cloud dataflow dependency
@@ -55,22 +63,20 @@ DATAFLOW_PINNED_DEPENDENCIES = [
 ]
 
 
-if os.path.exists('VERSION'):
-    with open('VERSION') as f:
-        version = f.read().strip()
-else:
-    # When installed on dataflow instance for example
-    version = 'UNAVAILABLE'
+with codecs.open('requirements.txt', encoding='utf-8') as f:
+    DEPENDENCY_LINKS=[line for line in f]
 
-    
 setuptools.setup(
     name='pipe-anchorages',
-    version=version,
-    description='anchorage pipeline.',
+    author=package.__author__,
+    author_email=package.__email__,
+    description=package.__doc__.strip(),
+    url=package.__source__,
+    version=package.__version__,
+    license="Apache 2.0",
+    include_package_data=True,
     install_requires=DEPENDENCIES + DATAFLOW_PINNED_DEPENDENCIES,
     packages=setuptools.find_packages(),
-    package_data={
-                  'pipe_anchorages': ['data/EEZ/EEZ_land_v2_201410.*',
-                                      'data/port_lists/*.csv', 
-                                      'data/*.pickle']}
+    zip_safe=True,
+    dependency_links=DEPENDENCY_LINKS
     )
