@@ -34,9 +34,16 @@ services:
     entrypoint: gcloud
     volumes:
       - "gcp:/root/.config/"
+  test:
+    entrypoint: ["py.test",  "test"]
+    image: gfw/pipe-anchorages
+    build: .
+    volumes:
+      - ".:/opt/project"
+      - "gcp:/root/.config/"
 volumes:
   gcp:
-
+    external: True
 
 
 

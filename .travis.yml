@@ -1,12 +1,20 @@
+language: python
+
 sudo: required
-dist: trusty
 
-before_script:
-  - export PATH=$HOME/.local/bin:$PATH
-  - sudo pip install apache-beam[gcp]
-  - sudo pip install google-api-python-client pyyaml s2sphere pytest fiona shapely unidecode 
-  - sudo pip install https://api.github.com/repos/GlobalFishingWatch/pipe-tools/tarball/14-logging-options
+services: docker
 
+cache:
+  directories:
+  - ~/.cache/pip
+
+python:
+- 2.7
+
+install:
+  - docker volume create --name=gcp
+  - docker-compose build
 
 script:
-  - ./test_all
+  - docker-compose --version
+  - docker-compose run test

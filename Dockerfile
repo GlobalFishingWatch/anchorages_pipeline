@@ -28,15 +28,13 @@ RUN  \
   gcloud config set component_manager/disable_update_check true && \
   gcloud config set metrics/environment github_docker_image
 
-# Install extra packages
-RUN pip install ujson more_itertools statistics pytz s2sphere unidecode \
-    https://api.github.com/repos/GlobalFishingWatch/pipe-tools/tarball/master
-
 # Setup a volume for configuration and auth data
 VOLUME ["/root/.config"]
 
 # Setup local application dependencies
 COPY . /opt/project
-RUN pip install . 
+RUN pip install  --process-dependency-links -e .
 
+# Setup the entrypoint for quickly executing the pipelines
+ENTRYPOINT ["scripts/run.sh"]
 
