@@ -95,7 +95,7 @@ def build_dag(dag_id, schedule_interval):
                 end_date=end_date,
                 events_table='{project_id}:{pipeline_dataset}.{port_events_table}'.format(**config),
                 start_padding='{port_visits_start_padding}'.format(**config),
-                output_table='{project_id}:{pipeline_dataset}.{port_visits_table}'.format(**config),
+                output_table='{pipeline_dataset}.{port_visits_table}'.format(**config),
                 temp_location='gs://{temp_bucket}/dataflow_temp'.format(**config),
                 staging_location='gs://{temp_bucket}/dataflow_staging'.format(**config),
                 max_num_workers="100",
