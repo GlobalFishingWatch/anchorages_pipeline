@@ -12,9 +12,6 @@ from airflow.utils.decorators import apply_defaults
 from airflow.models import Variable
 
 
-# # The default operator doesn't template options
-# class TemplatedDataFlowPythonOperator(DataFlowPythonOperator):
-#     template_fields = ['options']
 
 config = Variable.get('pipe_anchorages', deserialize_json=True)
 config['ds_nodash'] = '{{ ds_nodash }}'
@@ -26,7 +23,6 @@ config['last_day_of_month_nodash'] = '{{ (execution_date.replace(day=1) + macros
 GC_CONNECTION_ID = 'google_cloud_default' 
 BQ_CONNECTION_ID = 'google_cloud_default'
 
-# PROJECT_ID='{{ var.value.PROJECT_ID }}'
 
 start_date_string = config['port_visits_start_date'].strip()
 default_start_date = datetime.strptime(start_date_string, "%Y-%m-%d")
@@ -47,20 +43,6 @@ default_args = {
     'allow_large_results': True,
 }
 
-
-
-# @apply_defaults
-# def table_sensor(task_id, table_id, dataset_id, dag, **kwargs):
-#     return BigQueryTableSensor(
-#         task_id=task_id,
-#         table_id=table_id,
-#         dataset_id=dataset_id,
-#         poke_interval=0,
-#         timeout=10,
-#         dag=dag,
-#         retry_delay=timedelta(minutes=60),
-#         retries=24*7
-#     )
 
 def table_sensor(dataset_id, table_id, date):
     return BigQueryTableSensor(
@@ -102,7 +84,7 @@ def build_dag(dag_id, schedule_interval):
         # only '-' is allowed
         port_visits = DataFlowPythonOperator(
             task_id='port-visits',
-            depends_on_past=True,
+            pool='dataflow',
             py_file=python_target,
             options=dict(
                 startup_log_file=pp.join(Variable.get('DATAFLOW_WRAPPER_LOG_PATH'),
@@ -122,12 +104,6 @@ def build_dag(dag_id, schedule_interval):
                 setup_file='./setup.py'
             )
         )
-
-        # dataset, table_prefix = config['PORT_EVENTS_OUTPUT_TABLE'].split('.')
-        #
-        # table_id = '%s{{ ds_nodash }}' % table_prefix
-        # source_exists = table_sensor(task_id='source_exists', dataset_id=dataset,
-        #                             table_id=table_id, dag=dag)
 
         source_exists >> port_visits
 

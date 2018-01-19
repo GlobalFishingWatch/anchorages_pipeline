@@ -12,10 +12,6 @@ from airflow.utils.decorators import apply_defaults
 from airflow.models import Variable
 
 
-# # The default operator doesn't template options
-# class TemplatedDataFlowPythonOperator(DataFlowPythonOperator):
-#     template_fields = ['options']
-
 config = Variable.get('pipe_anchorages', deserialize_json=True)
 config['ds_nodash'] = '{{ ds_nodash }}'
 config['first_day_of_month'] = '{{ execution_date.replace(day=1).strftime("%Y-%m-%d") }}'
@@ -25,8 +21,6 @@ config['last_day_of_month_nodash'] = '{{ (execution_date.replace(day=1) + macros
 
 GC_CONNECTION_ID = 'google_cloud_default' 
 BQ_CONNECTION_ID = 'google_cloud_default'
-
-# PROJECT_ID='{{ var.value.GCP_PROJECT_ID }}'
 
 start_date_string = config['port_events_start_date'].strip()
 default_start_date = datetime.strptime(start_date_string, "%Y-%m-%d")
@@ -48,20 +42,6 @@ default_args = {
     'allow_large_results': True,
 }
 
-
-
-# @apply_defaults
-# def table_sensor(task_id, table_id, dataset_id, dag, **kwargs):
-#     return BigQueryTableSensor(
-#         task_id=task_id,
-#         table_id=table_id,
-#         dataset_id=dataset_id,
-#         poke_interval=0,
-#         timeout=10,
-#         dag=dag,
-#         retry_delay=timedelta(minutes=60),
-#         retries=24*7
-#     )
 
 def table_sensor(dataset_id, table_id, date):
     return BigQueryTableSensor(
@@ -90,13 +70,6 @@ def build_dag(dag_id, schedule_interval):
 
     with DAG(dag_id,  schedule_interval=schedule_interval, default_args=default_args) as dag:
 
-        # dataset_id, table_prefix = config['PORT_EVENTS_INPUT_TABLE'].split('.')
-        # table_id = '%s{{ ds_nodash }}' % table_prefix
-        #
-        # source_exists = table_sensor(task_id='source_exists', dataset_id=dataset_id,
-        #                             table_id=table_id, dag=dag)
-        #
-
         source_exists = table_sensor(
             dataset_id='{source_dataset}'.format(**config),
             table_id='{source_table}'.format(**config),
@@ -110,13 +83,13 @@ def build_dag(dag_id, schedule_interval):
         # only '-' is allowed
         port_events = DataFlowPythonOperator(
             task_id='port-events',
-            depends_on_past=True,
+            pool='dataflow',
             py_file=python_target,
             options=dict(
                 startup_log_file=pp.join(Variable.get('DATAFLOW_WRAPPER_LOG_PATH'),
                                          'pipe_anchorages/port-events.log'),
                 command='{docker_run} {docker_image} port_events'.format(**config),
-                project=config['project_id'],
+                project=config['project_id'],   
                 start_date=start_date,
                 end_date=end_date,
                 anchorage_table='{project_id}:{anchorage_table}'.format(**config),
