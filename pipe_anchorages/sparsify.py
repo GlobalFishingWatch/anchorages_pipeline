@@ -159,5 +159,20 @@ def test(sparse_path, dense_path, threshold=0.5, invert=False):
     print("Sparse", d2, "seconds")
     print("Time Ratio", d2 / d1)
 
+def show(sparse_path):
+    import numpy as np
+    sparse_mask = SparseMask(sparse_path)
+
+    map = np.zeros((180, 360))
+    for i, lat in enumerate(range(-90, 90)):
+        for j, lon in enumerate(range(-180, 180)):
+            map[179 - i, j] = sparse_mask.query((lat, lon))
+    from matplotlib import pyplot as plt
+    fig, ax = plt.subplots()
+    cax = ax.imshow(map)
+    cbar = fig.colorbar(cax, ticks=[0, 1], orientation='horizontal')
+    cbar.ax.set_xticklabels(['False', 'True'])  # horizontal colorbar
+    plt.show()
+
 if __name__ == "__main__":
-    test("sparse_inland.pickle", "../inland.npy", 0.5)
+    show("data/sparse_inland.pickle")

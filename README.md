@@ -114,8 +114,8 @@ To create a corresponding month of visits do:
 
     docker-compose run port_visits \
         --job_name portvisitssharded \
-        --events_table machine_learning_dev_ttl_30d.in_out_events_sharded \
-        --start_date 2016-01-01 \
+        --events_table machine_learning_dev_ttl_30d.port_events_ \
+        --start_date 2017-01-01 \
         --end_date 2016-01-31 \
         --start_padding 365 \
         --output_table machine_learning_dev_ttl_30d.port_visits_ \
