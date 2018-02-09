@@ -59,7 +59,7 @@ def run(options):
     tagged_records = (sources
         | beam.Flatten()
         | cmn.CreateVesselRecords(config['blacklisted_mmsis'], destination=None)
-        | cmn.CreateTaggedRecords(config['min_required_positions'])
+        | cmn.CreateTaggedRecords(config['min_port_events_positions'])
         )
 
     anchorages = (p
