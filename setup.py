@@ -15,7 +15,7 @@ DEPENDENCIES = [
     'pyyaml',
     'unidecode',
     'numpy',
-    "pipe-tools==0.1.3"
+    "pipe-tools==0.1.4"
     ]
 
 # Frozen dependencies for the google cloud dataflow dependency
