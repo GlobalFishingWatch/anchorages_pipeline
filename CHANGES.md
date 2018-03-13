@@ -1,6 +1,13 @@
 Changes
 =======
 
+0.1.23
+------
+
+* [`#26`](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/26)
+  Re-arrange airflow dags to make them importable into pipe_reference
+  
+  
 0.1.22
 ------
 
