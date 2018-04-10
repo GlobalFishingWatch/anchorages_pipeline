@@ -66,9 +66,6 @@ jinja2 ${INSERT_SQL} \
    -D end_yyyymmdd=$(yyyymmdd ${END_DATE}) \
    | bq query --max_rows=0
 
-echo "  Updating table description ${DEST_TABLE}"
-
-#bq update --description "${TABLE_DESC}" ${DEST_TABLE}
 
 echo "  ${DEST_TABLE} Done."
 
