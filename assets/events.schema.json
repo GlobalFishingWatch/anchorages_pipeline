@@ -1,31 +1,31 @@
 [
     {
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "name": "event_id",
       "type": "STRING"
     },
     {
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "name": "event_type",
       "type": "STRING"
     },
     {
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "name": "vessel_id",
       "type": "STRING"
     },
     {
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "name": "timestamp",
       "type": "TIMESTAMP"
     },
     {
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "name": "lat",
       "type": "FLOAT"
     },
     {
-      "mode": "NULLABLE",
+      "mode": "REQUIRED",
       "name": "lon",
       "type": "FLOAT"
     },
