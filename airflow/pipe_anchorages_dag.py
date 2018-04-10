@@ -4,8 +4,8 @@ import logging
 
 from airflow import DAG
 from airflow.contrib.sensors.bigquery_sensor import BigQueryTableSensor
-from airflow.contrib.operators.dataflow_operator import DataFlowPythonOperator
 from airflow.models import Variable
+from airflow.operators.bash_operator import BashOperator
 
 from pipe_tools.airflow.dataflow_operator import DataFlowDirectRunnerOperator
 from pipe_tools.airflow.config import load_config
@@ -47,6 +47,8 @@ def build_port_events_dag(dag_id, schedule_interval='@daily', extra_default_args
     else:
         raise ValueError('Unsupported schedule interval {}'.format(schedule_interval))
 
+    config['date_range'] = ','.join([start_date, end_date])
+
     with DAG(dag_id,  schedule_interval=schedule_interval, default_args=default_args) as dag:
 
         source_exists = table_sensor(
@@ -55,8 +57,6 @@ def build_port_events_dag(dag_id, schedule_interval='@daily', extra_default_args
             date=source_sensor_date)
 
         python_target = Variable.get('DATAFLOW_WRAPPER_STUB')
-
-        logging.info("target: %s", python_target)
 
         # Note: task_id must use '-' instead of '_' because it gets used to create the dataflow job name, and
         # only '-' is allowed
@@ -84,7 +84,15 @@ def build_port_events_dag(dag_id, schedule_interval='@daily', extra_default_args
             )
         )
 
-        dag >> source_exists >> port_events
+        publish_events = BashOperator(
+            task_id='publish_events',
+            bash_command='{docker_run} {docker_image} publish_events '
+                         '{date_range} '
+                         '{project_id}:{pipeline_dataset}.{port_events_table} '
+                         '{project_id}:{events_dataset}.{events_table}'.format(**config)
+        )
+
+        dag >> source_exists >> port_events >> publish_events
 
         return dag
 
@@ -127,7 +135,7 @@ def build_port_visits_dag(dag_id, schedule_interval='@daily', extra_default_args
             py_file=python_target,
             options=dict(
                 startup_log_file=pp.join(Variable.get('DATAFLOW_WRAPPER_LOG_PATH'),
-                                         'pipe_anchorages/port-events.log'),
+                                         'pipe_anchorages/port-visits.log'),
                 command='{docker_run} {docker_image} port_visits'.format(**config),
                 project=config['project_id'],
                 runner='{dataflow_runner}'.format(**config),
