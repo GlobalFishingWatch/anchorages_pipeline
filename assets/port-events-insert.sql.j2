@@ -1,0 +1,32 @@
+#StandardSQL
+INSERT INTO `{{ dest }}`
+  (
+    event_id, event_type, vessel_id, timestamp,
+    lat, lon, timestamp_min, timestamp_max,
+    lat_min, lat_max, lon_min, lon_max,
+    event_info
+  )
+
+SELECT
+  TO_HEX(MD5(FORMAT("%s|%s|%t",event_type, vessel_id, timestamp))) AS event_id,
+  event_type,
+  vessel_id,
+  timestamp,
+  vessel_lat AS lat,
+  vessel_lon AS lon,
+  timestamp AS timestamp_min,
+  timestamp AS timestamp_max,
+  lat AS lat_min,
+  lat AS lat_max,
+  lon AS lon_min,
+  lon AS lon_max,
+  TO_JSON_STRING(STRUCT( ROUND(lat,6) AS anchorage_lat,
+      ROUND(lon,6) AS anchorage_lon,
+      anchorage_id,
+      port_label )) AS event_info
+FROM
+  `{{ source }}*`
+WHERE
+  _TABLE_SUFFIX BETWEEN '{{ start_yyyymmdd }}' AND '{{ end_yyyymmdd }}'
+  and event_type IN ('PORT_ENTRY',
+    'PORT_EXIT')
