@@ -1,6 +1,15 @@
 Changes
 =======
 
+0.2.0  2018-05-14
+-----------------
+
+* [`#31`](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/31)
+  Use Vessel ID for Port Events and Port Visits
+* [`#32`](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/32)
+  - Publish standardized port in/out events
+  - update to pipe-tools v0.1.6  
+  
 0.1.23
 ------
 
