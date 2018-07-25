@@ -1,0 +1,6 @@
+#StandardSQL
+DELETE
+FROM
+  `{{ table }}`
+WHERE
+  DATE(timestamp) BETWEEN "{{ start_date }}" AND "{{ end_date }}"

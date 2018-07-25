@@ -15,8 +15,9 @@ DEPENDENCIES = [
     'pyyaml',
     'unidecode',
     'numpy',
-    "pipe-tools==0.1.4"
-    ]
+    "pipe-tools==0.1.6",
+    "jinja2-cli",
+]
 
 # Frozen dependencies for the google cloud dataflow dependency
 DATAFLOW_PINNED_DEPENDENCIES = [
