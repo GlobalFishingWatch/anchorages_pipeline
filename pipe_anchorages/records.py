@@ -24,14 +24,14 @@ class VesselRecord(object):
     @staticmethod
     def tagged_from_msg(msg):
 
-        mmsi = msg['mmsi']
+        vessel_id = msg['vessel_id']
 
         if is_location_message(msg) and has_valid_location(msg):
-            return (mmsi, VesselLocationRecord.from_msg(msg))
+            return (vessel_id, VesselLocationRecord.from_msg(msg))
         elif has_destination(msg):
-            return (mmsi, VesselInfoRecord.from_msg(msg))
+            return (vessel_id, VesselInfoRecord.from_msg(msg))
         else:
-            return (mmsi, InvalidRecord.from_msg(msg))
+            return (vessel_id, InvalidRecord.from_msg(msg))
 
 
 

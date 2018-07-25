@@ -39,9 +39,9 @@ def parse_command_line_args():
                         help="date to start tracking events to warm up vessel state")
     parser.add_argument('--config', default='anchorage_cfg.yaml',
                         help="path to configuration file")
-    parser.add_argument('--fishing-mmsi-list',
-                         dest='fishing_mmsi_list',
-                         help='location of list of newline separated fishing mmsi')
+    parser.add_argument('--fishing-vessel-id-list',
+                         dest='fishing_vessel_id_list',
+                         help='location of list of newline separated fishing vessel ids')
 
     known_args, pipeline_args = parser.parse_known_args()
 
@@ -58,7 +58,7 @@ def parse_command_line_args():
 
 def create_queries(args):
     template = """
-    SELECT mmsi, lat, lon, timestamp, destination, speed FROM   
+    SELECT vessel_id, lat, lon, timestamp, destination, speed FROM   
       TABLE_DATE_RANGE([world-fishing-827:{table}.], 
                         TIMESTAMP('{start:%Y-%m-%d}'), TIMESTAMP('{end:%Y-%m-%d}')) 
     """
@@ -85,7 +85,7 @@ def run():
 
     queries = create_queries(known_args)
 
-    with open(known_args.fishing_mmsi_list) as f:
+    with open(known_args.fishing_vessel_id_list) as f:
         fishing_vessel_set = set([int(x.strip()) for x in f.readlines() if x.strip()])
 
     inland_mask = SparseInlandMask()
@@ -96,7 +96,7 @@ def run():
                 for (i, query) in enumerate(queries)] | beam.Flatten()
 
     tagged_records = (source
-        | cmn.CreateVesselRecords(config['blacklisted_mmsis'])
+        | cmn.CreateVesselRecords(config['blacklisted_vessel_ids'])
         | cmn.CreateTaggedRecords(config['min_required_positions'])
         )
 

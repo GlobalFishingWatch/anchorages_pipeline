@@ -23,23 +23,23 @@ class TestAnchorageSink(object):
         return common.LatLon(s2latlon.lat().degrees, s2latlon.lng().degrees)
 
     @classmethod
-    def AnchoragePoint_from_S2Token(cls, token, mmsis, total_visits=10, mean_drift_radius=0.2, 
+    def AnchoragePoint_from_S2Token(cls, token, vessel_ids, total_visits=10, mean_drift_radius=0.2, 
                                     top_destination=''):
         token = unicode(token)
         return find_anchorage_points.AnchoragePoint(
                                 mean_location = cls.LatLon_from_S2Token(token),
                                 total_visits = total_visits,
-                                vessels = tuple(mmsis),
-                                fishing_vessels = tuple(mmsis[:2]),
+                                vessels = tuple(vessel_ids),
+                                fishing_vessels = tuple(vessel_ids[:2]),
                                 rms_drift_radius = mean_drift_radius,
                                 top_destination = top_destination,
                                 s2id = token,
                                 neighbor_s2ids = tuple(s2sphere.CellId.from_token(token).get_all_neighbors(common.ANCHORAGES_S2_SCALE)),
-                                active_mmsi = 2,
-                                total_mmsi = 0,
-                                stationary_mmsi_days = 4.1,
-                                stationary_fishing_mmsi_days = 3.3,
-                                active_mmsi_days = 7.2,
+                                active_vessel_ids = 2,
+                                total_vessel_ids = 0,
+                                stationary_vessel_id_days = 4.1,
+                                stationary_fishing_vessel_id_days = 3.3,
+                                active_vessel_id_days = 7.2,
                                 )
 
 

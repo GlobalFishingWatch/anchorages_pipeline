@@ -38,7 +38,7 @@ Run:
                          --end-date YYYY-MM-DD \
                          --output BQ_TABLE_NAME \
                          --input-table INPUT_TABLE \
-                         --fishing-mmsi-list FISHING_LIST
+                         --fishing-vessel-id-list FISHING_LIST
 
 
 Standard dataflow options can also be specified.
@@ -51,7 +51,7 @@ For example, to run all years:
                          --end-date 2017-12-31 \
                          --input-table pipeline_classify_p_p516_daily \
                          --max_num_workers 200 \
-                         --fishing-mmsi-list fishing_list.txt
+                         --fishing-vessel-id-list fishing_list.txt
 
 Or to run a minimal testing run:
 
@@ -60,7 +60,7 @@ Or to run a minimal testing run:
                          --start-date 2016-01-01 \
                          --end-date 2016-01-31 \
                          --input-table pipeline_classify_p_p516_daily \
-                         --fishing-mmsi-list fishing_list.txt
+                         --fishing-vessel-id-list fishing_list.txt
 
 *Note that `FISHING_LIST` must be a local file or docker will not be able to see it, so copy it to your local directory before launching.*
 

@@ -38,10 +38,10 @@ class NamedAnchoragePoint(namedtuple("NamedAnchoragePoint",
     def from_msg(msg):
         msg['mean_location'] = cmn.LatLon(msg.pop('lat'), msg.pop('lon'))
         msg['rms_drift_radius'] = msg.pop('drift_radius')
-        msg['vessels'] = [None] * msg.pop('unique_stationary_mmsi')
-        msg['fishing_vessels'] = [None] * msg.pop('unique_stationary_fishing_mmsi')
-        msg['active_mmsi'] = msg.pop('unique_active_mmsi')
-        msg['total_mmsi'] = msg.pop('unique_total_mmsi')
+        msg['vessels'] = [None] * msg.pop('unique_stationary_vessel_id')
+        msg['fishing_vessels'] = [None] * msg.pop('unique_stationary_fishing_vessel_id')
+        msg['active_vessel_id'] = msg.pop('unique_active_vessel_id')
+        msg['total_vessel_id'] = msg.pop('unique_total_vessel_id')
         msg['label'] = None
         msg['sublabel'] = None
         msg['iso3'] = None
@@ -157,11 +157,11 @@ class CreateOverrideAnchorages(beam.PTransform):
                         top_destination = None,
                         s2id = row['s2id'],
                         neighbor_s2ids = None,
-                        active_mmsi = None,
-                        total_mmsi = None,
-                        stationary_mmsi_days = None,
-                        stationary_fishing_mmsi_days = None,
-                        active_mmsi_days = None,
+                        active_vessel_id = None,
+                        total_vessel_id = None,
+                        stationary_vessel_id_days = None,
+                        stationary_fishing_vessel_id_days = None,
+                        active_vessel_id_days = None,
                         label=u"{},{}".format(normalize_label(row['label']), row['iso3']),
                         sublabel=normalize_label(row['sublabel']),
                         label_source=os.path.splitext(os.path.basename(self.override_path))[0],
