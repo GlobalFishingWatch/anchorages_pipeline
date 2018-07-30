@@ -9,6 +9,7 @@ import yaml
 from .records import VesselRecord
 from .records import InvalidRecord
 from .records import VesselLocationRecord
+from .records import VesselInfoRecord
 
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions

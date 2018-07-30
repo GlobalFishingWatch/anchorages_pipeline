@@ -9,7 +9,7 @@ import apache_beam as beam
 from . import common as cmn
 from .distance import distance
 from .port_name_filter import normalized_valid_names
-
+from .sparse_inland_mask import SparseInlandMask
 
 
 StationaryPeriod = namedtuple("StationaryPeriod", 
@@ -21,12 +21,13 @@ ActiveAndStationary = namedtuple("ActiveAndStationary",
 
 class FindAnchoragePoints(beam.PTransform):
 
-    def __init__(self, min_duration, max_distance, min_unique_vessels, fishing_vessel_set, inland_mask):
+    def __init__(self, min_duration, max_distance, min_unique_vessels, fishing_vessel_list):
         self.min_duration = min_duration
         self.max_distance = max_distance
         self.min_unique_vessels = min_unique_vessels
-        self.fishing_vessel_set = fishing_vessel_set
-        self.inland_mask = inland_mask
+        self.fishing_vessel_list = fishing_vessel_list
+        self.fishing_vessel_set = None
+        self.inland_mask = SparseInlandMask()
 
     def split_on_movement(self, item):
         # extract long stationary periods from the record. Stationary periods are returned 
@@ -77,7 +78,9 @@ class FindAnchoragePoints(beam.PTransform):
         return [(ar.location.S2CellId(cmn.ANCHORAGES_S2_SCALE).to_token(), (vessel_id, ar)) 
                         for ar in combined.active_records] 
 
-    def create_anchorage_pts(self, item):
+    def create_anchorage_pts(self, item, fishing_vessel_list):
+        if self.fishing_vessel_set is None:
+            self.fishing_vessel_set = set(fishing_vessel_list)
         value = AnchoragePoint.from_cell_visits(item, self.fishing_vessel_set)
         return [] if (value is None) else [value]
 
@@ -93,7 +96,7 @@ class FindAnchoragePoints(beam.PTransform):
         active =     combined | beam.FlatMap(self.extract_active)
         return ((stationary, active)
             | beam.CoGroupByKey()
-            | beam.FlatMap(self.create_anchorage_pts)
+            | beam.FlatMap(self.create_anchorage_pts, self.fishing_vessel_list)
             | beam.Filter(self.has_enough_vessels)
             | beam.Filter(self.not_inland)
             )
@@ -126,8 +129,8 @@ class AnchoragePoint(namedtuple("AnchoragePoint", ['mean_location',
         fishing_vessels = set()
         vessels = set()
         total_squared_drift_radius = 0.0
-        active_vessel_id = set(md for (md, loc) in active_points)
-        active_vessel_id_count = len(active_vessel_id)
+        active_vessel_ids = set(md for (md, loc) in active_points)
+        active_vessel_id_count = len(active_vessel_ids)
         active_days = len(set([(md, loc.timestamp.date()) for (md, loc) in active_points]))
         stationary_days = 0
         stationary_fishing_days = 0
@@ -144,7 +147,7 @@ class AnchoragePoint(namedtuple("AnchoragePoint", ['mean_location',
             total_squared_drift_radius += sp.rms_drift_radius ** 2
         all_destinations = normalized_valid_names(sp.destination for (md, sp) in stationary_periods)
 
-        total_vessel_id_count = len(vessels | active_vessel_id)
+        total_vessel_id_count = len(vessels | active_vessel_ids)
 
         if n:
             neighbor_s2ids = tuple(s2sphere.CellId.from_token(s2id).get_all_neighbors(cmn.ANCHORAGES_S2_SCALE))
@@ -165,8 +168,8 @@ class AnchoragePoint(namedtuple("AnchoragePoint", ['mean_location',
                         top_destination = top_destination,
                         s2id = s2id,
                         neighbor_s2ids = neighbor_s2ids,
-                        active_vessel_id = active_vessel_id_count,
-                        total_vessel_id = total_vessel_id_count,
+                        active_vessel_ids = active_vessel_id_count,
+                        total_vessel_ids = total_vessel_id_count,
                         stationary_vessel_id_days = stationary_days,
                         stationary_fishing_vessel_id_days = stationary_fishing_days,
                         active_vessel_id_days = active_days,
