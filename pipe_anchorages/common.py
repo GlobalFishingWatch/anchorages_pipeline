@@ -108,8 +108,8 @@ class CreateTaggedRecords(beam.PTransform):
             | beam.Map(self.order_by_timestamp)
             | beam.Map(self.dedup_by_timestamp)
             | beam.Filter(self.long_enough)
-            | beam.Map(self.thin_records)
             | beam.Map(self.tag_records)
+            | beam.Map(self.thin_records)
             )
 
 

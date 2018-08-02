@@ -40,10 +40,10 @@ class NamedAnchoragePoint(namedtuple("NamedAnchoragePoint",
     def from_msg(msg):
         msg['mean_location'] = cmn.LatLon(msg.pop('lat'), msg.pop('lon'))
         msg['rms_drift_radius'] = msg.pop('drift_radius')
-        msg['vessels'] = [None] * msg.pop('unique_stationary_vessel_ids')
-        msg['fishing_vessels'] = [None] * msg.pop('unique_stationary_fishing_vessel_ids')
-        msg['active_vessel_ids'] = msg.pop('unique_active_vessel_ids')
-        msg['total_vessel_ids'] = msg.pop('unique_total_vessel_ids')
+        msg['vessels'] = [None] * msg.pop('unique_stationary_ssvid')
+        msg['fishing_vessels'] = [None] * msg.pop('unique_stationary_fishing_ssvid')
+        msg['active_vessel_ids'] = msg.pop('unique_active_ssvid')
+        msg['total_vessel_ids'] = msg.pop('unique_total_ssvid')
         msg['label'] = None
         msg['sublabel'] = None
         msg['iso3'] = None
@@ -81,6 +81,8 @@ class AddNamesToAnchorages(beam.PTransform):
             source = 'top_destination' 
         map = anchorage._asdict()
         map['label'] = normalize_label(port_info.label)
+        if map['label'] in ('', None):
+            map['label'] = map['s2id']
         map['sublabel'] = normalize_label(port_info.sublabel)
         map['iso3'] = normalize_label(port_info.iso3)
         map['label_source'] = source
@@ -91,8 +93,8 @@ class AddNamesToAnchorages(beam.PTransform):
             finder = get_iso3_finder(mangled_path(self.shapefile_path, 'EEZ'))
             iso3 = finder.iso3(named_anchorage.mean_location.lat, 
                                named_anchorage.mean_location.lon)
-            if iso3 is None:
-                iso3 = "---"
+            if iso3 in (None, '-'):
+                iso3 = None
         else:
             iso3 = named_anchorage.iso3
         if iso3 == "CHN":
@@ -151,7 +153,7 @@ class CreateOverrideAnchorages(beam.PTransform):
                         stationary_vessel_id_days = None,
                         stationary_fishing_vessel_id_days = None,
                         active_vessel_id_days = None,
-                        label=u"{},{}".format(normalize_label(row['label']), row['iso3']),
+                        label=normalize_label(row['label']),
                         sublabel=normalize_label(row['sublabel']),
                         label_source=os.path.splitext(os.path.basename(self.override_path))[0],
                         iso3=row['iso3'],

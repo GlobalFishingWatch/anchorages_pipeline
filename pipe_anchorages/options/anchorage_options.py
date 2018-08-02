@@ -20,6 +20,6 @@ class AnchorageOptions(PipelineOptions):
                             help="Last date (inclusive) to generate visits.")
         required.add_argument('--config', required=True, 
                             help="path to configuration file")
-        required.add_argument('--fishing_vessel_id_list', required=True, 
+        required.add_argument('--fishing_ssvid_list', required=True, 
                          help='location of list of newline separated fishing vessel ids')
     

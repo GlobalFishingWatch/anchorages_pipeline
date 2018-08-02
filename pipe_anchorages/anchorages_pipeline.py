@@ -19,19 +19,36 @@ from apache_beam.runners import PipelineState
 
 def create_queries(args):
     template = """
-    SELECT vessel_id, lat, lon, timestamp, destination, speed FROM   
-      TABLE_DATE_RANGE([world-fishing-827:{table}], 
-                        TIMESTAMP('{start:%Y-%m-%d}'), TIMESTAMP('{end:%Y-%m-%d}')) 
+    SELECT a.ssvid as vessel_id, 
+           lat, 
+           lon, 
+           a.timestamp as timestamp, 
+           destination, 
+           speed
+    FROM
+      (SELECT *, _TABLE_SUFFIX FROM `{position_table}*` 
+        WHERE _TABLE_SUFFIX BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}') a
+    INNER JOIN
+      (SELECT *, _TABLE_SUFFIX FROM `{segment_table}*` 
+        WHERE _TABLE_SUFFIX BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}' AND
+        noise = FALSE) b
+    USING(_TABLE_SUFFIX, seg_id)
     """
     start_window = datetime.datetime.strptime(args.start_date, '%Y-%m-%d') 
     end_window = datetime.datetime.strptime(args.end_date, '%Y-%m-%d') 
+    table = args.input_table
+    assert 'messages_segmented_' in table
+    segment_table = table.replace('messages_segmented_', 'segments_')
 
     queries = []
     start = start_window
     while start < end_window:
         # Add 999 days so that we get 1000 total days
         end = min(start + datetime.timedelta(days=999), end_window)
-        queries.append(template.format(table=args.input_table, start=start, end=end))
+        queries.append(template.format(position_table=table, 
+                                       segment_table=segment_table,
+                                       min_message_count=2,
+                                       start=start, end=end))
         # Add 1 day to end, so that we don't overlap.
         start = end + datetime.timedelta(days=1)
 
@@ -50,10 +67,10 @@ def run(options):
 
     p = beam.Pipeline(options=options)
 
-    fishing_vessels = p | beam.io.ReadFromText(known_args.fishing_vessel_id_list)
+    fishing_vessels = p | beam.io.ReadFromText(known_args.fishing_ssvid_list)
     fishing_vessel_list = beam.pvalue.AsList(fishing_vessels)
 
-    source = [(p | "Source_{}".format(i) >> QuerySource(query)) 
+    source = [(p | "Source_{}".format(i) >> QuerySource(query, use_standard_sql=True)) 
                 for (i, query) in enumerate(queries)] | beam.Flatten()
 
     tagged_records = (source
