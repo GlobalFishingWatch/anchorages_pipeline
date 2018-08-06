@@ -33,36 +33,69 @@ instructions there.
 Run:
   
     docker-compose run anchorages \
-                         --name updateanchorages \
-                         --start-date YYYY-MM-DD \
-                         --end-date YYYY-MM-DD \
-                         --output BQ_TABLE_NAME \
-                         --input-table INPUT_TABLE \
-                         --fishing-vessel-id-list FISHING_LIST
+                         --job_name JOB-NAME \
+                         --start_date YYYY-MM-DD \
+                         --end_date YYYY-MM-DD \
+                         --input_dataset INPUT_DATASET \
+                         --output_table OUTPUT_DATASET_NAME.OUTPUT_TABLE_NAME \
+                         --config anchorage_cfg.yaml \
+                         --max_num_workers MAX_WORKER \
+                         --fishing_ssvid_list GCS_LOCATION_OF_FISHING_SSVID_LIST \
+                         --project PROJECT-NAME \
+                         --requirements_file requirements.txt \
+                         --staging_location GCS_STAGING_LOCATION \
+                         --temp_location GCS_TEMPLOCATION \
+                         --setup_file ./setup.py \
+                         --runner DataflowRunner \
+                         --worker_machine_type=custom-1-13312-ext \
+                         --disk_size_gb 200
 
 
-Standard dataflow options can also be specified.
+Standard dataflow options must also be specified.
 
 For example, to run all years:
 
     docker-compose run anchorages \
-                         --name anchoragesallyears \
-                         --start-date 2012-01-01 \
-                         --end-date 2017-12-31 \
-                         --input-table pipeline_classify_p_p516_daily \
-                         --max_num_workers 200 \
-                         --fishing-vessel-id-list fishing_list.txt
+                         --job_name unnamed-anchorages \
+                         --start_date 2012-01-01 \
+                         --end_date 2018-06-30 \
+                         --input_dataset pipe_production_b \
+                         --output_table machine_learning_dev_ttl_120d.unnamed_anchorages_v20180803 \
+                         --config anchorage_cfg.yaml \
+                         --max_num_workers 300 \
+                         --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
+                         --project world-fishing-827 \
+                         --requirements_file requirements.txt \
+                         --project world-fishing-827 \
+                         --staging_location gs://machine-learning-dev-ttl-120d/anchorages/anchorages/output/staging \
+                         --temp_location gs://machine-learning-dev-ttl-120d/anchorages/temp \
+                         --setup_file ./setup.py \
+                         --runner DataflowRunner \
+                         --worker_machine_type=custom-1-13312-ext \
+                         --disk_size_gb 200
 
 Or to run a minimal testing run:
 
     docker-compose run anchorages \
-                         --name testanchorages2016tiny \
-                         --start-date 2016-01-01 \
-                         --end-date 2016-01-31 \
-                         --input-table pipeline_classify_p_p516_daily \
-                         --fishing-vessel-id-list fishing_list.txt
+                         --job_name unnamed-anchorages \
+                         --start_date 2017-01-01 \
+                         --end_date 2017-06-30 \
+                         --input_dataset pipe_production_b \
+                         --output_table machine_learning_dev_ttl_120d.unnamed_anchorages_test \
+                         --config anchorage_cfg.yaml \
+                         --max_num_workers 300 \
+                         --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
+                         --project world-fishing-827 \
+                         --requirements_file requirements.txt \
+                         --project world-fishing-827 \
+                         --staging_location gs://machine-learning-dev-ttl-120d/anchorages/anchorages/output/staging \
+                         --temp_location gs://machine-learning-dev-ttl-120d/anchorages/temp \
+                         --setup_file ./setup.py \
+                         --runner DataflowRunner \
+                         --worker_machine_type=custom-1-13312-ext \
+                         --disk_size_gb 200
 
-*Note that `FISHING_LIST` must be a local file or docker will not be able to see it, so copy it to your local directory before launching.*
+*Note that `fishing_ssvid_list` should refer to a file on GCS.*
 
 
 ### Naming Anchorage Points
@@ -71,11 +104,21 @@ After a set of anchorages is created, names are assigned using `name_anchorages_
 
 For example:
 
-    docker-compose run name_anchorages \
-                  --name nameanchorages \
-                  --input-table gfw_raw.unnamed_anchorages \
-                  --output-table machine_learning_dev_ttl_30d.named_anchorages_test \
-                  --config-path ./name_anchorages_cfg.yaml
+docker-compose run name_anchorages \
+                 --job_name name-anchorages \
+                 --input_table machine_learning_dev_ttl_120d.unnamed_anchorages_v20180803 \
+                 --output_table machine_learning_dev_ttl_120d.named_anchorages_v20180803 \
+                 --config ./name_anchorages_cfg.yaml \
+                 --max_num_workers 200 \
+                 --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
+                 --project world-fishing-827 \
+                 --requirements_file requirements.txt \
+                 --project world-fishing-827 \
+                 --staging_location gs://machine-learning-dev-ttl-120d/anchorages/anchorages/output/staging \
+                 --temp_location gs://machine-learning-dev-ttl-120d/anchorages/temp \
+                 --setup_file ./setup.py \
+                 --runner DataflowRunner \
+                 --disk_size_gb 100
 
 
 The override path points to a csv file containing anchorages that are either missing or incorrectly named.

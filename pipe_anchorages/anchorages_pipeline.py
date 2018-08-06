@@ -36,9 +36,8 @@ def create_queries(args):
     """
     start_window = datetime.datetime.strptime(args.start_date, '%Y-%m-%d') 
     end_window = datetime.datetime.strptime(args.end_date, '%Y-%m-%d') 
-    table = args.input_table
-    assert 'messages_segmented_' in table
-    segment_table = table.replace('messages_segmented_', 'segments_')
+    table = args.input_dataset + '.messages_segmented_'
+    segment_table = args.input_dataset + '.segments_'
 
     queries = []
     start = start_window

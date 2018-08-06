@@ -44,6 +44,9 @@ class NamedAnchoragePoint(namedtuple("NamedAnchoragePoint",
         msg['fishing_vessels'] = [None] * msg.pop('unique_stationary_fishing_ssvid')
         msg['active_vessel_ids'] = msg.pop('unique_active_ssvid')
         msg['total_vessel_ids'] = msg.pop('unique_total_ssvid')
+        msg['stationary_fishing_vessel_id_days'] = msg.pop('stationary_fishing_ssvid_days')
+        msg['stationary_vessel_id_days'] = msg.pop('stationary_ssvid_days')
+        msg['active_vessel_id_days'] = msg.pop('active_ssvid_days')
         msg['label'] = None
         msg['sublabel'] = None
         msg['iso3'] = None

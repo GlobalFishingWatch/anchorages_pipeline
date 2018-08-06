@@ -10,8 +10,8 @@ class AnchorageOptions(PipelineOptions):
         required = parser.add_argument_group('Required')
         optional = parser.add_argument_group('Optional')
 
-        required.add_argument('--input_table', required=True,
-                             help='Input table to pull data from')
+        required.add_argument('--input_dataset', required=True,
+                             help='Input dataset to pull data from')
         required.add_argument('--output_table', required=True,
                             help='Output table to write results to.')
         required.add_argument('--start_date', required=True, 
