@@ -73,7 +73,7 @@ def run(options):
                 for (i, query) in enumerate(queries)] | beam.Flatten()
 
     tagged_records = (source
-        | cmn.CreateVesselRecords(config['blacklisted_vessel_ids'])
+        | cmn.CreateVesselRecords(config['blacklisted_ssvids'])
         | cmn.CreateTaggedRecords(config['min_required_positions'])
         )
 

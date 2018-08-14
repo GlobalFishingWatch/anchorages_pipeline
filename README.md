@@ -104,7 +104,7 @@ After a set of anchorages is created, names are assigned using `name_anchorages_
 
 For example:
 
-docker-compose run name_anchorages \
+    docker-compose run name_anchorages \
                  --job_name name-anchorages \
                  --input_table machine_learning_dev_ttl_120d.unnamed_anchorages_v20180803 \
                  --output_table machine_learning_dev_ttl_120d.named_anchorages_v20180803 \

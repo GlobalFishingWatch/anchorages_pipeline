@@ -20,7 +20,8 @@ class EventSink(PTransform):
     def expand(self, xs):
 
         def as_dict(x):
-            return JSONDict(**x._asdict())
+            d = JSONDict(**x._asdict())
+            return d
 
         def encode_datetimes_to_s(x):
 
