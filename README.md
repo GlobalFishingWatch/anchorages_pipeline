@@ -106,6 +106,24 @@ For example:
 
     docker-compose run name_anchorages \
                  --job_name name-anchorages \
+                 --input_table machine_learning_dev_ttl_120d.unnamed_anchorages_test \
+                 --output_table machine_learning_dev_ttl_120d.named_anchorages_test \
+                 --config ./name_anchorages_cfg.yaml \
+                 --max_num_workers 200 \
+                 --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
+                 --project world-fishing-827 \
+                 --requirements_file requirements.txt \
+                 --project world-fishing-827 \
+                 --staging_location gs://machine-learning-dev-ttl-120d/anchorages/anchorages/output/staging \
+                 --temp_location gs://machine-learning-dev-ttl-120d/anchorages/temp \
+                 --setup_file ./setup.py \
+                 --runner DataflowRunner \
+                 --disk_size_gb 100
+
+or
+
+    docker-compose run name_anchorages \
+                 --job_name name-anchorages \
                  --input_table machine_learning_dev_ttl_120d.unnamed_anchorages_v20180803 \
                  --output_table machine_learning_dev_ttl_120d.named_anchorages_v20180803 \
                  --config ./name_anchorages_cfg.yaml \

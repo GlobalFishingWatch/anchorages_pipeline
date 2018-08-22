@@ -19,7 +19,7 @@ from apache_beam.runners import PipelineState
 
 def create_queries(args):
     template = """
-    SELECT a.ssvid as vessel_id, 
+    SELECT a.ssvid as ident, 
            lat, 
            lon, 
            a.timestamp as timestamp, 

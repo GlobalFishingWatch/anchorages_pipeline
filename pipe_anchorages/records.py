@@ -24,14 +24,17 @@ class VesselRecord(object):
     @staticmethod
     def tagged_from_msg(msg):
 
-        vessel_id = msg['vessel_id']
+        # `ident` is some sort of vessel identifier, currently either `ssvid` or `vessel_id` 
+        # depending if this is being used by anchorages or port_visits. Eventually, we'd
+        # probably like it to be `uvi`
+        ident = msg['ident']
 
         if is_location_message(msg) and has_valid_location(msg):
-            return (vessel_id, VesselLocationRecord.from_msg(msg))
+            return (ident, VesselLocationRecord.from_msg(msg))
         elif has_destination(msg):
-            return (vessel_id, VesselInfoRecord.from_msg(msg))
+            return (ident, VesselInfoRecord.from_msg(msg))
         else:
-            return (vessel_id, InvalidRecord.from_msg(msg))
+            return (ident, InvalidRecord.from_msg(msg))
 
 
 

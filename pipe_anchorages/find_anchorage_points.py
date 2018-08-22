@@ -34,7 +34,7 @@ class FindAnchoragePoints(beam.PTransform):
         # separately: anything over the threshold time will be reduced to just the start 
         # and end points of the period. The remaining points will summarized and returned
         # as a stationary period
-        vessel_id, records = item
+        ssvid, records = item
 
         active_records = []
         stationary_periods = []
@@ -65,17 +65,17 @@ class FindAnchoragePoints(beam.PTransform):
             current_period.append(rcd)
         active_records.extend(current_period)
 
-        return (vessel_id, ActiveAndStationary(active_records=active_records, 
+        return (ssvid, ActiveAndStationary(active_records=active_records, 
                                           stationary_periods=stationary_periods))
 
     def extract_stationary(self, item):
-        vessel_id, combined = item
-        return [(sp.location.S2CellId(cmn.ANCHORAGES_S2_SCALE).to_token(), (vessel_id, sp)) 
+        ssvid, combined = item
+        return [(sp.location.S2CellId(cmn.ANCHORAGES_S2_SCALE).to_token(), (ssvid, sp)) 
                         for sp in combined.stationary_periods] 
 
     def extract_active(self, item):
-        vessel_id, combined = item
-        return [(ar.location.S2CellId(cmn.ANCHORAGES_S2_SCALE).to_token(), (vessel_id, ar)) 
+        ssvid, combined = item
+        return [(ar.location.S2CellId(cmn.ANCHORAGES_S2_SCALE).to_token(), (ssvid, ar)) 
                         for ar in combined.active_records] 
 
     def create_anchorage_pts(self, item, fishing_vessel_list):
@@ -110,11 +110,11 @@ class AnchoragePoint(namedtuple("AnchoragePoint", ['mean_location',
                                                   'top_destination',
                                                   's2id',
                                                   'neighbor_s2ids',
-                                                  'active_vessel_ids',
-                                                  'total_vessel_ids',
-                                                  'stationary_vessel_id_days',
-                                                  'stationary_fishing_vessel_id_days',
-                                                  'active_vessel_id_days',
+                                                  'active_ssvids',
+                                                  'total_ssvids',
+                                                  'stationary_ssvid_days',
+                                                  'stationary_fishing_ssvid_days',
+                                                  'active_ssvid_days',
                                                ])):
     __slots__ = ()
 
@@ -129,25 +129,25 @@ class AnchoragePoint(namedtuple("AnchoragePoint", ['mean_location',
         fishing_vessels = set()
         vessels = set()
         total_squared_drift_radius = 0.0
-        active_vessel_ids = set(md for (md, loc) in active_points)
-        active_vessel_id_count = len(active_vessel_ids)
+        active_ssvids = set(md for (md, loc) in active_points)
+        active_ssvid_count = len(active_ssvids)
         active_days = len(set([(md, loc.timestamp.date()) for (md, loc) in active_points]))
         stationary_days = 0
         stationary_fishing_days = 0
 
-        for (vessel_id, sp) in stationary_periods:
+        for (ssvid, sp) in stationary_periods:
             n += 1
             total_lat += sp.location.lat
             total_lon += sp.location.lon
-            vessels.add(vessel_id)
+            vessels.add(ssvid)
             stationary_days += sp.duration.total_seconds() / (24.0 * 60.0 * 60.0)
-            if vessel_id in fishing_vessel_set:
-                fishing_vessels.add(vessel_id)
+            if ssvid in fishing_vessel_set:
+                fishing_vessels.add(ssvid)
                 stationary_fishing_days += sp.duration.total_seconds() / (24.0 * 60.0 * 60.0)
             total_squared_drift_radius += sp.rms_drift_radius ** 2
         all_destinations = normalized_valid_names(sp.destination for (md, sp) in stationary_periods)
 
-        total_vessel_id_count = len(vessels | active_vessel_ids)
+        total_ssvid_count = len(vessels | active_ssvids)
 
         if n:
             neighbor_s2ids = tuple(s2sphere.CellId.from_token(s2id).get_all_neighbors(cmn.ANCHORAGES_S2_SCALE))
@@ -168,11 +168,11 @@ class AnchoragePoint(namedtuple("AnchoragePoint", ['mean_location',
                         top_destination = top_destination,
                         s2id = s2id,
                         neighbor_s2ids = neighbor_s2ids,
-                        active_vessel_ids = active_vessel_id_count,
-                        total_vessel_ids = total_vessel_id_count,
-                        stationary_vessel_id_days = stationary_days,
-                        stationary_fishing_vessel_id_days = stationary_fishing_days,
-                        active_vessel_id_days = active_days,
+                        active_ssvids = active_ssvid_count,
+                        total_ssvids = total_ssvid_count,
+                        stationary_ssvid_days = stationary_days,
+                        stationary_fishing_ssvid_days = stationary_fishing_days,
+                        active_ssvid_days = active_days,
                         )
         else:
             return None
