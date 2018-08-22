@@ -10,7 +10,7 @@ class DummyOptions(object):
 def test_create_queries_1():
     args = DummyOptions("2016-01-01", "2016-01-01")
     assert list(create_queries(args)) == ["""
-    SELECT vessel_id, lat, lon, timestamp, speed FROM   
+    SELECT vessel_id as ident, lat, lon, timestamp, speed FROM   
       TABLE_DATE_RANGE([world-fishing-827:SOURCE_TABLE], 
                         TIMESTAMP('2015-12-31'), TIMESTAMP('2016-01-01')) 
     """]
@@ -18,12 +18,12 @@ def test_create_queries_1():
 def test_create_queries_2():
     args = DummyOptions("2012-5-01", "2017-05-15")
     assert list(create_queries(args)) == ["""
-    SELECT vessel_id, lat, lon, timestamp, speed FROM   
+    SELECT vessel_id as ident, lat, lon, timestamp, speed FROM   
       TABLE_DATE_RANGE([world-fishing-827:SOURCE_TABLE], 
                         TIMESTAMP('2012-04-30'), TIMESTAMP('2015-01-24')) 
     """, 
     """
-    SELECT vessel_id, lat, lon, timestamp, speed FROM   
+    SELECT vessel_id as ident, lat, lon, timestamp, speed FROM   
       TABLE_DATE_RANGE([world-fishing-827:SOURCE_TABLE], 
                         TIMESTAMP('2015-01-25'), TIMESTAMP('2017-05-15')) 
     """
