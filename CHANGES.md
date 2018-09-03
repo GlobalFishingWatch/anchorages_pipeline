@@ -1,6 +1,14 @@
 Changes
 =======
 
+0.2.1 2018-09-03
+-----------------
+
+* [#36](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/36)
+  Bump version of pipe-tools to 0.1.7
+
+
+
 0.2.0  2018-05-14
 -----------------
 
