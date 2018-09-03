@@ -1,9 +1,9 @@
 """
-Tools for parsing and normalizing AIS from Orbcomm using dataflow
+Pipe for processing anchorages and generating anchorages events. 
 """
 
 
-__version__ = '0.2.0'
+__version__ = '0.2.1'
 __author__ = 'Global Fishing Watch'
 __email__ = 'info@globalfishingwatch.org'
 __source__ = 'https://github.com/GlobalFishingWatch/anchorages_pipeline'
