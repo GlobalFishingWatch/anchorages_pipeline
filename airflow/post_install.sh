@@ -9,8 +9,6 @@ python $AIRFLOW_HOME/utils/set_default_variables.py \
     dag_install_path="${THIS_SCRIPT_DIR}" \
     dataflow_runner="DataflowRunner" \
     docker_run="{{ var.value.DOCKER_RUN }}" \
-    events_dataset="{{ var.value.EVENTS_DATASET }}" \
-    events_table="port_events" \
     project_id="{{ var.value.PROJECT_ID }}" \
     temp_bucket="{{ var.value.TEMP_BUCKET }}"  \
     pipeline_bucket="{{ var.value.PIPELINE_BUCKET }}" \

@@ -5,7 +5,6 @@ import logging
 from airflow import DAG
 from airflow.contrib.sensors.bigquery_sensor import BigQueryTableSensor
 from airflow.models import Variable
-from airflow.operators.bash_operator import BashOperator
 
 from pipe_tools.airflow.dataflow_operator import DataFlowDirectRunnerOperator
 from pipe_tools.airflow.config import load_config
@@ -85,15 +84,7 @@ def build_port_events_dag(dag_id, schedule_interval='@daily', extra_default_args
             )
         )
 
-        publish_events = BashOperator(
-            task_id='publish_events',
-            bash_command='{docker_run} {docker_image} publish_events '
-                         '{date_range} '
-                         '{project_id}:{pipeline_dataset}.{port_events_table} '
-                         '{project_id}:{events_dataset}.{events_table}'.format(**config)
-        )
-
-        dag >> source_exists >> port_events >> publish_events
+        dag >> source_exists >> port_events
 
         return dag
 
