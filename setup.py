@@ -79,5 +79,8 @@ setuptools.setup(
     install_requires=DEPENDENCIES + DATAFLOW_PINNED_DEPENDENCIES,
     packages=setuptools.find_packages(),
     zip_safe=True,
-    dependency_links=DEPENDENCY_LINKS
+    dependency_links=DEPENDENCY_LINKS,
+    package_data={
+        '': ['data/*.pickle', 'data/port_lists/*.csv'],
+    }
     )

@@ -37,7 +37,7 @@ class CreateTaggedAnchorages(beam.PTransform):
         return PseudoAnchorage(
                 mean_location = cmn.LatLon(obj['anchor_lat'], obj['anchor_lon']), 
                 s2id = obj['anchor_id'], 
-                port_name = obj['FINAL_NAME'])
+                port_name = obj['label'])
 
     def tag_anchorage_with_s2ids(self, anchorage):
         central_cell_id = anchorage.mean_location.S2CellId(cmn.VISITS_S2_SCALE)

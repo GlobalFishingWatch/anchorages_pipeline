@@ -20,7 +20,8 @@ class EventSink(PTransform):
     def expand(self, xs):
 
         def as_dict(x):
-            return JSONDict(**x._asdict())
+            d = JSONDict(**x._asdict())
+            return d
 
         def encode_datetimes_to_s(x):
 
@@ -68,13 +69,13 @@ class AnchorageSink(PTransform):
             'total_visits' : anchorage.total_visits,
             'drift_radius' : anchorage.rms_drift_radius,
             'top_destination': anchorage.top_destination,
-            'unique_stationary_mmsi' : len(anchorage.vessels),
-            'unique_stationary_fishing_mmsi' : len(anchorage.fishing_vessels),
-            'unique_active_mmsi' : anchorage.active_mmsi,
-            'unique_total_mmsi' : anchorage.total_mmsi,
-            'active_mmsi_days': anchorage.active_mmsi_days,
-            'stationary_mmsi_days': anchorage.stationary_mmsi_days,
-            'stationary_fishing_mmsi_days': anchorage.stationary_fishing_mmsi_days,
+            'unique_stationary_ssvid' : len(anchorage.vessels),
+            'unique_stationary_fishing_ssvid' : len(anchorage.fishing_vessels),
+            'unique_active_ssvid' : anchorage.active_ssvids,
+            'unique_total_ssvid' : anchorage.total_ssvids,
+            'active_ssvid_days': anchorage.active_ssvid_days,
+            'stationary_ssvid_days': anchorage.stationary_ssvid_days,
+            'stationary_fishing_ssvid_days': anchorage.stationary_fishing_ssvid_days,
             's2id': anchorage.s2id,   
             }
 
@@ -85,13 +86,13 @@ class AnchorageSink(PTransform):
             "total_visits": "integer",
             "drift_radius": "float",
             "top_destination" : "string",
-            "unique_stationary_mmsi": "integer",
-            "unique_stationary_fishing_mmsi": "integer",
-            "unique_active_mmsi": "integer",
-            "unique_total_mmsi": "integer",
-            'active_mmsi_days': "float",
-            "stationary_mmsi_days": "float",
-            "stationary_fishing_mmsi_days": "float",
+            "unique_stationary_ssvid": "integer",
+            "unique_stationary_fishing_ssvid": "integer",
+            "unique_active_ssvid": "integer",
+            "unique_total_ssvid": "integer",
+            'active_ssvid_days': "float",
+            "stationary_ssvid_days": "float",
+            "stationary_fishing_ssvid_days": "float",
             "s2id": "string",
         }
 
@@ -134,13 +135,13 @@ class NamedAnchorageSink(PTransform):
             'total_visits' : anchorage.total_visits,
             'drift_radius' : anchorage.rms_drift_radius,
             'top_destination': anchorage.top_destination,
-            'unique_stationary_mmsi' : len(anchorage.vessels),
-            'unique_stationary_fishing_mmsi' : len(anchorage.fishing_vessels),
-            'unique_active_mmsi' : anchorage.active_mmsi,
-            'unique_total_mmsi' : anchorage.total_mmsi,
-            'active_mmsi_days': anchorage.active_mmsi_days,
-            'stationary_mmsi_days': anchorage.stationary_mmsi_days,
-            'stationary_fishing_mmsi_days': anchorage.stationary_fishing_mmsi_days,
+            'unique_stationary_ssvid' : len(anchorage.vessels),
+            'unique_stationary_fishing_ssvid' : len(anchorage.fishing_vessels),
+            'unique_active_ssvid' : anchorage.active_ssvids,
+            'unique_total_ssvid' : anchorage.total_ssvids,
+            'active_ssvid_days': anchorage.active_ssvid_days,
+            'stationary_ssvid_days': anchorage.stationary_ssvid_days,
+            'stationary_fishing_ssvid_days': anchorage.stationary_fishing_ssvid_days,
             's2id' : anchorage.s2id,  
             'label': anchorage.label,
             'sublabel': anchorage.sublabel, 
@@ -155,13 +156,13 @@ class NamedAnchorageSink(PTransform):
             "total_visits": "integer",
             "drift_radius": "float",
             "top_destination" : "string",
-            "unique_stationary_mmsi": "integer",
-            "unique_stationary_fishing_mmsi": "integer",
-            "unique_active_mmsi": "integer",
-            "unique_total_mmsi": "integer",
-            'active_mmsi_days': "float",
-            "stationary_mmsi_days": "float",
-            "stationary_fishing_mmsi_days": "float",
+            "unique_stationary_ssvid": "integer",
+            "unique_stationary_fishing_ssvid": "integer",
+            "unique_active_ssvid": "integer",
+            "unique_total_ssvid": "integer",
+            'active_ssvid_days': "float",
+            "stationary_ssvid_days": "float",
+            "stationary_fishing_ssvid_days": "float",
             "s2id": "string",
             'label': 'string',
             'sublabel': 'string',
