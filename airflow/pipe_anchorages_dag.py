@@ -1,12 +1,14 @@
 import posixpath as pp
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import logging
 
 from airflow import DAG
 from airflow.contrib.sensors.bigquery_sensor import BigQueryTableSensor
+from airflow.contrib.operators.bigquery_operator import BigQueryCreateEmptyTableOperator
 from airflow.models import Variable
 
 from pipe_tools.airflow.dataflow_operator import DataFlowDirectRunnerOperator
+from pipe_tools.airflow.operators.bigquery_operator import BigQueryCreateEmptyTableOperator
 from pipe_tools.airflow.config import load_config
 from pipe_tools.airflow.config import default_args
 
@@ -84,7 +86,32 @@ def build_port_events_dag(dag_id, schedule_interval='@daily', extra_default_args
             )
         )
 
-        dag >> source_exists >> port_events
+        dag >> source_exists >> port_events 
+
+        # Hack, TODO Replace when the DataFlow BQ create
+        # disposition ALWAYS_CREATE exists.
+        # https://cloud.google.com/dataflow/java-sdk/JavaDoc/com/google/cloud/dataflow/sdk/io/BigQueryIO.Write.CreateDisposition
+        empty_table_generation_hack = BigQueryCreateEmptyTableOperator(
+            task_id='create_empty_table_if_no_dataflow_output',
+            dataset_id='{pipeline_dataset}'.format(**config),
+            table_id='{port_events_table}'.format(**config),
+            schema_fields=[
+                {"name": "vessel_id", "type": "STRING", "mode": "REQUIRED"},
+                {"name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED"},
+                {"name": "lat", "type":"FLOAT", "mode": "REQUIRED"},
+                {"name": "lon", "type":"FLOAT", "mode": "REQUIRED"},	
+                {"name": "vessel_lat", "type":"FLOAT", "mode": "REQUIRED"},
+                {"name": "vessel_lon", "type":"FLOAT", "mode": "REQUIRED"},	
+                {"name": "anchorage_id", "type": "STRING", "mode": "REQUIRED"},
+                {"name": "event_type", "type": "STRING", "mode": "REQUIRED"}
+            ]
+        )
+        
+        start_date_no_dash=
+        end_date_no_dash=
+        
+        #iterate from start_date to end_date. Monthly x empty_tables , Daily only one. 
+        port_events >> empty_table_generation_hack
 
         return dag
 
