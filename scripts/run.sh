@@ -8,7 +8,6 @@ display_usage() {
 	echo "  port_visits             run port visits dataflow"
 	echo "  anchorages              run anchorages dataflow"
 	echo "  name_anchorages         run name anchorages dataflow"
-	echo "  publish_events          publish port in/out events"
 }
 
 
@@ -35,10 +34,6 @@ case $1 in
 
   name_anchorages)
     python -m pipe_anchorages.name_anchorages "${@:2}"
-    ;;
-
-  publish_events)
-    ${THIS_SCRIPT_DIR}/publish_events.sh "${@:2}"
     ;;
 
   *)

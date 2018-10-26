@@ -8,8 +8,8 @@ import yaml
 
 from .records import VesselRecord
 from .records import InvalidRecord
-from .records import VesselInfoRecord
 from .records import VesselLocationRecord
+from .records import VesselInfoRecord
 
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
@@ -27,16 +27,16 @@ VISIT_SAFETY_FACTOR = 2.0 # Extra margin factor to ensure we don't miss ports
 
 class CreateVesselRecords(beam.PTransform):
 
-    def __init__(self, blacklisted_mmsis, **defaults):
-        self.blacklisted_mmsis = set(blacklisted_mmsis)
+    def __init__(self, blacklisted_idents, **defaults):
+        self.blacklisted_idents = set(blacklisted_idents)
         self.defaults = defaults
 
     def is_valid(self, item):
-        mmsi, rcd = item
+        ident, rcd = item
         assert isinstance(rcd, VesselRecord), type(rcd)
         return (not isinstance(rcd, InvalidRecord) and 
-                isinstance(mmsi, (basestring, int)) and
-                (mmsi not in self.blacklisted_mmsis)) 
+                isinstance(ident, basestring) and
+                (ident not in self.blacklisted_idents)) 
 
     def add_defaults(self, x):
         for k, v in self.defaults.items():
@@ -59,10 +59,10 @@ class CreateTaggedRecords(beam.PTransform):
         self.FIVE_MINUTES = datetime.timedelta(minutes=5)
 
     def order_by_timestamp(self, item):
-        mmsi, records = item
+        ident, records = item
         records = list(records)
         records.sort(key=lambda x: x.timestamp)
-        return mmsi, records
+        return ident, records
 
     def dedup_by_timestamp(self, item):
         key, source = item
@@ -75,21 +75,21 @@ class CreateTaggedRecords(beam.PTransform):
         return (key, sink)
 
     def long_enough(self, item):
-        mmsi, records = item
+        ident, records = item
         return len(records) >= self.min_required_positions
 
     def thin_records(self, item):
-        mmsi, records = item
+        ident, records = item
         last_timestamp = datetime.datetime(datetime.MINYEAR, 1, 1)
         thinned = []
         for rcd in records:
             if (rcd.timestamp - last_timestamp) >= self.FIVE_MINUTES:
                 last_timestamp = rcd.timestamp
                 thinned.append(rcd)
-        return mmsi, thinned
+        return ident, thinned
 
     def tag_records(self, item):
-        mmsi, records = item
+        ident, records = item
         dest = ''
         tagged = []
         for rcd in records:
@@ -100,7 +100,7 @@ class CreateTaggedRecords(beam.PTransform):
                 tagged.append(rcd._replace(destination=dest))
             else:
                 raise RuntimeError('unknown type {}'.format(type(rcd)))
-        return (mmsi, tagged)
+        return (ident, tagged)
 
     def expand(self, vessel_records):
         return (vessel_records
@@ -108,8 +108,8 @@ class CreateTaggedRecords(beam.PTransform):
             | beam.Map(self.order_by_timestamp)
             | beam.Map(self.dedup_by_timestamp)
             | beam.Filter(self.long_enough)
-            | beam.Map(self.thin_records)
             | beam.Map(self.tag_records)
+            | beam.Map(self.thin_records)
             )
 
 

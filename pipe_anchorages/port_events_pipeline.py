@@ -19,7 +19,7 @@ from .options.port_events_options import PortEventsOptions
 
 def create_queries(args):
     template = """
-    SELECT vessel_id as mmsi, lat, lon, timestamp, speed FROM   
+    SELECT vessel_id as ident, lat, lon, timestamp, speed FROM   
       TABLE_DATE_RANGE([world-fishing-827:{table}], 
                         TIMESTAMP('{start:%Y-%m-%d}'), TIMESTAMP('{end:%Y-%m-%d}')) 
     """
@@ -36,7 +36,7 @@ def create_queries(args):
 
 
 
-anchorage_query = 'SELECT lat anchor_lat, lon anchor_lon, anchor_id, FINAL_NAME FROM [{}]'
+anchorage_query = 'SELECT lat anchor_lat, lon anchor_lon, s2id as anchor_id, label FROM [{}]'
 
 
 def run(options):

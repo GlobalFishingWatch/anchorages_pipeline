@@ -1,6 +1,7 @@
 from __future__ import print_function, division
 import csv
 import os
+import logging
 import math
 from collections import namedtuple
 from .distance import distance, EARTH_RADIUS, inf
@@ -16,11 +17,15 @@ class PortFinder(object):
         with open(path) as f:
             reader = csv.DictReader(f)
             for row in reader:
-                self.ports.append(Port(iso3=row['iso3'],
-                                       label=row['label'],
-                                       sublabel=row['sublabel'],
-                                       lat=float(row['latitude']),
-                                       lon=float(row['longitude'])))
+                try:
+                    self.ports.append(Port(iso3=row['iso3'],
+                                           label=row['label'],
+                                           sublabel=row['sublabel'],
+                                           lat=float(row['latitude']),
+                                           lon=float(row['longitude'])))
+                except StandardError as err:
+                    logging.fatal("Could not parse row: '{}'".format(row))
+                    raise
 
     def __call__(self, loc):
         return self.find_nearest_port_and_distance(loc)[0]

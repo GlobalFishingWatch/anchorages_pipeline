@@ -66,7 +66,7 @@ class CreateInOutEvents(beam.PTransform):
         return closest, min_dist
 
     def create_in_out_events(self, tagged_records, anchorage_map):
-        mmsi, records = tagged_records
+        vessel_id, records = tagged_records
         state = None
         active_port = None
         events = []
@@ -94,9 +94,8 @@ class CreateInOutEvents(beam.PTransform):
                                          lon=active_port.mean_location.lon, 
                                          vessel_lat=rcd.location.lat,
                                          vessel_lon=rcd.location.lon,
-                                         vessel_id=mmsi, 
+                                         vessel_id=vessel_id, 
                                          timestamp=rcd.timestamp, 
-                                         port_label=active_port.port_name, 
                                          event_type=event_type)) 
         return events
 
