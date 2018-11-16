@@ -4,7 +4,6 @@ import logging
 
 from airflow import DAG
 from airflow.contrib.sensors.bigquery_sensor import BigQueryTableSensor
-from airflow.contrib.operators.bigquery_operator import BigQueryCreateEmptyTableOperator
 from airflow.models import Variable
 
 from pipe_tools.airflow.dataflow_operator import DataFlowDirectRunnerOperator
@@ -46,6 +45,10 @@ def build_port_events_dag(dag_id, schedule_interval='@daily', extra_default_args
         source_sensor_date = '{last_day_of_month_nodash}'.format(**config)
         start_date = '{first_day_of_month}'.format(**config)
         end_date = '{last_day_of_month}'.format(**config)
+    elif schedule_interval == '@yearly':
+        source_sensor_date = '{last_day_of_year_nodash}'.format(**config)
+        start_date = '{first_day_of_year}'.format(**config)
+        end_date = '{last_day_of_year}'.format(**config)
     else:
         raise ValueError('Unsupported schedule interval {}'.format(schedule_interval))
 
@@ -70,7 +73,7 @@ def build_port_events_dag(dag_id, schedule_interval='@daily', extra_default_args
                 startup_log_file=pp.join(Variable.get('DATAFLOW_WRAPPER_LOG_PATH'),
                                          'pipe_anchorages/port-events.log'),
                 command='{docker_run} {docker_image} port_events'.format(**config),
-                project=config['project_id'],   
+                project=config['project_id'],
                 runner='{dataflow_runner}'.format(**config),
                 start_date=start_date,
                 end_date=end_date,
@@ -86,32 +89,25 @@ def build_port_events_dag(dag_id, schedule_interval='@daily', extra_default_args
             )
         )
 
-        dag >> source_exists >> port_events 
-
-        # Hack, TODO Replace when the DataFlow BQ create
-        # disposition ALWAYS_CREATE exists.
-        # https://cloud.google.com/dataflow/java-sdk/JavaDoc/com/google/cloud/dataflow/sdk/io/BigQueryIO.Write.CreateDisposition
-        empty_table_generation_hack = BigQueryCreateEmptyTableOperator(
-            task_id='create_empty_table_if_no_dataflow_output',
+        ensure_creation_tables = BigQueryCreateEmptyTableOperator(
+            task_id='ensure_port_events_creation_tables',
             dataset_id='{pipeline_dataset}'.format(**config),
             table_id='{port_events_table}'.format(**config),
             schema_fields=[
                 {"name": "vessel_id", "type": "STRING", "mode": "REQUIRED"},
                 {"name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED"},
                 {"name": "lat", "type":"FLOAT", "mode": "REQUIRED"},
-                {"name": "lon", "type":"FLOAT", "mode": "REQUIRED"},	
+                {"name": "lon", "type":"FLOAT", "mode": "REQUIRED"},
                 {"name": "vessel_lat", "type":"FLOAT", "mode": "REQUIRED"},
-                {"name": "vessel_lon", "type":"FLOAT", "mode": "REQUIRED"},	
+                {"name": "vessel_lon", "type":"FLOAT", "mode": "REQUIRED"},
                 {"name": "anchorage_id", "type": "STRING", "mode": "REQUIRED"},
                 {"name": "event_type", "type": "STRING", "mode": "REQUIRED"}
-            ]
+            ],
+            start_date_str=start_date,
+            end_date_str=end_date
         )
-        
-        start_date_no_dash=
-        end_date_no_dash=
-        
-        #iterate from start_date to end_date. Monthly x empty_tables , Daily only one. 
-        port_events >> empty_table_generation_hack
+
+        dag >> source_exists >> port_events >> ensure_creation_tables
 
         return dag
 
@@ -132,6 +128,10 @@ def build_port_visits_dag(dag_id, schedule_interval='@daily', extra_default_args
         source_sensor_date = '{last_day_of_month_nodash}'.format(**config)
         start_date = '{first_day_of_month}'.format(**config)
         end_date = '{last_day_of_month}'.format(**config)
+    elif schedule_interval == '@yearly':
+        source_sensor_date = '{last_day_of_year_nodash}'.format(**config)
+        start_date = '{first_day_of_year}'.format(**config)
+        end_date = '{last_day_of_year}'.format(**config)
     else:
         raise ValueError('Unsupported schedule interval {}'.format(schedule_interval))
 
@@ -172,7 +172,25 @@ def build_port_visits_dag(dag_id, schedule_interval='@daily', extra_default_args
             )
         )
 
-        source_exists >> port_visits
+        ensure_creation_tables = BigQueryCreateEmptyTableOperator(
+            task_id='ensure_port_visits_creation_tables',
+            dataset_id='{pipeline_dataset}'.format(**config),
+            table_id='{port_visits_table}'.format(**config),
+            schema_fields=[
+                {"name": "vessel_id", "type": "STRING", "mode": "REQUIRED"},
+                {"name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED"},
+                {"name": "lat", "type":"FLOAT", "mode": "REQUIRED"},
+                {"name": "lon", "type":"FLOAT", "mode": "REQUIRED"},
+                {"name": "vessel_lat", "type":"FLOAT", "mode": "REQUIRED"},
+                {"name": "vessel_lon", "type":"FLOAT", "mode": "REQUIRED"},
+                {"name": "anchorage_id", "type": "STRING", "mode": "REQUIRED"},
+                {"name": "event_type", "type": "STRING", "mode": "REQUIRED"}
+            ],
+            start_date_str=start_date,
+            end_date_str=end_date
+        )
+
+        dag >> source_exists >> port_visits >> ensure_creation_tables
 
         return dag
 
