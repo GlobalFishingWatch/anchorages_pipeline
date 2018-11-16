@@ -177,14 +177,26 @@ def build_port_visits_dag(dag_id, schedule_interval='@daily', extra_default_args
             dataset_id='{pipeline_dataset}'.format(**config),
             table_id='{port_visits_table}'.format(**config),
             schema_fields=[
-                {"name": "vessel_id", "type": "STRING", "mode": "REQUIRED"},
-                {"name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED"},
-                {"name": "lat", "type":"FLOAT", "mode": "REQUIRED"},
-                {"name": "lon", "type":"FLOAT", "mode": "REQUIRED"},
-                {"name": "vessel_lat", "type":"FLOAT", "mode": "REQUIRED"},
-                {"name": "vessel_lon", "type":"FLOAT", "mode": "REQUIRED"},
-                {"name": "anchorage_id", "type": "STRING", "mode": "REQUIRED"},
-                {"name": "event_type", "type": "STRING", "mode": "REQUIRED"}
+                { "mode": "REQUIRED", "name": "vessel_id", "type": "STRING" },
+                { "mode": "REQUIRED", "name": "start_timestamp", "type": "TIMESTAMP" },
+                { "mode": "REQUIRED", "name": "start_lat", "type": "FLOAT" },
+                { "mode": "REQUIRED", "name": "start_lon", "type": "FLOAT" },
+                { "mode": "REQUIRED", "name": "start_anchorage_id", "type": "STRING" },
+                { "mode": "REQUIRED", "name": "end_timestamp", "type": "TIMESTAMP" },
+                { "mode": "REQUIRED", "name": "end_lat", "type": "FLOAT" },
+                { "mode": "REQUIRED", "name": "end_lon", "type": "FLOAT" },
+                { "mode": "REQUIRED", "name": "end_anchorage_id", "type": "STRING" },
+                { "fields": [
+                    { "mode": "REQUIRED", "name": "vessel_id", "type": "STRING" },
+                    { "mode": "REQUIRED", "name": "timestamp", "type": "TIMESTAMP" },
+                    { "mode": "REQUIRED", "name": "lat", "type": "FLOAT" },
+                    { "mode": "REQUIRED", "name": "lon", "type": "FLOAT" },
+                    { "mode": "REQUIRED", "name": "vessel_lat", "type": "FLOAT" },
+                    { "mode": "REQUIRED", "name": "vessel_lon", "type": "FLOAT" },
+                    { "mode": "REQUIRED", "name": "anchorage_id", "type": "STRING" },
+                    { "mode": "REQUIRED", "name": "event_type", "type": "STRING" }
+                ],
+                "mode": "REPEATED", "name": "events", "type": "RECORD" }
             ],
             start_date_str=start_date,
             end_date_str=end_date
