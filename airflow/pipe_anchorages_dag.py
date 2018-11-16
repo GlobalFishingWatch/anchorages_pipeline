@@ -1,5 +1,5 @@
 import posixpath as pp
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import logging
 
 from airflow import DAG
@@ -7,6 +7,7 @@ from airflow.contrib.sensors.bigquery_sensor import BigQueryTableSensor
 from airflow.models import Variable
 
 from pipe_tools.airflow.dataflow_operator import DataFlowDirectRunnerOperator
+from pipe_tools.airflow.operators.bigquery_operator import BigQueryCreateEmptyTableOperator
 from pipe_tools.airflow.config import load_config
 from pipe_tools.airflow.config import default_args
 
@@ -44,6 +45,10 @@ def build_port_events_dag(dag_id, schedule_interval='@daily', extra_default_args
         source_sensor_date = '{last_day_of_month_nodash}'.format(**config)
         start_date = '{first_day_of_month}'.format(**config)
         end_date = '{last_day_of_month}'.format(**config)
+    elif schedule_interval == '@yearly':
+        source_sensor_date = '{last_day_of_year_nodash}'.format(**config)
+        start_date = '{first_day_of_year}'.format(**config)
+        end_date = '{last_day_of_year}'.format(**config)
     else:
         raise ValueError('Unsupported schedule interval {}'.format(schedule_interval))
 
@@ -68,7 +73,7 @@ def build_port_events_dag(dag_id, schedule_interval='@daily', extra_default_args
                 startup_log_file=pp.join(Variable.get('DATAFLOW_WRAPPER_LOG_PATH'),
                                          'pipe_anchorages/port-events.log'),
                 command='{docker_run} {docker_image} port_events'.format(**config),
-                project=config['project_id'],   
+                project=config['project_id'],
                 runner='{dataflow_runner}'.format(**config),
                 start_date=start_date,
                 end_date=end_date,
@@ -84,7 +89,25 @@ def build_port_events_dag(dag_id, schedule_interval='@daily', extra_default_args
             )
         )
 
-        dag >> source_exists >> port_events
+        ensure_creation_tables = BigQueryCreateEmptyTableOperator(
+            task_id='ensure_port_events_creation_tables',
+            dataset_id='{pipeline_dataset}'.format(**config),
+            table_id='{port_events_table}'.format(**config),
+            schema_fields=[
+                {"name": "vessel_id", "type": "STRING", "mode": "REQUIRED"},
+                {"name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED"},
+                {"name": "lat", "type":"FLOAT", "mode": "REQUIRED"},
+                {"name": "lon", "type":"FLOAT", "mode": "REQUIRED"},
+                {"name": "vessel_lat", "type":"FLOAT", "mode": "REQUIRED"},
+                {"name": "vessel_lon", "type":"FLOAT", "mode": "REQUIRED"},
+                {"name": "anchorage_id", "type": "STRING", "mode": "REQUIRED"},
+                {"name": "event_type", "type": "STRING", "mode": "REQUIRED"}
+            ],
+            start_date_str=start_date,
+            end_date_str=end_date
+        )
+
+        dag >> source_exists >> port_events >> ensure_creation_tables
 
         return dag
 
@@ -105,6 +128,10 @@ def build_port_visits_dag(dag_id, schedule_interval='@daily', extra_default_args
         source_sensor_date = '{last_day_of_month_nodash}'.format(**config)
         start_date = '{first_day_of_month}'.format(**config)
         end_date = '{last_day_of_month}'.format(**config)
+    elif schedule_interval == '@yearly':
+        source_sensor_date = '{last_day_of_year_nodash}'.format(**config)
+        start_date = '{first_day_of_year}'.format(**config)
+        end_date = '{last_day_of_year}'.format(**config)
     else:
         raise ValueError('Unsupported schedule interval {}'.format(schedule_interval))
 
@@ -145,7 +172,37 @@ def build_port_visits_dag(dag_id, schedule_interval='@daily', extra_default_args
             )
         )
 
-        source_exists >> port_visits
+        ensure_creation_tables = BigQueryCreateEmptyTableOperator(
+            task_id='ensure_port_visits_creation_tables',
+            dataset_id='{pipeline_dataset}'.format(**config),
+            table_id='{port_visits_table}'.format(**config),
+            schema_fields=[
+                { "mode": "REQUIRED", "name": "vessel_id", "type": "STRING" },
+                { "mode": "REQUIRED", "name": "start_timestamp", "type": "TIMESTAMP" },
+                { "mode": "REQUIRED", "name": "start_lat", "type": "FLOAT" },
+                { "mode": "REQUIRED", "name": "start_lon", "type": "FLOAT" },
+                { "mode": "REQUIRED", "name": "start_anchorage_id", "type": "STRING" },
+                { "mode": "REQUIRED", "name": "end_timestamp", "type": "TIMESTAMP" },
+                { "mode": "REQUIRED", "name": "end_lat", "type": "FLOAT" },
+                { "mode": "REQUIRED", "name": "end_lon", "type": "FLOAT" },
+                { "mode": "REQUIRED", "name": "end_anchorage_id", "type": "STRING" },
+                { "fields": [
+                    { "mode": "REQUIRED", "name": "vessel_id", "type": "STRING" },
+                    { "mode": "REQUIRED", "name": "timestamp", "type": "TIMESTAMP" },
+                    { "mode": "REQUIRED", "name": "lat", "type": "FLOAT" },
+                    { "mode": "REQUIRED", "name": "lon", "type": "FLOAT" },
+                    { "mode": "REQUIRED", "name": "vessel_lat", "type": "FLOAT" },
+                    { "mode": "REQUIRED", "name": "vessel_lon", "type": "FLOAT" },
+                    { "mode": "REQUIRED", "name": "anchorage_id", "type": "STRING" },
+                    { "mode": "REQUIRED", "name": "event_type", "type": "STRING" }
+                ],
+                "mode": "REPEATED", "name": "events", "type": "RECORD" }
+            ],
+            start_date_str=start_date,
+            end_date_str=end_date
+        )
+
+        dag >> source_exists >> port_visits >> ensure_creation_tables
 
         return dag
 
