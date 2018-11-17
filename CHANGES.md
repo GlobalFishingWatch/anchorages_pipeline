@@ -1,6 +1,13 @@
 Changes
 =======
 
+0.3.1 - 2018-11-15
+------------------
+
+* [#39](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/39)
+  * Ensure the creation of empty tables when the dataflow process does not generate content.
+  * Updates the operator call to support interval dates.
+
 0.3.0 - 2018-09-07
 ------------------
 
