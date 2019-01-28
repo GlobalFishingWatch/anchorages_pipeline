@@ -36,7 +36,7 @@ def create_queries(args):
 
 
 
-anchorage_query = 'SELECT lat anchor_lat, lon anchor_lon, anchor_id, FINAL_NAME as label FROM [{}]'
+anchorage_query = 'SELECT lat anchor_lat, lon anchor_lon, s2id as anchor_id, label FROM [{}]'
 
 
 def run(options):
