@@ -14,11 +14,13 @@ python $AIRFLOW_HOME/utils/set_default_variables.py \
     pipeline_bucket="{{ var.value.PIPELINE_BUCKET }}" \
     pipeline_dataset="{{ var.value.PIPELINE_DATASET }}" \
     port_visits_start_padding=365 \
-    anchorage_table=gfw_raw.anchorage_naming_20171026 \
+    anchorage_table="gfw_research.named_anchorages_v20180803_13b" \
     source_dataset="{{ var.value.PIPELINE_DATASET }}" \
     source_table="position_messages_" \
     port_events_table="port_events_" \
-    port_visits_table="port_visits_"
+    port_visits_table="port_visits_" \
+    dataflow_max_num_workers="100" \
+    dataflow_disk_size_gb="50"
 
 
 echo "Installation Complete"
