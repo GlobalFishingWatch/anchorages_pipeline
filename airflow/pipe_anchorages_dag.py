@@ -213,5 +213,5 @@ port_events_yearly_dag = build_port_events_dag('port_events_yearly', '@yearly')
 
 port_visits_daily_dag = build_port_visits_dag('port_visits_daily', '@daily')
 port_visits_monthly_dag = build_port_visits_dag('port_visits_monthly', '@monthly')
-port_visits_yearlys_dag = build_port_visits_dag('port_yearly_monthly', '@yearly')
+port_visits_yearlys_dag = build_port_visits_dag('port_visits_yearly', '@yearly')
 

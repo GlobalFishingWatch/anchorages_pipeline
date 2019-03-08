@@ -14,7 +14,7 @@ python $AIRFLOW_HOME/utils/set_default_variables.py \
     pipeline_bucket="{{ var.value.PIPELINE_BUCKET }}" \
     pipeline_dataset="{{ var.value.PIPELINE_DATASET }}" \
     port_visits_start_padding=365 \
-    anchorage_table="gfw_research.named_anchorages_v20180803_13b" \
+    anchorage_table="gfw_research.named_anchorages_v20190307" \
     source_dataset="{{ var.value.PIPELINE_DATASET }}" \
     source_table="position_messages_" \
     port_events_table="port_events_" \
