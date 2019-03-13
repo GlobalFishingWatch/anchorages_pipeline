@@ -10,9 +10,12 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ### Added
 
+## 0.3.3 - 2019-03-13
+
 * [GlobalFishingWatch/GFW-Tasks#987](https://github.com/GlobalFishingWatch/GFW-Tasks/issues/987)
   * Add yearly mode dags.
 * Add parameters for dataflow max_workers and disk_size_gb  
+* Modify the default parameter in post_install to use the latest named table.
 
 ## 0.3.1 - 2018-11-15
 
