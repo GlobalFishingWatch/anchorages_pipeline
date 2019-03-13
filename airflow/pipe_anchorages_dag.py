@@ -82,8 +82,8 @@ def build_port_events_dag(dag_id, schedule_interval='@daily', extra_default_args
                 output_table='{pipeline_dataset}.{port_events_table}'.format(**config),
                 temp_location='gs://{temp_bucket}/dataflow_temp'.format(**config),
                 staging_location='gs://{temp_bucket}/dataflow_staging'.format(**config),
-                max_num_workers="100",
-                disk_size_gb="50",
+                max_num_workers='{dataflow_max_num_workers}'.format(**config),
+                disk_size_gb='{dataflow_disk_size_gb}'.format(**config),
                 requirements_file='./requirements.txt',
                 setup_file='./setup.py'
             )
@@ -165,8 +165,8 @@ def build_port_visits_dag(dag_id, schedule_interval='@daily', extra_default_args
                 output_table='{pipeline_dataset}.{port_visits_table}'.format(**config),
                 temp_location='gs://{temp_bucket}/dataflow_temp'.format(**config),
                 staging_location='gs://{temp_bucket}/dataflow_staging'.format(**config),
-                max_num_workers="100",
-                disk_size_gb="50",
+                max_num_workers='{dataflow_max_num_workers}'.format(**config),
+                disk_size_gb='{dataflow_disk_size_gb}'.format(**config),
                 requirements_file='./requirements.txt',
                 setup_file='./setup.py'
             )
@@ -209,6 +209,9 @@ def build_port_visits_dag(dag_id, schedule_interval='@daily', extra_default_args
 
 port_events_daily_dag = build_port_events_dag('port_events_daily', '@daily')
 port_events_monthly_dag = build_port_events_dag('port_events_monthly', '@monthly')
+port_events_yearly_dag = build_port_events_dag('port_events_yearly', '@yearly')
 
 port_visits_daily_dag = build_port_visits_dag('port_visits_daily', '@daily')
 port_visits_monthly_dag = build_port_visits_dag('port_visits_monthly', '@monthly')
+port_visits_yearlys_dag = build_port_visits_dag('port_visits_yearly', '@yearly')
+
