@@ -6,10 +6,10 @@ from airflow import DAG
 from airflow.contrib.sensors.bigquery_sensor import BigQueryTableSensor
 from airflow.models import Variable
 
-from pipe_tools.airflow.dataflow_operator import DataFlowDirectRunnerOperator
-from pipe_tools.airflow.operators.bigquery_operator import BigQueryCreateEmptyTableOperator
-from pipe_tools.airflow.config import load_config
-from pipe_tools.airflow.config import default_args
+from airflow_ext.gfw.operators.bigquery_operator import BigQueryCreateEmptyTableOperator
+from airflow_ext.gfw.operators.dataflow_operator import DataFlowDirectRunnerOperator
+from airflow_ext.gfw.config import load_config
+from airflow_ext.gfw.config import default_args
 
 
 CONFIG = load_config('pipe_anchorages')
