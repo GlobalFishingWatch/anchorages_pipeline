@@ -10,6 +10,13 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ### Added
 
+## v1.0.0 - 2019-03-27
+
+### Added
+
+* [GlobalFishingWatch/GFW-Tasks#991](https://github.com/GlobalFishingWatch/GFW-Tasks/issues/991)
+   * Migrates to use the new [airflow-gfw](https://github.com/GlobalFishingWatch/airflow-gfw) library and use the pipe-tools [v2.0.0](https://github.com/GlobalFishingWatch/pipe-tools/releases/tag/v2.0.0)
+
 ## 0.3.3 - 2019-03-13
 
 * [GlobalFishingWatch/GFW-Tasks#987](https://github.com/GlobalFishingWatch/GFW-Tasks/issues/987)
