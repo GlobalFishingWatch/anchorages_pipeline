@@ -138,7 +138,6 @@ or
                  --runner DataflowRunner \
                  --disk_size_gb 100
 
-
 The override path points to a csv file containing anchorages that are either missing or incorrectly named.
 It should have the following fields: s2uid,label,iso3,anchor_lat,anchor_lon,sublabel.
 
@@ -151,20 +150,22 @@ It should have the following fields: s2uid,label,iso3,anchor_lat,anchor_lon,subl
 To update a day of events, run, for example:
 
     docker-compose run port_events \
-        --job_name porteventssharded \
-        --input_table pipe_test_b_ttl30.position_messages_ \
-        --anchorage_table gfw_raw.anchorage_naming_20171026 \
-        --start_date 2017-12-01 \
-        --end_date 2017-12-01 \
-        --output_table machine_learning_dev_ttl_30d.new_pipeline_port_events_test \
+        --job_name porteventstest \
+        --input_table pipe_production_b.position_messages_ \
+        --anchorage_table gfw_research.named_anchorages_v20190307 \
+        --start_date 2017-01-01 \
+        --end_date 2017-12-31 \
+        --output_table machine_learning_dev_ttl_120d.new_pipeline_port_events_test_v20180408_ \
         --project world-fishing-827 \
         --max_num_workers 200 \
         --requirements_file requirements.txt \
         --project world-fishing-827 \
         --staging_location gs://machine-learning-dev-ttl-30d/anchorages/portevents/output/staging \
-        --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp                           --setup_file ./setup.py \
+        --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp \
+        --setup_file ./setup.py \
         --runner DataflowRunner \
         --disk_size_gb 100
+
 
 For a full list of options run:
 

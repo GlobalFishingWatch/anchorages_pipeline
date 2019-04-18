@@ -9,25 +9,18 @@ from pipe_anchorages.objects.port_visit import PortVisit
 
 class CreatePortVisits(beam.PTransform):
 
-    IN_PORT = "IN_PORT"
-    AT_SEA  = "AT_SEA"
-
     TYPE_ORDER = {x : i for (i, x) in 
         enumerate(['PORT_ENTRY',
+                   # The order of PORT_GAP is somewhat arbitrary, but it
+                   # Shouldn't matter as long as it occurs between ENTRY
+                   # and EXIT.
+                   'PORT_GAP',
                    'PORT_STOP_BEGIN',
                    'PORT_STOP_END',
                    'PORT_EXIT'])}
 
     def __init__(self):
         pass
-
-    def _is_in_port(self, state, dist):
-        if dist <= self.anchorage_entry_dist:
-            return True
-        elif dist >= self.anchorage_exit_dist:
-            return False
-        else:
-            return (state in (self.IN_PORT, self.STOPPED))
 
     def create_visit(self, visit_events):
         return PortVisit(vessel_id=str(visit_events[0].vessel_id),
@@ -57,6 +50,7 @@ class CreatePortVisits(beam.PTransform):
                     logging.warning('PORT_ENTRY without earlier exit.\n'
                                     'Disarding previous event')
                 visit_events = [evt]
+                is_visit = False
                 continue
             if visit_events is None:
                 logging.warning('non PORT_ENTRY without earlier entry.\n'
@@ -65,15 +59,22 @@ class CreatePortVisits(beam.PTransform):
 
             if evt.event_type not in ('PORT_STOP_BEGIN', 
                                       'PORT_STOP_END',
-                                      'PORT_EXIT'):
+                                      'PORT_EXIT',
+                                      'PORT_GAP'):
                 logging.error('Unknown event type: %s\n'
                               'Discarding', evt.event_type)
                 continue
 
             visit_events.append(evt)
 
+            if evt.event_type in ('PORT_STOP_BEGIN', 'PORT_GAP'):
+                is_visit = True
+
             if evt.event_type == 'PORT_EXIT':
-                yield self.create_visit(visit_events)
+                # Only yield a visit if this qualifies as a visit; that is
+                # there has been a stop or a gap.
+                if is_visit == True:
+                    yield self.create_visit(visit_events)
                 visit_events = None
 
 

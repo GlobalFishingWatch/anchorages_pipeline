@@ -19,21 +19,26 @@ from .options.port_events_options import PortEventsOptions
 
 def create_queries(args):
     template = """
-    SELECT vessel_id as ident, lat, lon, timestamp, speed FROM   
+    SELECT vessel_id as ident, lat, lon, timestamp, speed FROM 
+      (SELECT * FROM  
       TABLE_DATE_RANGE([world-fishing-827:{table}], 
-                        TIMESTAMP('{start:%Y-%m-%d}'), TIMESTAMP('{end:%Y-%m-%d}')) 
+                        TIMESTAMP('{start:%Y-%m-%d}'), TIMESTAMP('{end:%Y-%m-%d}'))
+      ) a
+      JOIN [world-fishing-827:machine_learning_dev_ttl_120d.segment_info_denoised_strict] b
+      ON (a.seg_id == b.seg_id)
+      WHERE noise = FALSE
     """
     start_date = datetime.datetime.strptime(args.start_date, '%Y-%m-%d') 
-    start_window = start_date - datetime.timedelta(days=1)
+    start_window = start_date - datetime.timedelta(days=args.start_padding)
     end_date= datetime.datetime.strptime(args.end_date, '%Y-%m-%d') 
+    shift = 1000 - args.start_padding
     while start_window <= end_date:
-        end_window = min(start_window + datetime.timedelta(days=999), end_date)
+        end_window = min(start_window + datetime.timedelta(days=shift), end_date)
         query = template.format(table=args.input_table, start=start_window, end=end_window)
         if args.fast_test:
             query += 'LIMIT 100000'
         yield query
         start_window = end_window + datetime.timedelta(days=1)
-
 
 
 anchorage_query = 'SELECT lat anchor_lat, lon anchor_lon, s2id as anchor_id, label FROM [{}]'
@@ -72,7 +77,8 @@ def run(options):
                             anchorage_entry_dist=config['anchorage_entry_distance_km'], 
                             anchorage_exit_dist=config['anchorage_exit_distance_km'], 
                             stopped_begin_speed=config['stopped_begin_speed_knots'],
-                            stopped_end_speed=config['stopped_end_speed_knots'])
+                            stopped_end_speed=config['stopped_end_speed_knots'],
+                            min_gap_minutes=config['minimum_port_gap_duration_minutes'])
         | "FilterEvents" >> Filter(lambda x: start_date.date() <= x.timestamp.date() <= end_date.date())
         | "writeInOutEvents" >> EventSink(table=known_args.output_table, 
                                           temp_location=cloud_options.temp_location,

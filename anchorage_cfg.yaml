@@ -7,5 +7,6 @@ anchorage_entry_distance_km: 3.0
 anchorage_exit_distance_km: 4.0 
 stopped_begin_speed_knots: 0.2
 stopped_end_speed_knots: 0.5
+minimum_port_gap_duration_minutes : 240.0
 blacklisted_ssvids: [0, 12345]
 
