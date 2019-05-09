@@ -86,7 +86,7 @@ def build_port_events_dag(dag_id, schedule_interval='@daily', extra_default_args
                 disk_size_gb='{dataflow_disk_size_gb}'.format(**config),
                 requirements_file='./requirements.txt',
                 setup_file='./setup.py',
-                start_padding='{port_events_start_padding}'
+                start_padding='{port_events_start_padding}'.format(**config)
             )
         )
 
