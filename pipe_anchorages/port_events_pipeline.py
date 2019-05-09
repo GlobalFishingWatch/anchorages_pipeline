@@ -19,14 +19,9 @@ from .options.port_events_options import PortEventsOptions
 
 def create_queries(args):
     template = """
-    SELECT vessel_id as ident, lat, lon, timestamp, speed FROM 
-      (SELECT * FROM  
-      TABLE_DATE_RANGE([world-fishing-827:{table}], 
-                        TIMESTAMP('{start:%Y-%m-%d}'), TIMESTAMP('{end:%Y-%m-%d}'))
-      ) a
-      JOIN [world-fishing-827:machine_learning_dev_ttl_120d.segment_info_denoised_strict] b
-      ON (a.seg_id == b.seg_id)
-      WHERE noise = FALSE
+    select vessel_id as ident, lat, lon, timestamp, speed from 
+       `{table}*`
+       where _table_suffix between '{start:%Y%m%d}' and '{end:%Y%m%d}' 
     """
     start_date = datetime.datetime.strptime(args.start_date, '%Y-%m-%d') 
     start_window = start_date - datetime.timedelta(days=args.start_padding)
@@ -58,7 +53,8 @@ def run(options):
 
     queries = create_queries(known_args)
 
-    sources = [(p | "Read_{}".format(i) >> beam.io.Read(beam.io.gcp.bigquery.BigQuerySource(query=x)))
+    sources = [(p | "Read_{}".format(i) >> 
+                        beam.io.Read(beam.io.gcp.bigquery.BigQuerySource(query=x, use_standard_sql=True)))
                         for (i, x) in enumerate(queries)]
 
     tagged_records = (sources
