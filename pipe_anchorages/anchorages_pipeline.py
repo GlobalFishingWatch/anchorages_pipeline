@@ -37,8 +37,7 @@ def create_queries(args):
     start_window = datetime.datetime.strptime(args.start_date, '%Y-%m-%d') 
     end_window = datetime.datetime.strptime(args.end_date, '%Y-%m-%d') 
     table = args.input_dataset + '.messages_segmented_'
-    # segment_table = args.input_dataset + '.segments_'
-    segment_table = 'machine_learning_dev_ttl_120d.segment_info_denoised'
+    segment_table = args.input_dataset + '.segments_'
 
     queries = []
     start = start_window
