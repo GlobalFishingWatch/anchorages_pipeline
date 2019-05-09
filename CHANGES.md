@@ -10,6 +10,10 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ### Added
 
+* [#44][https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/44]
+  * Add port gap events and only emit port visits if there is a port visit
+    or port gap.
+
 ## v1.0.0 - 2019-03-27
 
 ### Added
