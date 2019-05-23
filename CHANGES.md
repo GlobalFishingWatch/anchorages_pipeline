@@ -8,6 +8,9 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ## [Unreleased]
 
+
+## v1.1.0 - 2019-05-23
+
 ### Added
 
 * [#44][https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/44]
