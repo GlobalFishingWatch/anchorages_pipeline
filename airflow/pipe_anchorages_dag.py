@@ -243,7 +243,7 @@ def build_voyages_dag(dag_id, schedule_interval='@daily', extra_default_args=Non
                 bash_command='{docker_run} {docker_image} generate_voyages '
                              '{project_id}:{pipeline_dataset} '
                              '{port_visits_table} '
-                             '{voyages_table} '.format(**config)
+                             '{project_id}:{pipeline_dataset}.{voyages_table} '.format(**config)
             )
         
         dag >> source_exists >> voyage_generation

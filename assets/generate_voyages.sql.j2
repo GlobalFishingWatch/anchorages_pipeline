@@ -84,7 +84,7 @@ select
   exit as trip_start,
   entry as trip_end, 
   exit_id as trip_start_anchorage_id,
-  entry_id as trip_end_anchorage_id, 
+  entry_id as trip_end_anchorage_id,
   concat(
     ssvid,
     '-',
@@ -92,4 +92,3 @@ select
   ) as trip_id
 from ranked
 where rn = 1
-order by ssvid, trip_start

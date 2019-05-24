@@ -57,7 +57,7 @@ echo "${SQL}" | bq query \
     --replace \
     --destination_table ${DEST_TABLE} \
     --time_partitioning_field trip_start \
-    --clustering_fields ssvid,trip_start_anchorage_id, trip_end_anchorage_id
+    --clustering_fields ssvid,trip_start_anchorage_id,trip_end_anchorage_id
 
 if [ "$?" -ne 0 ]; then
   echo "  Unable to run the voyage generation query."
