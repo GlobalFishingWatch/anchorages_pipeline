@@ -48,12 +48,16 @@ echo ""
 echo "Table Description"
 echo "${TABLE_DESC}" 
 echo ""
-echo "Executing query..." 
-jinja2 ${SQL} \
-   -D dataset=${DATASET//:/.} \
-   -D port_visits_table=${PORT_VISITS_TABLE} \
-   | bq query --headless --max_rows=0 --allow_large_results --replace \
-     --destination_table ${DEST_TABLE}
+echo "Executing query..."
+SQL=$(jinja2 ${SQL} -D dataset=${DATASET//:/.} -D port_visits_table=${PORT_VISITS_TABLE})
+echo "${SQL}" | bq query \
+    --headless \
+    --max_rows=0 \
+    --allow_large_results \
+    --replace \
+    --destination_table ${DEST_TABLE} \
+    --time_partitioning_field trip_start \
+    --clustering_fields ssvid,trip_start_anchorage_id, trip_end_anchorage_id
 
 if [ "$?" -ne 0 ]; then
   echo "  Unable to run the voyage generation query."
