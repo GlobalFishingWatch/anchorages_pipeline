@@ -25,7 +25,7 @@ all_port_visits_with_vessel_id as (
     start_timestamp,
     end_anchorage_id,
     end_timestamp
-  from `{{ dataset }}.{{ port_visits_table }}_*`
+  from `{{ dataset }}.{{ port_visits_table }}*`
   join ssvid_map
     using (vessel_id)
 ),
