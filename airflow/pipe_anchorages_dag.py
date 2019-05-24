@@ -4,6 +4,7 @@ import logging
 
 from airflow import DAG
 from airflow.contrib.sensors.bigquery_sensor import BigQueryTableSensor
+from airflow.operators.bash_operator import BashOperator
 from airflow.models import Variable
 
 from airflow_ext.gfw.operators.bigquery_operator import BigQueryCreateEmptyTableOperator
