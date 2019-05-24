@@ -16,7 +16,7 @@ TABLE_DESC=(
   "Table of all voyages. One row per voyage"
   ""
   "* Pipeline: ${PIPELINE} ${PIPELINE_VERSION}"
-  "* Source: ${PORT_VISITS_TABLE}"
+  "* Source: ${DATASET}.${PORT_VISITS_TABLE}"
   "* Command: $(basename $0)"
 )
 
