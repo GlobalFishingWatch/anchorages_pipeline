@@ -8,6 +8,12 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ## [Unreleased]
 
+## v1.2.0 - 2019-05-23
+
+### Added
+
+* [GlobalFishingWatch/GFW-Tasks#1034][https://github.com/GlobalFishingWatch/GFW-Tasks/issues/1034]
+  * Added DAG for generating the voyages on a daily.
 
 ## v1.1.0 - 2019-05-23
 
