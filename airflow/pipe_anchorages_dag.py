@@ -4,6 +4,7 @@ import logging
 
 from airflow import DAG
 from airflow.contrib.sensors.bigquery_sensor import BigQueryTableSensor
+from airflow.operators.bash_operator import BashOperator
 from airflow.models import Variable
 
 from airflow_ext.gfw.operators.bigquery_operator import BigQueryCreateEmptyTableOperator
@@ -207,6 +208,48 @@ def build_port_visits_dag(dag_id, schedule_interval='@daily', extra_default_args
 
         return dag
 
+def build_voyages_dag(dag_id, schedule_interval='@daily', extra_default_args=None, extra_config=None):
+
+    default_args = DEFAULT_ARGS.copy()
+    default_args.update(extra_default_args or {})
+
+    config = CONFIG.copy()
+    config.update(extra_config or {})
+
+    if schedule_interval=='@daily':
+        source_sensor_date = '{{ ds_nodash }}'
+        start_date = '{{ ds }}'
+        end_date = '{{ ds }}'
+    elif schedule_interval == '@monthly':
+        source_sensor_date = '{last_day_of_month_nodash}'.format(**config)
+        start_date = '{first_day_of_month}'.format(**config)
+        end_date = '{last_day_of_month}'.format(**config)
+    elif schedule_interval == '@yearly':
+        source_sensor_date = '{last_day_of_year_nodash}'.format(**config)
+        start_date = '{first_day_of_year}'.format(**config)
+        end_date = '{last_day_of_year}'.format(**config)
+    else:
+        raise ValueError('Unsupported schedule interval {}'.format(schedule_interval))
+
+    with DAG(dag_id,  schedule_interval=schedule_interval, default_args=default_args) as dag:
+
+        source_exists = table_sensor(
+            dataset_id='{pipeline_dataset}'.format(**config),
+            table_id='{port_visits_table}'.format(**config),
+            date=source_sensor_date)
+
+        voyage_generation = BashOperator(
+                task_id='voyage_generation',
+                pool='bigquery',
+                bash_command='{docker_run} {docker_image} generate_voyages '
+                             '{project_id}:{pipeline_dataset} '
+                             '{port_visits_table} '
+                             '{project_id}:{pipeline_dataset}.{voyages_table} '.format(**config)
+            )
+        
+        dag >> source_exists >> voyage_generation
+
+        return dag
 
 port_events_daily_dag = build_port_events_dag('port_events_daily', '@daily')
 port_events_monthly_dag = build_port_events_dag('port_events_monthly', '@monthly')
@@ -216,3 +259,6 @@ port_visits_daily_dag = build_port_visits_dag('port_visits_daily', '@daily')
 port_visits_monthly_dag = build_port_visits_dag('port_visits_monthly', '@monthly')
 port_visits_yearlys_dag = build_port_visits_dag('port_visits_yearly', '@yearly')
 
+pipe_anchorages_voyages_daily_dag = build_voyages_dag('pipe_anchorages_voyages_daily', '@daily')
+pipe_anchorages_voyages_monthly_dag = build_voyages_dag('pipe_anchorages_voyages_monthly', '@monthly')
+pipe_anchorages_voyages_yearlys_dag = build_voyages_dag('pipe_anchorages_voyages_yearly', '@yearly')
