@@ -35,6 +35,10 @@ case $1 in
   name_anchorages)
     python -m pipe_anchorages.name_anchorages "${@:2}"
     ;;
+		
+  generate_voyages)
+    ${THIS_SCRIPT_DIR}/generate_voyages.sh "${@:2}"
+    ;;
 
   *)
     display_usage

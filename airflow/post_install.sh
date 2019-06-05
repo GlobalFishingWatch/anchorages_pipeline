@@ -19,6 +19,7 @@ python $AIRFLOW_HOME/utils/set_default_variables.py \
     source_table="position_messages_" \
     port_events_table="port_events_" \
     port_visits_table="port_visits_" \
+    voyages_table="voyages" \
     port_events_start_padding=7 \
     dataflow_max_num_workers="100" \
     dataflow_disk_size_gb="50"
