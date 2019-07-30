@@ -51,12 +51,12 @@ dummy_final_port_visits_with_vessel_id as (
 ),
 
 all_port_visits_with_vessel_id as (
-select * from 
-(select * from dummy_initial_port_visits_with_vessel_id)
-union all
-(select * from dummy_final_port_visits_with_vessel_id)
-union all
-(select * from all_real_port_visits_with_vessel_id)
+  select * from 
+    (select * from dummy_initial_port_visits_with_vessel_id)
+    union all
+    (select * from dummy_final_port_visits_with_vessel_id)
+    union all
+    (select * from all_real_port_visits_with_vessel_id)
 ),
 
 #
@@ -96,8 +96,11 @@ pairs as (
     join entries
     using (ssvid)
   where entries.timestamp > exits.timestamp
-  and not (exits.anchorage_id = 'NO_PREVIOUS_DATA' and
-           entries.anchorage_id = 'ACTIVE_VOYAGE')
+  and not (
+           exits.anchorage_id = 'NO_PREVIOUS_DATA' 
+           and
+           entries.anchorage_id = 'ACTIVE_VOYAGE'
+          )
 ),
 
 ranked as (
