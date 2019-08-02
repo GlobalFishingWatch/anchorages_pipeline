@@ -19,7 +19,7 @@ with ssvid_map as (
 #
 # Get all port visits and include the vessel-id from the map created above
 #
-all_port_visits_with_vessel_id as (
+all_real_port_visits_with_vessel_id as (
   SELECT
     ssvid, start_anchorage_id,
     start_timestamp,
@@ -28,6 +28,35 @@ all_port_visits_with_vessel_id as (
   from `{{ dataset }}.{{ port_visits_table }}*`
   join ssvid_map
     using (vessel_id)
+),
+
+dummy_initial_port_visits_with_vessel_id as (
+  select
+    ssvid,
+    'NO_PREVIOUS_DATA' as start_anchorage_id,
+    timestamp('0001-2-3') as start_timestamp,
+    'NO_PREVIOUS_DATA' as end_anchorage_id,
+    timestamp('0001-2-3') as end_timestamp
+  from (select distinct ssvid from ssvid_map)
+),
+
+dummy_final_port_visits_with_vessel_id as (
+  select
+    ssvid,
+    'ACTIVE_VOYAGE' as start_anchorage_id,
+    timestamp('9999-9-9') as start_timestamp,
+    'ACTIVE_VOYAGE' as end_anchorage_id,
+    timestamp('9999-9-10') as end_timestamp
+  from (select distinct ssvid from ssvid_map)
+),
+
+all_port_visits_with_vessel_id as (
+  select * from 
+    (select * from dummy_initial_port_visits_with_vessel_id)
+    union all
+    (select * from dummy_final_port_visits_with_vessel_id)
+    union all
+    (select * from all_real_port_visits_with_vessel_id)
 ),
 
 #
@@ -64,9 +93,14 @@ pairs as (
     exits.anchorage_id as exit_id,
     entries.anchorage_id as entry_id
   from exits
-	join entries
+    join entries
     using (ssvid)
   where entries.timestamp > exits.timestamp
+  and not (
+           exits.anchorage_id = 'NO_PREVIOUS_DATA' 
+           and
+           entries.anchorage_id = 'ACTIVE_VOYAGE'
+          )
 ),
 
 ranked as (
