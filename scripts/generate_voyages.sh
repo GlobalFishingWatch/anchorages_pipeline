@@ -55,10 +55,12 @@ echo "${SQL}" | bq query \
     --max_rows=0 \
     --allow_large_results \
     --replace \
-    --destination_table ${DEST_TABLE}
+    --destination_table ${DEST_TABLE} \
+    --time_partitioning_field trip_start \
+    --clustering_fields ssvid,trip_start_anchorage_id,trip_end_anchorage_id
 
 if [ "$?" -ne 0 ]; then
-  echo "  Unable to run the voyage generation query."
+  echo "  Unable to run the voyage  generation query."
   exit 1
 fi
 
