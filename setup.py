@@ -17,6 +17,7 @@ DEPENDENCIES = [
     'numpy',
     "pipe-tools==2.0.0",
     "jinja2-cli",
+    "tzlocal==1.5.1"
 ]
 
 # Frozen dependencies for the google cloud dataflow dependency
