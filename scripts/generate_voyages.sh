@@ -58,7 +58,7 @@ echo "${SQL}" | bq query \
     --destination_table ${DEST_TABLE}
 
 if [ "$?" -ne 0 ]; then
-  echo "  Unable to run the voyage generation query."
+  echo "  Unable to run the voyage  generation query."
   exit 1
 fi
 

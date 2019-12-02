@@ -21,7 +21,9 @@ with ssvid_map as (
 #
 all_real_port_visits_with_vessel_id as (
   SELECT
-    ssvid, start_anchorage_id,
+    ssvid,
+    vessel_id,
+    start_anchorage_id,
     start_timestamp,
     end_anchorage_id,
     end_timestamp
@@ -33,30 +35,32 @@ all_real_port_visits_with_vessel_id as (
 dummy_initial_port_visits_with_vessel_id as (
   select
     ssvid,
+    vessel_id,
     'NO_PREVIOUS_DATA' as start_anchorage_id,
     timestamp('0001-2-3') as start_timestamp,
     'NO_PREVIOUS_DATA' as end_anchorage_id,
     timestamp('0001-2-3') as end_timestamp
-  from (select distinct ssvid from ssvid_map)
+  from (select ssvid, vessel_id from ssvid_map group by 1,2)
 ),
 
 dummy_final_port_visits_with_vessel_id as (
   select
     ssvid,
+    vessel_id,
     'ACTIVE_VOYAGE' as start_anchorage_id,
     timestamp('9999-9-9') as start_timestamp,
     'ACTIVE_VOYAGE' as end_anchorage_id,
     timestamp('9999-9-10') as end_timestamp
-  from (select distinct ssvid from ssvid_map)
+  from (select ssvid, vessel_id from ssvid_map group by 1,2)
 ),
 
 all_port_visits_with_vessel_id as (
-select * from 
-(select * from dummy_initial_port_visits_with_vessel_id)
-union all
-(select * from dummy_final_port_visits_with_vessel_id)
-union all
-(select * from all_real_port_visits_with_vessel_id)
+  select * from 
+    (select * from dummy_initial_port_visits_with_vessel_id)
+    union all
+    (select * from dummy_final_port_visits_with_vessel_id)
+    union all
+    (select * from all_real_port_visits_with_vessel_id)
 ),
 
 #
@@ -65,9 +69,11 @@ union all
 entries as (
   SELECT
     ssvid, 
+    ARRAY_AGG(vessel_id) vessel_ids,
     start_anchorage_id as anchorage_id,
     start_timestamp as timestamp
   from all_port_visits_with_vessel_id 
+  group by 1,3,4
 ),
 
 #
@@ -79,6 +85,7 @@ exits as (
     end_anchorage_id as anchorage_id,
     end_timestamp as timestamp 
   from all_port_visits_with_vessel_id
+  group by 1,2,3
 ),
 
 #
@@ -88,6 +95,7 @@ exits as (
 pairs as (
   select
     ssvid,
+    entries.vessel_ids,
     exits.timestamp as exit,
     entries.timestamp as entry,
     exits.anchorage_id as exit_id,
@@ -96,14 +104,19 @@ pairs as (
     join entries
     using (ssvid)
   where entries.timestamp > exits.timestamp
-  and not (exits.anchorage_id = 'NO_PREVIOUS_DATA' and
-           entries.anchorage_id = 'ACTIVE_VOYAGE')
+  and not (
+           exits.anchorage_id = 'NO_PREVIOUS_DATA' 
+           and
+           entries.anchorage_id = 'ACTIVE_VOYAGE'
+          )
 ),
 
 ranked as (
   select
     ssvid,
-    exit, entry,
+    vessel_ids,
+    exit,
+    entry,
     exit_id,
     entry_id,
     row_number() over (partition by ssvid, exit order by entry asc) as rn
@@ -112,6 +125,7 @@ ranked as (
 
 select
   ssvid,
+  vessel_ids,
   exit as trip_start,
   entry as trip_end, 
   exit_id as trip_start_anchorage_id,
