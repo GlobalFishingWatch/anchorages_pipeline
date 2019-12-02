@@ -87,8 +87,8 @@ class FindAnchoragePoints(beam.PTransform):
     def has_enough_vessels(self, item):
         return len(item.vessels) >= self.min_unique_vessels
 
-    def not_inland(self, item):
-        return not self.inland_mask.is_inland(item.mean_location)
+    # def not_inland(self, item):
+    #     return not self.inland_mask.is_inland(item.mean_location)
 
     def expand(self, ais_source):
         combined = ais_source | beam.Map(self.split_on_movement)
@@ -98,7 +98,7 @@ class FindAnchoragePoints(beam.PTransform):
             | beam.CoGroupByKey()
             | beam.FlatMap(self.create_anchorage_pts, self.fishing_vessel_list)
             | beam.Filter(self.has_enough_vessels)
-            | beam.Filter(self.not_inland)
+            # | beam.Filter(self.not_inland)
             )
 
 

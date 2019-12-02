@@ -58,9 +58,9 @@ For example, to run all years:
     docker-compose run anchorages \
                          --job_name unnamed-anchorages \
                          --start_date 2012-01-01 \
-                         --end_date 2018-06-30 \
+                         --end_date 2019-06-30 \
                          --input_dataset pipe_production_b \
-                         --output_table machine_learning_dev_ttl_120d.unnamed_anchorages_v20180803 \
+                         --output_table machine_learning_dev_ttl_120d.unnamed_anchorages_v20190816 \
                          --config anchorage_cfg.yaml \
                          --max_num_workers 300 \
                          --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
@@ -124,8 +124,8 @@ or
 
     docker-compose run name_anchorages \
                  --job_name name-anchorages \
-                 --input_table machine_learning_dev_ttl_120d.unnamed_anchorages_v20180803 \
-                 --output_table machine_learning_dev_ttl_120d.named_anchorages_v20180803 \
+                 --input_table machine_learning_dev_ttl_120d.unnamed_anchorages_v20190816 \
+                 --output_table machine_learning_dev_ttl_120d.named_anchorages_v20180827 \
                  --config ./name_anchorages_cfg.yaml \
                  --max_num_workers 200 \
                  --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
