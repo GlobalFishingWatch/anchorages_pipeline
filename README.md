@@ -124,8 +124,8 @@ or
 
     docker-compose run name_anchorages \
                  --job_name name-anchorages \
-                 --input_table machine_learning_dev_ttl_120d.unnamed_anchorages_v20190816 \
-                 --output_table machine_learning_dev_ttl_120d.named_anchorages_v20180827 \
+                 --input_table anchorages.unnamed_anchorages_v20190816 \
+                 --output_table machine_learning_dev_ttl_120d.named_anchorages_v20191203 \
                  --config ./name_anchorages_cfg.yaml \
                  --max_num_workers 200 \
                  --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
