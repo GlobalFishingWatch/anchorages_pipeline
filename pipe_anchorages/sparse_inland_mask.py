@@ -8,7 +8,7 @@ this_dir = os.path.dirname(__file__)
 class SparseInlandMask(object):
 
     def __init__(self):
-        with open(os.path.join(this_dir, "data/sparse_inland.pickle")) as f:
+        with open(os.path.join(this_dir, "data/sparse_inland.pickle"), 'rb') as f:
             mask_info = pickle.load(f)
         self.mask_data = mask_info['data']
         self.MAX_LAT = mask_info['max_lat']

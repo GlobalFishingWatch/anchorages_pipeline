@@ -6,25 +6,27 @@ class DummyOptions(object):
         self.end_date = end_date
         self.input_table = input_table
         self.fast_test = False
+        self.start_padding = 3
 
 def test_create_queries_1():
     args = DummyOptions("2016-01-01", "2016-01-01")
     assert list(create_queries(args)) == ["""
-    SELECT vessel_id as ident, lat, lon, timestamp, speed FROM   
-      TABLE_DATE_RANGE([world-fishing-827:SOURCE_TABLE], 
-                        TIMESTAMP('2015-12-31'), TIMESTAMP('2016-01-01')) 
+    select vessel_id as ident, lat, lon, timestamp, speed from 
+       `SOURCE_TABLE*`
+       where _table_suffix between '20151229' and '20160101' 
     """]
     
 def test_create_queries_2():
     args = DummyOptions("2012-5-01", "2017-05-15")
+    print(list(create_queries(args))[1])
     assert list(create_queries(args)) == ["""
-    SELECT vessel_id as ident, lat, lon, timestamp, speed FROM   
-      TABLE_DATE_RANGE([world-fishing-827:SOURCE_TABLE], 
-                        TIMESTAMP('2012-04-30'), TIMESTAMP('2015-01-24')) 
+    select vessel_id as ident, lat, lon, timestamp, speed from 
+       `SOURCE_TABLE*`
+       where _table_suffix between '20120428' and '20150120' 
     """, 
     """
-    SELECT vessel_id as ident, lat, lon, timestamp, speed FROM   
-      TABLE_DATE_RANGE([world-fishing-827:SOURCE_TABLE], 
-                        TIMESTAMP('2015-01-25'), TIMESTAMP('2017-05-15')) 
+    select vessel_id as ident, lat, lon, timestamp, speed from 
+       `SOURCE_TABLE*`
+       where _table_suffix between '20150121' and '20170515' 
     """
         ]

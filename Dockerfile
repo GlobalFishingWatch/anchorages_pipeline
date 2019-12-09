@@ -1,4 +1,4 @@
-FROM python:2.7-stretch
+FROM python:3.7-stretch
 
 # Create a directory to mount dags onto
 RUN mkdir -p /dags
@@ -34,7 +34,9 @@ VOLUME ["/root/.config"]
 
 # Setup local application dependencies
 COPY . /opt/project
-RUN pip install  --process-dependency-links -e .
+RUN \
+  pip install -r requirements.txt && \
+  pip install -e .
 
 # Setup the entrypoint for quickly executing the pipelines
 ENTRYPOINT ["scripts/run.sh"]

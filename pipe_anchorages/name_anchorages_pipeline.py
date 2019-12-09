@@ -100,8 +100,11 @@ class AddNamesToAnchorages(beam.PTransform):
                 iso3 = None
         else:
             iso3 = named_anchorage.iso3
-        if iso3 == "CHN":
-            named_anchorage = named_anchorage._replace(label=named_anchorage.s2id)
+        # If the anchorage is in China, just use the s2id as the anchorage ID because
+        # unless from anchorage overrides, because Chinese anchorage IDs are so unreliable.
+        if iso3 == "CHN" and named_anchorage.label_source != 'anchorage_overrides':
+            named_anchorage = named_anchorage._replace(label=named_anchorage.s2id,
+                                                       label_source='china_s2id_override')
         return named_anchorage._replace(iso3=iso3)
 
     def expand(self, anchorages):
