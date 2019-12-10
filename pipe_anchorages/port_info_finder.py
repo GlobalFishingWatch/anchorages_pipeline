@@ -13,6 +13,7 @@ Use `python -m pipe_anchorages.port_info_finder --help` to see full options.
 from __future__ import absolute_import, print_function, division
 import os
 import unidecode
+import six
 from . import dirnames
 from .nearest_port import get_port_finder
 
@@ -28,7 +29,7 @@ def normalize_label(lbl):
     lbl = lbl.strip()
     if not lbl:
         return None
-    return unidecode.unidecode(lbl.decode('utf8')).upper()
+    return unidecode.unidecode(six.ensure_text(lbl)).upper()
 
 
 class PortInfoFinder(object):

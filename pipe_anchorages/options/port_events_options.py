@@ -21,7 +21,7 @@ class PortEventsOptions(PipelineOptions):
         required.add_argument('--end_date', required=True, 
                             help="Last date (inclusive) to look for entry/exit events.")
         required.add_argument('--start_padding', required=True, type=int,
-                              help="number of days before start to look at port events.")
+                              help="number of days before start to look messages.")
         
         optional.add_argument('--config', default='anchorage_cfg.yaml',
                             help="path to configuration file")

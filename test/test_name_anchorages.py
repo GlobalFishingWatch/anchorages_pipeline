@@ -2,6 +2,7 @@
 import os
 import yaml
 import pytest
+import six
 from pipe_anchorages import common as cmn
 from pipe_anchorages import name_anchorages_pipeline as name_anchorages
 

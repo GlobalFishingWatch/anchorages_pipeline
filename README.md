@@ -125,7 +125,7 @@ or
     docker-compose run name_anchorages \
                  --job_name name-anchorages \
                  --input_table anchorages.unnamed_anchorages_v20190816 \
-                 --output_table machine_learning_dev_ttl_120d.named_anchorages_v20191205 \
+                 --output_table machine_learning_dev_ttl_120d.named_anchorages_v20191205_py3 \
                  --config ./name_anchorages_cfg.yaml \
                  --max_num_workers 100 \
                  --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
@@ -151,11 +151,11 @@ To update a day of events, run, for example:
 
     docker-compose run port_events \
         --job_name porteventstest \
-        --input_table pipe_production_b.position_messages_ \
-        --anchorage_table gfw_research.named_anchorages_v20190307 \
-        --start_date 2017-01-01 \
-        --end_date 2017-12-31 \
-        --output_table machine_learning_dev_ttl_120d.new_pipeline_port_events_test_v20180408_ \
+        --input_table pipe_production_v20190502.position_messages_ \
+        --anchorage_table anchorages.named_anchorages_v20191205 \
+        --start_date 2017-12-01 \
+        --end_date 2017-12-01 \
+        --output_table machine_learning_dev_ttl_120d.new_pipeline_port_events_test_v20191209_py3 \
         --project world-fishing-827 \
         --max_num_workers 200 \
         --requirements_file requirements.txt \
@@ -164,7 +164,8 @@ To update a day of events, run, for example:
         --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp \
         --setup_file ./setup.py \
         --runner DataflowRunner \
-        --disk_size_gb 100
+        --disk_size_gb 100 \
+        --start_padding 1
 
 
 For a full list of options run:
@@ -176,11 +177,11 @@ To create a corresponding day of visits do:
 
     docker-compose run port_visits \
         --job_name portvisitssharded \
-        --events_table machine_learning_dev_ttl_30d.new_pipeline_port_events_test \
+        --events_table machine_learning_dev_ttl_120d.new_pipeline_port_events_test_v20191209_py3 \
         --start_date 2017-12-01 \
         --end_date 2017-12-01 \
         --start_padding 365 \
-        --output_table machine_learning_dev_ttl_30d.new_pipeline_port_visits_test \
+        --output_table machine_learning_dev_ttl_120d.new_pipeline_port_visits_test_v20191209_py3 \
         --project world-fishing-827 \
         --max_num_workers 200 \
         --requirements_file requirements.txt \

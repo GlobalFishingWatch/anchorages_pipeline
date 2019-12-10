@@ -4,6 +4,7 @@ from __future__ import absolute_import, print_function, division
 import datetime
 from collections import namedtuple
 import s2sphere
+import six
 import yaml
 
 from .records import VesselRecord
@@ -35,7 +36,7 @@ class CreateVesselRecords(beam.PTransform):
         ident, rcd = item
         assert isinstance(rcd, VesselRecord), type(rcd)
         return (not isinstance(rcd, InvalidRecord) and 
-                isinstance(ident, basestring) and
+                isinstance(ident, six.string_types) and
                 (ident not in self.blacklisted_idents)) 
 
     def add_defaults(self, x):
