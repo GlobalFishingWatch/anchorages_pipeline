@@ -62,7 +62,7 @@ class CreateTaggedRecords(beam.PTransform):
     def order_by_timestamp(self, item):
         ident, records = item
         records = list(records)
-        records.sort(key=lambda x: x.timestamp)
+        records.sort(key=lambda x: (x.timestamp, x.speed, x.location))
         return ident, records
 
     def dedup_by_timestamp(self, item):
