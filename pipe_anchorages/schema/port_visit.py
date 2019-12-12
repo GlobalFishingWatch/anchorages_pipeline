@@ -5,6 +5,7 @@ def build():
 
     builder = SchemaBuilder()
 
+    builder.add("visit_id", "STRING")
     builder.add("vessel_id", "STRING")
     builder.add("start_timestamp", "TIMESTAMP")
     builder.add("start_lat", "FLOAT")

@@ -2,6 +2,8 @@ from __future__ import absolute_import, print_function, division
 
 import logging
 import apache_beam as beam
+import six
+import hashlib
 
 from pipe_anchorages import common as cmn
 from pipe_anchorages.objects.port_visit import PortVisit
@@ -23,10 +25,14 @@ class CreatePortVisits(beam.PTransform):
         pass
 
     def create_visit(self, visit_events):
-        return PortVisit(vessel_id=str(visit_events[0].vessel_id),
+        raw_visit_id = "{}-{}-{}".format(vessel_id, 
+                                visit_events[0].timestamp.isoformat(),
+                                visit_events[-1].timestamp.isoformat())
+        return PortVisit(visit_id=haslib.md5(six.ensure_binary(raw_visit_id).hexdigest()),
+                         vessel_id=str(visit_events[0].vessel_id),
                          start_timestamp=visit_events[0].timestamp,
                          start_lat=visit_events[0].lat,
-                         start_lon=visit_events[0].lon,
+                         start_lon=visit_events[0].lat,
                          start_anchorage_id=visit_events[0].anchorage_id,
                          end_timestamp=visit_events[-1].timestamp,
                          end_lat=visit_events[-1].lat,
