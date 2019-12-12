@@ -24,10 +24,9 @@ all_real_port_visits_with_vessel_id as (
     ssvid,
     vessel_id,
     start_anchorage_id,
-    start_visit_id,
+    visit_id,
     start_timestamp,
     end_anchorage_id,
-    end_visit_id,
     end_timestamp
   from `{{ dataset }}.{{ port_visits_table }}*`
   join ssvid_map
@@ -39,10 +38,9 @@ dummy_initial_port_visits_with_vessel_id as (
     ssvid,
     vessel_id,
     'NO_PREVIOUS_DATA' as start_anchorage_id,
-    'NO_PREVIOUS_DATA' as start_visit_id,
+    'NO_PREVIOUS_DATA' as visit_id,
     timestamp('0001-2-3') as start_timestamp,
     'NO_PREVIOUS_DATA' as end_anchorage_id,
-    'NO_PREVIOUS_DATA' as end_visit_id,
     timestamp('0001-2-3') as end_timestamp
   from (select ssvid, vessel_id from ssvid_map group by 1,2)
 ),
@@ -52,10 +50,9 @@ dummy_final_port_visits_with_vessel_id as (
     ssvid,
     vessel_id,
     'ACTIVE_VOYAGE' as start_anchorage_id,
-    'ACTIVE_VOYAGE' as start_visit_id,
+    'ACTIVE_VOYAGE' as visit_id,
     timestamp('9999-9-9') as start_timestamp,
     'ACTIVE_VOYAGE' as end_anchorage_id,
-    'ACTIVE_VOYAGE' as end_visit_id,
     timestamp('9999-9-10') as end_timestamp
   from (select ssvid, vessel_id from ssvid_map group by 1,2)
 ),
@@ -77,7 +74,7 @@ entries as (
     ssvid, 
     ARRAY_AGG(vessel_id) vessel_ids,
     start_anchorage_id as anchorage_id,
-    start_visit_id as visit_id,
+    visit_id,
     start_timestamp as timestamp
   from all_port_visits_with_vessel_id 
   group by 1,3,4,5
@@ -90,10 +87,10 @@ exits as (
   SELECT
     ssvid, 
     end_anchorage_id as anchorage_id,
-    end_visit_id as visit_id,
+    visit_id,
     end_timestamp as timestamp 
   from all_port_visits_with_vessel_id
-  group by 1,2,3
+  group by 1,2,3,4
 ),
 
 #
@@ -130,7 +127,7 @@ ranked as (
     exit_id,
     entry_id,
     exit_visit_id,
-    entry_visit_id
+    entry_visit_id,
     row_number() over (partition by ssvid, exit order by entry asc) as rn
   from pairs
 )

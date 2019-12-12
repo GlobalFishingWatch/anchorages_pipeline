@@ -25,10 +25,10 @@ class CreatePortVisits(beam.PTransform):
         pass
 
     def create_visit(self, visit_events):
-        raw_visit_id = "{}-{}-{}".format(vessel_id, 
+        raw_visit_id = "{}-{}-{}".format(visit_events[0].vessel_id, 
                                 visit_events[0].timestamp.isoformat(),
                                 visit_events[-1].timestamp.isoformat())
-        return PortVisit(visit_id=haslib.md5(six.ensure_binary(raw_visit_id).hexdigest()),
+        return PortVisit(visit_id=hashlib.md5(six.ensure_binary(raw_visit_id)).hexdigest(),
                          vessel_id=str(visit_events[0].vessel_id),
                          start_timestamp=visit_events[0].timestamp,
                          start_lat=visit_events[0].lat,
