@@ -24,6 +24,7 @@ all_real_port_visits_with_vessel_id as (
     ssvid,
     vessel_id,
     start_anchorage_id,
+    visit_id,
     start_timestamp,
     end_anchorage_id,
     end_timestamp
@@ -37,6 +38,7 @@ dummy_initial_port_visits_with_vessel_id as (
     ssvid,
     vessel_id,
     'NO_PREVIOUS_DATA' as start_anchorage_id,
+    'NO_PREVIOUS_DATA' as visit_id,
     timestamp('0001-2-3') as start_timestamp,
     'NO_PREVIOUS_DATA' as end_anchorage_id,
     timestamp('0001-2-3') as end_timestamp
@@ -48,6 +50,7 @@ dummy_final_port_visits_with_vessel_id as (
     ssvid,
     vessel_id,
     'ACTIVE_VOYAGE' as start_anchorage_id,
+    'ACTIVE_VOYAGE' as visit_id,
     timestamp('9999-9-9') as start_timestamp,
     'ACTIVE_VOYAGE' as end_anchorage_id,
     timestamp('9999-9-10') as end_timestamp
@@ -71,9 +74,10 @@ entries as (
     ssvid, 
     ARRAY_AGG(vessel_id) vessel_ids,
     start_anchorage_id as anchorage_id,
+    visit_id,
     start_timestamp as timestamp
   from all_port_visits_with_vessel_id 
-  group by 1,3,4
+  group by 1,3,4,5
 ),
 
 #
@@ -83,9 +87,10 @@ exits as (
   SELECT
     ssvid, 
     end_anchorage_id as anchorage_id,
+    visit_id,
     end_timestamp as timestamp 
   from all_port_visits_with_vessel_id
-  group by 1,2,3
+  group by 1,2,3,4
 ),
 
 #
@@ -99,9 +104,11 @@ pairs as (
     exits.timestamp as exit,
     entries.timestamp as entry,
     exits.anchorage_id as exit_id,
-    entries.anchorage_id as entry_id
+    entries.anchorage_id as entry_id,
+    exits.visit_id as exit_visit_id,
+    entries.visit_id as entry_visit_id
   from exits
-    join entries
+  join entries
     using (ssvid)
   where entries.timestamp > exits.timestamp
   and not (
@@ -119,6 +126,8 @@ ranked as (
     entry,
     exit_id,
     entry_id,
+    exit_visit_id,
+    entry_visit_id,
     row_number() over (partition by ssvid, exit order by entry asc) as rn
   from pairs
 )
@@ -130,6 +139,8 @@ select
   entry as trip_end, 
   exit_id as trip_start_anchorage_id,
   entry_id as trip_end_anchorage_id,
+  exit_visit_id as trip_start_visit_id,
+  entry_visit_id as trip_end_visit_id,
   concat(
     ssvid,
     '-',
