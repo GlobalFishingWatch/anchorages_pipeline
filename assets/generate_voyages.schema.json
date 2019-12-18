@@ -34,13 +34,13 @@
     "mode": "NULLABLE",
     "name": "trip_start_visit_id",
     "type": "STRING",
-    "description": "The id of the anchorage where the voyage starts."
+    "description": "The id of the visit where the voyage starts."
   },
   {
     "mode": "NULLABLE",
     "name": "trip_end_visit_id",
     "type": "STRING",
-    "description": "The id of the anchorage where the voyage ends."
+    "description": "The id of the visit where the voyage ends."
   },
   {
     "mode": "NULLABLE",
