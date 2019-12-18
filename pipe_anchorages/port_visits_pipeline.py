@@ -11,7 +11,6 @@ from apache_beam.options.pipeline_options import GoogleCloudOptions
 from apache_beam.runners import PipelineState
 from apache_beam.transforms.window import TimestampedValue
 
-from pipe_tools.coders.jsoncoder import JSONDict
 from pipe_tools.io import WriteToBigQueryDatePartitioned
 
 from . import common as cmn
@@ -39,7 +38,7 @@ def visit_to_msg(x):
     x['events'] = [event_to_msg(y) for y in x['events']]
     x['start_timestamp'] = _datetime_to_s(x['start_timestamp'])
     x['end_timestamp'] = _datetime_to_s(x['end_timestamp'])
-    return JSONDict(x)
+    return x
 
 
 def run(options):

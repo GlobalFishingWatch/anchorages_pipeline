@@ -8,11 +8,13 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ## [Unreleased]
 
-## v1.3.0 - 2019-07-30
+## v1.3.1 - 2019-07-30
 
 * [#49](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/49)
  * Add dummy port visits at a far future time, so that voyages that are currently underway show up in the voyages table. Similarly, add dummy port visits in the
 far past so that voyages that were underway when they first show up in AIS show up in the table.
+* [GlobalFishingWatch/GFW-Tasks#1108](https://github.com/GlobalFishingWatch/GFW-Tasks/issues/1108) 
+ * Add vessel-id to the voyages query
 
 ## v1.2.0 - 2019-05-23
 
