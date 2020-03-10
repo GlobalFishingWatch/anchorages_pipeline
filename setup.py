@@ -9,13 +9,13 @@ DEPENDENCIES = [
     'statistics',
     'pytz',
     's2sphere',
-    'ujson',
+    'ujson==1.35',
     'fiona',
     'shapely',
     'pyyaml',
     'unidecode',
     'numpy',
-    "pipe-tools==2.0.0",
+    "pipe-tools==2.0.0-HOTFIX1",
     "jinja2-cli",
 ]
 
