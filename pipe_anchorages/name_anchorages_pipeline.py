@@ -209,7 +209,7 @@ def run(options):
 
     result = p.run()
 
-    success_states = set([PipelineState.DONE, PipelineState.RUNNING, PipelineState.UNKNOWN])
+    success_states = set([PipelineState.DONE, PipelineState.RUNNING, PipelineState.UNKNOWN, PipelineState.PENDING])
 
     logging.info('returning with result.state=%s' % result.state)
     return 0 if result.state in success_states else 1
