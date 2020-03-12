@@ -3,7 +3,7 @@ Pipe for processing anchorages and generating anchorages events.
 """
 
 
-__version__ = '1.3.2'
+__version__ = '3.0.0'
 __author__ = 'Global Fishing Watch'
 __email__ = 'info@globalfishingwatch.org'
 __source__ = 'https://github.com/GlobalFishingWatch/anchorages_pipeline'

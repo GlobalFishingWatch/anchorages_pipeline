@@ -1,6 +1,7 @@
 from airflow import DAG
 from airflow.models import Variable
 
+from airflow_ext.gfw.models import DagFactory
 from airflow_ext.gfw.operators.bigquery_operator import BigQueryCreateEmptyTableOperator
 from airflow_ext.gfw.operators.dataflow_operator import DataFlowDirectRunnerOperator
 
