@@ -213,9 +213,9 @@ class PipeAnchoragesVoyagesDagFactory(DagFactory):
 
             return dag
 
-port_events_daily_dag = build_port_events_dag('port_events_daily', '@daily')
-port_events_monthly_dag = build_port_events_dag('port_events_monthly', '@monthly')
-port_events_yearly_dag = build_port_events_dag('port_events_yearly', '@yearly')
+port_events_daily_dag = PipeAnchoragesPortEventsDagFactory(schedule_interval='@daily').build('port_events_daily')
+port_events_monthly_dag = PipeAnchoragesPortEventsDagFactory(schedule_interval='@monthly').build('port_events_monthly')
+port_events_yearly_dag = PipeAnchoragesPortEventsDagFactory(schedule_interval='@yearly').build('port_events_yearly')
 
 port_visits_daily_dag = PipeAnchoragesPortVisitsDagFactory(schedule_interval='@daily').build('port_visits_daily')
 port_visits_monthly_dag = PipeAnchoragesPortVisitsDagFactory(schedule_interval='@monthly').build('port_visits_monthly')
