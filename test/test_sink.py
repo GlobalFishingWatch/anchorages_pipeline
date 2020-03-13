@@ -3,6 +3,7 @@ import pytest
 import json
 import datetime
 import pickle
+import six
 import s2sphere
 
 from pipe_anchorages import find_anchorage_points
@@ -18,14 +19,14 @@ class TestAnchorageSink(object):
 
     @classmethod
     def LatLon_from_S2Token(cls, token):
-        s2id = s2sphere.CellId.from_token(unicode(token))
+        s2id = s2sphere.CellId.from_token(six.text_type(token))
         s2latlon = s2id.to_lat_lng()
         return common.LatLon(s2latlon.lat().degrees, s2latlon.lng().degrees)
 
     @classmethod
     def AnchoragePoint_from_S2Token(cls, token, ssvids, total_visits=10, mean_drift_radius=0.2, 
                                     top_destination=''):
-        token = unicode(token)
+        token = six.text_type(token)
         return find_anchorage_points.AnchoragePoint(
                                 mean_location = cls.LatLon_from_S2Token(token),
                                 total_visits = total_visits,
@@ -55,7 +56,7 @@ class TestAnchorageSink(object):
         type_map = {
             int : 'integer',
             str : 'string',
-            unicode : 'string',
+            six.text_type : 'string',
             float : 'float'}
 
         for k, v in encoded.items():

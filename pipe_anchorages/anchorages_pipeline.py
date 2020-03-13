@@ -37,7 +37,7 @@ def create_queries(args):
     start_window = datetime.datetime.strptime(args.start_date, '%Y-%m-%d') 
     end_window = datetime.datetime.strptime(args.end_date, '%Y-%m-%d') 
     table = args.input_dataset + '.messages_segmented_'
-    segment_table = args.input_dataset + '.segments_'
+    segment_table = args.input_dataset + '.legacy_segment_v1_'
 
     queries = []
     start = start_window
@@ -90,7 +90,7 @@ def run(options):
 
     result = p.run()
 
-    success_states = set([PipelineState.DONE, PipelineState.RUNNING, PipelineState.UNKNOWN])
+    success_states = set([PipelineState.DONE, PipelineState.RUNNING, PipelineState.UNKNOWN, PipelineState.PENDING])
 
     logging.info('returning with result.state=%s' % result.state)
     return 0 if result.state in success_states else 1

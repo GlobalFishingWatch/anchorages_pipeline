@@ -4,7 +4,6 @@ from apache_beam import PTransform
 from apache_beam import Map
 from apache_beam import io
 from apache_beam.transforms.window import TimestampedValue
-from pipe_tools.coders.jsoncoder import JSONDict
 from pipe_tools.io import WriteToBigQueryDatePartitioned
 from ..objects.namedtuples import epoch
 from ..schema.port_event import build as build_event_schema
@@ -20,7 +19,7 @@ class EventSink(PTransform):
     def expand(self, xs):
 
         def as_dict(x):
-            d = JSONDict(**x._asdict())
+            d = x._asdict()
             return d
 
         def encode_datetimes_to_s(x):
@@ -103,7 +102,7 @@ class AnchorageSink(PTransform):
         def build_table_schema(spec):
             schema = io.gcp.internal.clients.bigquery.TableSchema()
 
-            for name, type in spec.iteritems():
+            for name, type in spec.items():
                 field = io.gcp.internal.clients.bigquery.TableFieldSchema()
                 field.name = name
                 field.type = type
@@ -177,7 +176,7 @@ class NamedAnchorageSink(PTransform):
         def build_table_schema(spec):
             schema = io.gcp.internal.clients.bigquery.TableSchema()
 
-            for name, type in spec.iteritems():
+            for name, type in spec.items():
                 field = io.gcp.internal.clients.bigquery.TableFieldSchema()
                 field.name = name
                 field.type = type

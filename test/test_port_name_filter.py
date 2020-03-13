@@ -4,7 +4,7 @@ import pipe_anchorages
 from pipe_anchorages import port_name_filter
 
 
-bad_examples = """
+bad_examples = r"""
 CITY
 B 2 A
 AN
@@ -12,7 +12,6 @@ AN
 @@@@@@@@@@@@@@@@@
 ?: :T/`9NKCL;KR=-[V
 A\\]]:]\[\
-@@@@@@@@@ARO
 VIGO>MOANA>VIGO
 BDAM VIA NOK
 GILLNETTER 47882224
@@ -116,7 +115,7 @@ CLASSIFIED
 CANAL ESCORT 
 """.strip().split('\n')
 
-good_examples = """
+good_examples = r"""
  >JP SHN
 JP UKB
 JP KGA
