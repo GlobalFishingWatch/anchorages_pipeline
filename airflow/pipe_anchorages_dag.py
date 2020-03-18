@@ -213,14 +213,9 @@ class PipeAnchoragesVoyagesDagFactory(DagFactory):
 
             return dag
 
-port_events_daily_dag = PipeAnchoragesPortEventsDagFactory(schedule_interval='@daily').build('port_events_daily')
-port_events_monthly_dag = PipeAnchoragesPortEventsDagFactory(schedule_interval='@monthly').build('port_events_monthly')
-port_events_yearly_dag = PipeAnchoragesPortEventsDagFactory(schedule_interval='@yearly').build('port_events_yearly')
 
-port_visits_daily_dag = PipeAnchoragesPortVisitsDagFactory(schedule_interval='@daily').build('port_visits_daily')
-port_visits_monthly_dag = PipeAnchoragesPortVisitsDagFactory(schedule_interval='@monthly').build('port_visits_monthly')
-port_visits_yearlys_dag = PipeAnchoragesPortVisitsDagFactory(schedule_interval='@yearly').build('port_visits_yearly')
-
-pipe_anchorages_voyages_daily_dag = PipeAnchoragesVoyagesDagFactory(schedule_interval='@daily').build('pipe_anchorages_voyages_daily')
-pipe_anchorages_voyages_monthly_dag = PipeAnchoragesVoyagesDagFactory(schedule_interval='@monthly').build('pipe_anchorages_voyages_monthly')
-pipe_anchorages_voyages_yearlys_dag = PipeAnchoragesVoyagesDagFactory(schedule_interval='@yearly').build('pipe_anchorages_voyages_yearly')
+for mode in ['daily', 'monthly', 'yearly']:
+    interval = '@{}'.format(mode)
+    globals()['port_events_{}'.format(mode)] = PipeAnchoragesPortEventsDagFactory(schedule_interval=interval).build('port_events_{}'.format(mode))
+    globals()['port_visits_{}'.format(mode)] = PipeAnchoragesPortVisitsDagFactory(schedule_interval=interval).build('port_visits_{}'.format(mode))
+    globals()['pipe_anchorages_voyages_{}'.format(mode)] = PipeAnchoragesVoyagesDagFactory(schedule_interval=interval).build('pipe_anchorages_voyages_{}'.format(mode))

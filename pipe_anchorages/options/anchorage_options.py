@@ -11,15 +11,18 @@ class AnchorageOptions(PipelineOptions):
         optional = parser.add_argument_group('Optional')
 
         required.add_argument('--input_dataset', required=True,
-                             help='Input dataset to pull data from')
+                            help='Input dataset to pull data from')
+        required.add_argument('--messages_segmented_table', required=True,
+                            help='Messages segmented table to pull data from')
+        required.add_argument('--segments_table', required=True,
+                            help='Segments table to pull data from')
         required.add_argument('--output_table', required=True,
                             help='Output table to write results to.')
-        required.add_argument('--start_date', required=True, 
-                              help="First date to generate visits.")
-        required.add_argument('--end_date', required=True, 
+        required.add_argument('--start_date', required=True,
+                            help="First date to generate visits.")
+        required.add_argument('--end_date', required=True,
                             help="Last date (inclusive) to generate visits.")
-        required.add_argument('--config', required=True, 
+        required.add_argument('--config', required=True,
                             help="path to configuration file")
-        required.add_argument('--fishing_ssvid_list', required=True, 
-                         help='location of list of newline separated fishing vessel ids')
-    
+        required.add_argument('--fishing_ssvid_list', required=True,
+                            help='location of list of newline separated fishing vessel ids')
