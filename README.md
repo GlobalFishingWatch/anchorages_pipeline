@@ -38,7 +38,7 @@ Run:
                          --end_date YYYY-MM-DD \
                          --input_dataset INPUT_DATASET \
                          --messages_segmented_table messages_segmented_ \
-                         --segments_table segments_ \
+                         --segments_table legacy_segments_v1 \
                          --output_table OUTPUT_DATASET_NAME.OUTPUT_TABLE_NAME \
                          --config anchorage_cfg.yaml \
                          --max_num_workers MAX_WORKER \
@@ -63,7 +63,7 @@ For example, to run all years:
                          --end_date 2019-06-30 \
                          --input_dataset pipe_production_b \
                          --messages_segmented_table messages_segmented_ \
-                         --segments_table segments_ \
+                         --segments_table legacy_segments_v1 \
                          --output_table machine_learning_dev_ttl_120d.unnamed_anchorages_v20190816 \
                          --config anchorage_cfg.yaml \
                          --max_num_workers 300 \
@@ -86,7 +86,7 @@ Or to run a minimal testing run:
                          --end_date 2017-06-30 \
                          --input_dataset pipe_production_b \
                          --messages_segmented_table messages_segmented_ \
-                         --segments_table segments_ \
+                         --segments_table legacy_segments_v1 \
                          --output_table machine_learning_dev_ttl_120d.unnamed_anchorages_test \
                          --config anchorage_cfg.yaml \
                          --max_num_workers 300 \
