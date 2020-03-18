@@ -19,32 +19,32 @@ from apache_beam.runners import PipelineState
 
 def create_queries(args):
     template = """
-    SELECT a.ssvid as ident, 
-           lat, 
-           lon, 
-           a.timestamp as timestamp, 
-           destination, 
+    SELECT a.ssvid as ident,
+           lat,
+           lon,
+           a.timestamp as timestamp,
+           destination,
            speed
     FROM
-      (SELECT *, _TABLE_SUFFIX FROM `{position_table}*` 
+      (SELECT *, _TABLE_SUFFIX FROM `{position_table}*`
         WHERE _TABLE_SUFFIX BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}') a
     INNER JOIN
-      (SELECT *, _TABLE_SUFFIX FROM `{segment_table}*` 
+      (SELECT *, _TABLE_SUFFIX FROM `{segment_table}*`
         WHERE _TABLE_SUFFIX BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}' AND
         noise = FALSE) b
     USING(_TABLE_SUFFIX, seg_id)
     """
-    start_window = datetime.datetime.strptime(args.start_date, '%Y-%m-%d') 
-    end_window = datetime.datetime.strptime(args.end_date, '%Y-%m-%d') 
-    table = args.input_dataset + '.messages_segmented_'
-    segment_table = args.input_dataset + '.legacy_segment_v1_'
+    start_window = datetime.datetime.strptime(args.start_date, '%Y-%m-%d')
+    end_window = datetime.datetime.strptime(args.end_date, '%Y-%m-%d')
+    table = '{}.{}'.format(args.input_dataset, args.messages_segmented_table)
+    segment_table = '{}.{}'.format(args.input_dataset, args.segments_table)
 
     queries = []
     start = start_window
     while start < end_window:
         # Add 999 days so that we get 1000 total days
         end = min(start + datetime.timedelta(days=999), end_window)
-        queries.append(template.format(position_table=table, 
+        queries.append(template.format(position_table=table,
                                        segment_table=segment_table,
                                        min_message_count=2,
                                        start=start, end=end))
@@ -69,7 +69,7 @@ def run(options):
     fishing_vessels = p | beam.io.ReadFromText(known_args.fishing_ssvid_list)
     fishing_vessel_list = beam.pvalue.AsList(fishing_vessels)
 
-    source = [(p | "Source_{}".format(i) >> QuerySource(query, use_standard_sql=True)) 
+    source = [(p | "Source_{}".format(i) >> QuerySource(query, use_standard_sql=True))
                 for (i, query) in enumerate(queries)] | beam.Flatten()
 
     tagged_records = (source
@@ -78,7 +78,7 @@ def run(options):
         )
 
     anchorage_points = (tagged_records
-        | FindAnchoragePoints(datetime.timedelta(minutes=config['stationary_period_min_duration_minutes']), 
+        | FindAnchoragePoints(datetime.timedelta(minutes=config['stationary_period_min_duration_minutes']),
                               config['stationary_period_max_distance_km'],
                               config['min_unique_vessels_for_anchorage'],
                               fishing_vessel_list)

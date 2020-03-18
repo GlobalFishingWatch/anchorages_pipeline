@@ -216,6 +216,6 @@ class PipeAnchoragesVoyagesDagFactory(DagFactory):
 
 for mode in ['daily', 'monthly', 'yearly']:
     interval = '@{}'.format(mode)
-    global()['port_events_{}'.format(mode)] = PipeAnchoragesPortEventsDagFactory(schedule_interval=interval).build('port_events_{}'.format(mode))
-    global()['port_visits_{}'.format(mode)] = PipeAnchoragesPortVisitsDagFactory(schedule_interval=interval).build('port_visits_{}'.format(mode))
-    global()['pipe_anchorages_voyages_{}'.format(mode)] = PipeAnchoragesVoyagesDagFactory(schedule_interval=interval).build('pipe_anchorages_voyages_{}'.format(mode))
+    globals()['port_events_{}'.format(mode)] = PipeAnchoragesPortEventsDagFactory(schedule_interval=interval).build('port_events_{}'.format(mode))
+    globals()['port_visits_{}'.format(mode)] = PipeAnchoragesPortVisitsDagFactory(schedule_interval=interval).build('port_visits_{}'.format(mode))
+    globals()['pipe_anchorages_voyages_{}'.format(mode)] = PipeAnchoragesVoyagesDagFactory(schedule_interval=interval).build('pipe_anchorages_voyages_{}'.format(mode))
