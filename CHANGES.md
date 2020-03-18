@@ -8,6 +8,17 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ## [Unreleased]
 
+## v3.0.1 - 2020-03-18
+
+### Changes
+
+* [GlobalFishingWatch/gfw-eng-tasks#28](https://github.com/GlobalFishingWatch/gfw-eng-tasks/issues/28): Changes
+    Extract `messages_segmented_table` and `segments_table` as parameters from `pipe_anchorages/anchorages_pipeline.py`. 
+    Adds `messages_segmented_table` and `segments_table` as required parameters in `pipe_anchorages/options/anchorage_options.py`.
+    Changes the way the dags are instantiating.
+    Updates the `README.md`.
+    Fixes the tests.
+
 ## v3.0.0 - 2020-03-09
 
 ### Added
