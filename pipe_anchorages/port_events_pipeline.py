@@ -19,9 +19,31 @@ from .options.port_events_options import PortEventsOptions
 
 def create_queries(args):
     template = """
-    select vessel_id as ident, lat, lon, timestamp, speed from 
-       `{table}*`
-       where _table_suffix between '{start:%Y%m%d}' and '{end:%Y%m%d}' 
+    with 
+
+    track_id as (
+      select track_id, seg_id as aug_seg_id
+      from `world-fishing-827.gfw_tasks_1143_new_segmenter.tracks_v20200229d_20191231`
+      cross join unnest (seg_ids) as seg_id
+    ),
+
+    base as (
+        select *,
+               concat(seg_id, '-', format_date('%F', date(timestamp))) aug_seg_id
+        from `world-fishing-827.pipe_production_v20200203.messages_segmented_*`
+        where _table_suffix between '{start:%Y%m%d}' and '{end:%Y%m%d}' 
+    ),
+
+    source as (
+        select base.*, track_id
+        from base
+        join (select * from track_id)
+        using (aug_seg_id)
+    )
+
+
+    select track_id as ident, lat, lon, timestamp, speed from 
+       source
     """
     start_date = datetime.datetime.strptime(args.start_date, '%Y-%m-%d') 
     start_window = start_date - datetime.timedelta(days=args.start_padding)
