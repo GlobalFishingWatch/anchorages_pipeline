@@ -26,6 +26,31 @@ The pipeline includes a CLI that can be used to start both local test runs and
 remote full runs. Just run `docker-compose run [anchorages|name_anchorages|port_events] --help` and follow the
 instructions there.
 
+### Updating the Named Anchorages
+
+The most common manual task is updating the named anchorages, which needs to be done whenever
+anchorage overrides is edited. This is accomplished by running the following command:
+
+    docker-compose run name_anchorages \
+                 --job_name name-anchorages \
+                 --input_table anchorages.CURRENT_UNNAMED_ANCHORAGES \
+                 --output_table TARGET_DATASET.TARGET_TABLE \
+                 --config ./name_anchorages_cfg.yaml \
+                 --max_num_workers 100 \
+                 --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
+                 --project world-fishing-827 \
+                 --requirements_file requirements.txt \
+                 --project world-fishing-827 \
+                 --staging_location gs://machine-learning-dev-ttl-120d/anchorages/anchorages/output/staging \
+                 --temp_location gs://machine-learning-dev-ttl-120d/anchorages/temp \
+                 --setup_file ./setup.py \
+                 --runner DataflowRunner \
+                 --disk_size_gb 100
+
+where `CURRENT_UNNAMED_ANCHORAGES` is the current (typically most recent) unnamed anchorages
+table and `TARGET_DATASET.TARGET_TABLE` is where the unnamed anchorages are stored.  I often
+put this in a temporary table for inspection, then copy it to it's final destination.
+
 
 ### Creating Anchorage Points
 
@@ -131,7 +156,7 @@ or
     docker-compose run name_anchorages \
                  --job_name name-anchorages \
                  --input_table anchorages.unnamed_anchorages_v20190816 \
-                 --output_table machine_learning_dev_ttl_120d.named_anchorages_v20191205_py3 \
+                 --output_table machine_learning_dev_ttl_120d.named_anchorages_v20200420 \
                  --config ./name_anchorages_cfg.yaml \
                  --max_num_workers 100 \
                  --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
