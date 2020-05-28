@@ -2,7 +2,7 @@ from collections import namedtuple
 from .namedtuples import NamedtupleCoder
 
 PortVisit = namedtuple("PortVisit", 
-    ['visit_id', 'vessel_id', 
+    ['visit_id', 'track_id', 
      'start_timestamp', 'start_lat', 'start_lon', 'start_anchorage_id',
      'end_timestamp',   'end_lat',   'end_lon',   'end_anchorage_id', 
      'events'])

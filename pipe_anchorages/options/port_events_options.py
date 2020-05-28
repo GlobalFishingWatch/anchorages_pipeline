@@ -13,7 +13,9 @@ class PortEventsOptions(PipelineOptions):
         required.add_argument('--anchorage_table', 
                             help='Name of of anchorages table (BQ)')
         required.add_argument('--input_table', required=True,
-                            help='Input table to pull data from')
+                            help='Input table to pull position messages from')
+        required.add_argument('--track_table', required=True,
+                            help='Input table to pull track ids from')
         required.add_argument('--output_table', required=True,
                             help='Output table (BQ) to write results to.')
         required.add_argument('--start_date', required=True, 

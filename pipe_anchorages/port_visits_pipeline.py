@@ -60,7 +60,8 @@ def run(options):
         table=table,
         project=cloud_args.project,
         write_disposition="WRITE_TRUNCATE",
-        schema=build_visit_schema()
+        schema=build_visit_schema(),
+        temp_shards_per_day=10
         )
 
 

@@ -23,14 +23,14 @@ def create_queries(args):
 
     track_id as (
       select track_id, seg_id as aug_seg_id
-      from `world-fishing-827.gfw_tasks_1143_new_segmenter.tracks_v20200229d_20191231`
+      from `{track_table}`
       cross join unnest (seg_ids) as seg_id
     ),
 
     base as (
         select *,
                concat(seg_id, '-', format_date('%F', date(timestamp))) aug_seg_id
-        from `world-fishing-827.pipe_production_v20200203.messages_segmented_*`
+        from `{table}*`
         where _table_suffix between '{start:%Y%m%d}' and '{end:%Y%m%d}' 
     ),
 
@@ -51,7 +51,8 @@ def create_queries(args):
     shift = 1000 - args.start_padding
     while start_window <= end_date:
         end_window = min(start_window + datetime.timedelta(days=shift), end_date)
-        query = template.format(table=args.input_table, start=start_window, end=end_window)
+        query = template.format(table=args.input_table, start=start_window, end=end_window,
+                                track_table=args.track_table)
         if args.fast_test:
             query += 'LIMIT 100000'
         yield query
