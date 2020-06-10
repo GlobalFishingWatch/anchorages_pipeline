@@ -19,31 +19,9 @@ from .options.port_events_options import PortEventsOptions
 
 def create_queries(args):
     template = """
-    with 
-
-    track_id as (
-      select track_id, seg_id as aug_seg_id
-      from `{track_table}`
-      cross join unnest (seg_ids) as seg_id
-    ),
-
-    base as (
-        select *,
-               concat(seg_id, '-', format_date('%F', date(timestamp))) aug_seg_id
-        from `{table}*`
-        where _table_suffix between '{start:%Y%m%d}' and '{end:%Y%m%d}' 
-    ),
-
-    source as (
-        select base.*, track_id
-        from base
-        join (select * from track_id)
-        using (aug_seg_id)
-    )
-
-
-    select track_id as ident, lat, lon, timestamp, speed from 
-       source
+    SELECT track_id AS ident, lat, lon, timestamp, speed 
+    FROM `{table}*`
+    WHERE _table_suffix BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}' 
     """
     start_date = datetime.datetime.strptime(args.start_date, '%Y-%m-%d') 
     start_window = start_date - datetime.timedelta(days=args.start_padding)
@@ -51,8 +29,7 @@ def create_queries(args):
     shift = 1000 - args.start_padding
     while start_window <= end_date:
         end_window = min(start_window + datetime.timedelta(days=shift), end_date)
-        query = template.format(table=args.input_table, start=start_window, end=end_window,
-                                track_table=args.track_table)
+        query = template.format(table=args.input_table, start=start_window, end=end_window)
         if args.fast_test:
             query += 'LIMIT 100000'
         yield query
