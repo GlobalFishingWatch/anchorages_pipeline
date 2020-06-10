@@ -11,90 +11,24 @@ class DummyOptions(object):
 
 def test_create_queries_1():
     args = DummyOptions("2016-01-01", "2016-01-01")
-    print(list(create_queries(args))[0])
     assert list(create_queries(args)) == ["""
-    with 
-
-    track_id as (
-      select track_id, seg_id as aug_seg_id
-      from `TRACK_TABLE`
-      cross join unnest (seg_ids) as seg_id
-    ),
-
-    base as (
-        select *,
-               concat(seg_id, '-', format_date('%F', date(timestamp))) aug_seg_id
-        from `SOURCE_TABLE*`
-        where _table_suffix between '20151229' and '20160101' 
-    ),
-
-    source as (
-        select base.*, track_id
-        from base
-        join (select * from track_id)
-        using (aug_seg_id)
-    )
-
-
-    select track_id as ident, lat, lon, timestamp, speed from 
-       source
+    SELECT track_id AS ident, lat, lon, timestamp, speed 
+    FROM `SOURCE_TABLE*`
+    WHERE _table_suffix BETWEEN '20151229' AND '20160101' 
     """]
     
 def test_create_queries_2():
     args = DummyOptions("2012-5-01", "2017-05-15")
+    print(list(create_queries(args))[1])
     assert list(create_queries(args)) == ["""
-    with 
-
-    track_id as (
-      select track_id, seg_id as aug_seg_id
-      from `TRACK_TABLE`
-      cross join unnest (seg_ids) as seg_id
-    ),
-
-    base as (
-        select *,
-               concat(seg_id, '-', format_date('%F', date(timestamp))) aug_seg_id
-        from `SOURCE_TABLE*`
-        where _table_suffix between '20120428' and '20150120' 
-    ),
-
-    source as (
-        select base.*, track_id
-        from base
-        join (select * from track_id)
-        using (aug_seg_id)
-    )
-
-
-    select track_id as ident, lat, lon, timestamp, speed from 
-       source
+    SELECT track_id AS ident, lat, lon, timestamp, speed 
+    FROM `SOURCE_TABLE*`
+    WHERE _table_suffix BETWEEN '20120428' AND '20150120' 
     """, 
     """
-    with 
-
-    track_id as (
-      select track_id, seg_id as aug_seg_id
-      from `TRACK_TABLE`
-      cross join unnest (seg_ids) as seg_id
-    ),
-
-    base as (
-        select *,
-               concat(seg_id, '-', format_date('%F', date(timestamp))) aug_seg_id
-        from `SOURCE_TABLE*`
-        where _table_suffix between '20150121' and '20170515' 
-    ),
-
-    source as (
-        select base.*, track_id
-        from base
-        join (select * from track_id)
-        using (aug_seg_id)
-    )
-
-
-    select track_id as ident, lat, lon, timestamp, speed from 
-       source
+    SELECT track_id AS ident, lat, lon, timestamp, speed 
+    FROM `SOURCE_TABLE*`
+    WHERE _table_suffix BETWEEN '20150121' AND '20170515' 
     """
         ]
 
