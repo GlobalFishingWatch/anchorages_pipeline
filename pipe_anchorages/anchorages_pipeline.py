@@ -4,6 +4,7 @@ import datetime
 import logging
 
 from . import common as cmn
+from .records import VesselLocationRecord
 from .transforms.source import QuerySource
 from .transforms.sink import AnchorageSink
 from .port_name_filter import normalized_valid_names
@@ -19,40 +20,62 @@ from apache_beam.runners import PipelineState
 
 def create_queries(args):
     template = """
-    SELECT a.ssvid as ident,
+    WITH 
+
+    destinations AS (
+      SELECT seg_id, _TABLE_SUFFIX AS table_suffix,
+          CASE 
+            WHEN ARRAY_LENGTH(destinations) = 0 THEN NULL
+            ELSE (SELECT MAX(value)
+                  OVER (ORDER BY count DESC)
+                  FROM UNNEST(destinations)
+                  LIMIT 1)
+            END AS destination
+      FROM `{segment_table}*`
+      WHERE _TABLE_SUFFIX BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}'
+    ),
+
+    positions AS (
+      SELECT ssvid, seg_id, lat, lon, timestamp, speed, 
+             _TABLE_SUFFIX as table_suffix
+        FROM `{position_table}*` 
+       WHERE _TABLE_SUFFIX BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}'
+         AND seg_id IS NOT NULL
+         AND lat IS NOT NULL
+         AND lon IS NOT NULL
+         AND speed IS NOT NULL
+    )
+
+    SELECT ssvid as ident,
            lat,
            lon,
-           a.timestamp as timestamp,
+           timestamp,
            destination,
            speed
-    FROM
-      (SELECT *, _TABLE_SUFFIX FROM `{position_table}*`
-        WHERE _TABLE_SUFFIX BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}') a
-    INNER JOIN
-      (SELECT *, _TABLE_SUFFIX FROM `{segment_table}*`
-        WHERE _TABLE_SUFFIX BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}' AND
-        noise = FALSE) b
-    USING(_TABLE_SUFFIX, seg_id)
+    FROM positions
+    JOIN destinations
+    USING (seg_id, table_suffix)
     """
     start_window = datetime.datetime.strptime(args.start_date, '%Y-%m-%d')
     end_window = datetime.datetime.strptime(args.end_date, '%Y-%m-%d')
-    table = '{}.{}'.format(args.input_dataset, args.messages_segmented_table)
-    segment_table = '{}.{}'.format(args.input_dataset, args.segments_table)
 
     queries = []
     start = start_window
     while start < end_window:
         # Add 999 days so that we get 1000 total days
         end = min(start + datetime.timedelta(days=999), end_window)
-        queries.append(template.format(position_table=table,
-                                       segment_table=segment_table,
-                                       min_message_count=2,
+        queries.append(template.format(position_table=args.messages_table,
+                                       segment_table=args.segments_table,
                                        start=start, end=end))
         # Add 1 day to end, so that we don't overlap.
         start = end + datetime.timedelta(days=1)
 
     return queries
 
+
+def has_location_record(item):
+    _, rcd = item
+    return isinstance(rcd, VesselLocationRecord)
 
 
 def run(options):
@@ -73,7 +96,8 @@ def run(options):
                 for (i, query) in enumerate(queries)] | beam.Flatten()
 
     tagged_records = (source
-        | cmn.CreateVesselRecords(config['blacklisted_ssvids'])
+        | cmn.CreateVesselRecords()
+        | "FilterOutInfo" >> beam.Filter(has_location_record)
         | cmn.CreateTaggedRecords(config['min_required_positions'])
         )
 

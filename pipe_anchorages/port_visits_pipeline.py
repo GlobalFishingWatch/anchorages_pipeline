@@ -35,6 +35,7 @@ def event_to_msg(x):
 
 def visit_to_msg(x):
     x = x._asdict()
+    x['ssvid'] = x['track_id'].split('-')[0]
     x['events'] = [event_to_msg(y) for y in x['events']]
     x['start_timestamp'] = _datetime_to_s(x['start_timestamp'])
     x['end_timestamp'] = _datetime_to_s(x['end_timestamp'])

@@ -28,16 +28,14 @@ VISIT_SAFETY_FACTOR = 2.0 # Extra margin factor to ensure we don't miss ports
 
 class CreateVesselRecords(beam.PTransform):
 
-    def __init__(self, blacklisted_idents, **defaults):
-        self.blacklisted_idents = set(blacklisted_idents)
+    def __init__(self, **defaults):
         self.defaults = defaults
 
     def is_valid(self, item):
         ident, rcd = item
         assert isinstance(rcd, VesselRecord), type(rcd)
         return (not isinstance(rcd, InvalidRecord) and 
-                isinstance(ident, six.string_types) and
-                (ident not in self.blacklisted_idents)) 
+                isinstance(ident, six.string_types))
 
     def add_defaults(self, x):
         for k, v in self.defaults.items():

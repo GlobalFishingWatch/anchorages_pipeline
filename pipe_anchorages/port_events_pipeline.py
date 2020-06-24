@@ -19,7 +19,7 @@ from .options.port_events_options import PortEventsOptions
 
 def create_queries(args):
     template = """
-    SELECT track_id AS ident, lat, lon, timestamp, speed 
+    SELECT track_id AS ident, ssvid, lat, lon, timestamp, speed 
     FROM `{table}*`
     WHERE _table_suffix BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}' 
     """
@@ -59,7 +59,7 @@ def run(options):
 
     tagged_records = (sources
         | beam.Flatten()
-        | cmn.CreateVesselRecords([], destination=None)
+        | cmn.CreateVesselRecords(destination=None)
         | cmn.CreateTaggedRecords(config['min_port_events_positions'])
         )
 

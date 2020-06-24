@@ -11,12 +11,15 @@
 with 
 
   ssvid_map as (
-      select ANY_VALUE(ssvid) as ssvid, track_id, index + 1 as track_rank
+    SELECT
+      ssvid, 
+      track_id, 
+      index + 1 as track_rank,
+      is_noise
       -- TODO: once tracks move into productions make this match format for primary dataset
       from `{{ tracks_table }}*`
       where _TABLE_SUFFIX in (select max(_TABLE_SUFFIX) from `{{ tracks_table }}*`)
-      and index = 0 or count > 1000 -- Only take secondary tracks if they have enough points
-      group by track_id, track_rank
+      group by ssvid, track_id, track_rank, is_noise
     ),
 
   #
@@ -27,6 +30,7 @@ with
       ssvid,
       track_id,
       track_rank,
+      is_noise,
       start_anchorage_id,
       visit_id,
       start_timestamp,
@@ -34,7 +38,7 @@ with
       end_timestamp
     from `{{ dataset }}.{{ port_visits_table }}*`
     join ssvid_map
-      using (track_id)
+      using (ssvid, track_id)
   ),
 
   dummy_initial_port_visits_with_track_id as (
@@ -42,12 +46,13 @@ with
       ssvid,
       track_id,
       track_rank,
+      is_noise,
       'NO_PREVIOUS_DATA' as start_anchorage_id,
       'NO_PREVIOUS_DATA' as visit_id,
       timestamp('0001-2-3') as start_timestamp,
       'NO_PREVIOUS_DATA' as end_anchorage_id,
       timestamp('0001-2-3') as end_timestamp
-    from (select ssvid, track_id, track_rank from ssvid_map group by 1,2,3)
+    from (select ssvid, track_id, track_rank, is_noise from ssvid_map group by 1,2,3,4)
   ),
 
   dummy_final_port_visits_with_track_id as (
@@ -55,12 +60,13 @@ with
       ssvid,
       track_id,
       track_rank,
+      False,
       'ACTIVE_VOYAGE' as start_anchorage_id,
       'ACTIVE_VOYAGE' as visit_id,
       timestamp('9999-9-9') as start_timestamp,
       'ACTIVE_VOYAGE' as end_anchorage_id,
       timestamp('9999-9-10') as end_timestamp
-    from (select ssvid, track_id, track_rank from ssvid_map group by 1,2,3)
+    from (select ssvid, track_id, track_rank, is_noise from ssvid_map group by 1,2,3,4)
   ),
 
   all_port_visits_with_track_id as (

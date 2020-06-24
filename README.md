@@ -61,9 +61,7 @@ Run:
                          --job_name JOB-NAME \
                          --start_date YYYY-MM-DD \
                          --end_date YYYY-MM-DD \
-                         --input_dataset INPUT_DATASET \
-                         --messages_segmented_table messages_segmented_ \
-                         --segments_table legacy_segments_v1 \
+                         --messages_thinned_table DATASET.messages_thinned_ \
                          --output_table OUTPUT_DATASET_NAME.OUTPUT_TABLE_NAME \
                          --config anchorage_cfg.yaml \
                          --max_num_workers MAX_WORKER \
@@ -86,9 +84,7 @@ For example, to run all years:
                          --job_name unnamed-anchorages \
                          --start_date 2012-01-01 \
                          --end_date 2019-06-30 \
-                         --input_dataset pipe_production_b \
-                         --messages_segmented_table messages_segmented_ \
-                         --segments_table legacy_segments_v1 \
+                         --messages_thinned_table pipe_production_b.messages_thinned_ \
                          --output_table machine_learning_dev_ttl_120d.unnamed_anchorages_v20190816 \
                          --config anchorage_cfg.yaml \
                          --max_num_workers 300 \
@@ -108,13 +104,11 @@ Or to run a minimal testing run:
     docker-compose run anchorages \
                          --job_name unnamed-anchorages \
                          --start_date 2017-01-01 \
-                         --end_date 2017-06-30 \
-                         --input_dataset pipe_production_b \
-                         --messages_segmented_table messages_segmented_ \
-                         --segments_table legacy_segments_v1 \
+                         --end_date 2017-01-31 \
+                         --messages_thinned_table machine_learning_dev_ttl_120d.messages_segmented_ \
                          --output_table machine_learning_dev_ttl_120d.unnamed_anchorages_test \
                          --config anchorage_cfg.yaml \
-                         --max_num_workers 300 \
+                         --max_num_workers 200 \
                          --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
                          --project world-fishing-827 \
                          --requirements_file requirements.txt \
@@ -212,7 +206,7 @@ To create a corresponding day of visits do:
         --start_date 2017-12-01 \
         --end_date 2017-12-01 \
         --start_padding 365 \
-        --output_table machine_learning_dev_ttl_120d.new_pipeline_port_visits_test_v20191209_py3 \
+        --output_table machine_learning_dev_ttl_120d.new_pipeline_port_visits_test_v20191209_py3_x2 \
         --project world-fishing-827 \
         --max_num_workers 200 \
         --requirements_file requirements.txt \

@@ -10,12 +10,10 @@ class AnchorageOptions(PipelineOptions):
         required = parser.add_argument_group('Required')
         optional = parser.add_argument_group('Optional')
 
-        required.add_argument('--input_dataset', required=True,
-                            help='Input dataset to pull data from')
-        required.add_argument('--messages_segmented_table', required=True,
-                            help='Messages segmented table to pull data from')
+        required.add_argument('--messages_table', required=True,
+                            help='Messages table to pull data from')
         required.add_argument('--segments_table', required=True,
-                            help='Segments table to pull data from')
+                            help='Sements table to pull data from')
         required.add_argument('--output_table', required=True,
                             help='Output table to write results to.')
         required.add_argument('--start_date', required=True,
