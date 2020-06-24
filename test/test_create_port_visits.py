@@ -35,8 +35,8 @@ expected_1 = OrderedDict([('visit_id', '5f7c9418d55d07a5087874af60c2375a'),('tra
             ('event_type', u'PORT_STOP_END')]),
         OrderedDict([('anchorage_id', u'345328af'), ('lat', 29.9667462525), ('lon', 122.4396281067),
             ('vessel_lat', 30.0182361603), ('vessel_lon', 122.475944519), ('track_id', 412424227),
-            ('timestamp', 1476495140.0), ('event_type', u'PORT_EXIT')])
-    ])])
+            ('timestamp', 1476495140.0), ('event_type', u'PORT_EXIT')]),]),
+        ('ssvid', '412424227')])
 
 
 expected_2 = OrderedDict([('visit_id', 'b1e7e8bc8760dd2e50f49d9994e8dda9'),('track_id', '273386660'),
@@ -63,8 +63,9 @@ expected_2 = OrderedDict([('visit_id', 'b1e7e8bc8760dd2e50f49d9994e8dda9'),('tra
         OrderedDict([('anchorage_id', u'41a90e45'), ('lat', 46.3122421582), ('lon', 47.9769367751),
             ('vessel_lat', 46.1234703064), ('vessel_lon', 47.7903404236), ('track_id', 273386660),
             ('timestamp', 1475290556.0), ('event_type', u'PORT_EXIT')])
-    ])])
-
+        ]),
+    ('ssvid', '273386660')
+    ])
 
 # Add some out of order stuff to expected_1. The stuff before port_entry at events[5] should be dropped
 events_3 = [
