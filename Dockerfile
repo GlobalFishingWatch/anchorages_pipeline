@@ -9,10 +9,10 @@ WORKDIR /opt/project
 
 # Download and install google cloud. See the dockerfile at
 # https://hub.docker.com/r/google/cloud-sdk/~/dockerfile/
-ENV CLOUD_SDK_VERSION 268.0.0
+ENV CLOUD_SDK_VERSION 314.0.0
+ENV CLOUD_SDK_APT_DEPS "curl gcc python-dev python-setuptools apt-transport-https lsb-release openssh-client git"
+ENV CLOUD_SDK_PIP_DEPS "crcmod"
 RUN  \
-  export CLOUD_SDK_APT_DEPS="curl gcc python-dev python-setuptools apt-transport-https lsb-release openssh-client git" && \
-  export CLOUD_SDK_PIP_DEPS="crcmod" && \
   apt-get -qqy update && \
   apt-get install -qqy $CLOUD_SDK_APT_DEPS && \
   pip install -U $CLOUD_SDK_PIP_DEPS && \
@@ -33,6 +33,9 @@ COPY . /opt/project
 RUN \
   pip install -r requirements.txt && \
   pip install -e .
+
+# Freeze dependencies
+RUN pip freeze > frozen_dependencies.txt
 
 # Setup the entrypoint for quickly executing the pipelines
 ENTRYPOINT ["scripts/run.sh"]

@@ -9,12 +9,17 @@ cache:
   - ~/.cache/pip
 
 python:
-- 2.7
+- 3.7
 
 install:
   - docker volume create --name=gcp
   - docker-compose build
 
 script:
-  - docker-compose --version
-  - docker-compose run test
+  - docker-compose run py.test
+
+notifications:
+  slack:
+    rooms:
+      secure: DnyIVNrhSXyHl8Jtrvp74uSyzJnc/YWy+XE3L3sKbGeKj+4FyOYlIzUZq/AzZQ2J+UTy68C/HnWovMX421bRaKIvfcHH6nSvP4mEMig75f6CPKAQ/NvToT/9V/nMWEc9WoPFzjRvT+b3Wzt0c3YtsIPs86ASSN/3J27bhnOnzFPeOAEAOyFNx1E0lzVfnk6ranKCvmZGVaFRNRRbj/bFRkpjPepLfor9AK/vjIquGEuhTNezZSD1YonxHh45qvZ5B6/1+BJ/IUWGmY9/AX2FWdn6+JSH/EPGRaXnAWDwoaja6msJ+JsgjHUIcXA5Kxb93rXvRrTIcFeV7pnnE/RIFH76JM13k5YDT/YwCukIav4w4ORKiEJWiRN+nzqe4ya+DR3Fo/K70px8ZQdWGp6dja465NJ+Ji/Y1LfWOucyzX/zCeWeX2ak1bQZY9oGvjCU4Eaqd5sWKT40iakKKwK1b8dEHft5eMbTWdhIeye/0Mo5J1BI0gxR0SvHwScAoAyOGWdsBKL33yzWWso/UcoPGlP7SuslKvRNK5YpNy4HZMy4UQQJ0gMvaBPqlz+CVA5F3N/tdBI/Z5pdmbza8ZIxZvaJtZS7/8l0EVwG3YnD/5xWF/pJ3sYrL3/kKlts1N+DSkCOFoFFtZp8AsOVPqvSDVQo6Fbynp0HIpFs4WvpNPw=
+

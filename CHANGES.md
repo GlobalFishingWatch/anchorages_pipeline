@@ -8,6 +8,17 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ## [Unreleased]
 
+
+## v3.0.4 - 2020-10-14
+
+### Added
+
+* [Data Pipeline/PIPELINE#31](https://globalfishingwatch.atlassian.net/browse/PIPELINE-31): Adds
+  * Creation of frozen dependencies in the docker image at building time.
+  * Replaces requirements.txt to frozen dependencies for dataflow operators.
+  * Google SDK increment version to `314.0.0`.
+  * description in `README.md`.
+
 ## v3.0.3 - 2020-06-11
 
 ### Added

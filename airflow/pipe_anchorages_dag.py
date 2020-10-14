@@ -52,7 +52,7 @@ class PipeAnchoragesPortEventsDagFactory(DagFactory):
                     staging_location='gs://{temp_bucket}/dataflow_staging'.format(**config),
                     max_num_workers='{dataflow_max_num_workers}'.format(**config),
                     disk_size_gb='{dataflow_disk_size_gb}'.format(**config),
-                    requirements_file='./requirements.txt',
+                    requirements_file='./frozen_dependencies.txt',
                     setup_file='./setup.py',
                     start_padding='{port_events_start_padding}'.format(**config)
                 )
@@ -132,7 +132,7 @@ class PipeAnchoragesPortVisitsDagFactory(DagFactory):
                     staging_location='gs://{temp_bucket}/dataflow_staging'.format(**config),
                     max_num_workers='{dataflow_max_num_workers}'.format(**config),
                     disk_size_gb='{dataflow_disk_size_gb}'.format(**config),
-                    requirements_file='./requirements.txt',
+                    requirements_file='./frozen_dependencies.txt',
                     setup_file='./setup.py'
                 )
             )

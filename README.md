@@ -1,3 +1,6 @@
+master: [![Build Status](https://travis-ci.org/GlobalFishingWatch/anchorages_pipeline.svg?branch=master)](https://travis-ci.org/GlobalFishingWatch/anchorages_pipeline)
+develop: [![Build Status](https://travis-ci.org/GlobalFishingWatch/anchorages_pipeline.svg?branch=develop)](https://travis-ci.org/GlobalFishingWatch/anchorages_pipeline/branches)
+
 # Anchorages
 
 This repository contains pipelines for finding anchorages and associated port-visit events.
@@ -12,18 +15,32 @@ pipeline. No other dependency is required.
 
 ## Setup
 
-The pipeline reads it's input from BigQuery, so you need to first authenticate
-with your google cloud account inside the docker images. To do that, you need
-to run this command and follow the instructions:
+To run the pipeline first you need to create the docker image. To do that, you need
+to run this command:
 
 ```
-docker-compose run gcloud auth application-default login
+docker-compose build
+```
+
+## Tests
+
+To run the tests use:
+```
+docker volume create --name=gcp
+docker-compose run py.test
+```
+
+## Frozen dependencies
+
+The dataflow operator builds all the packages that needs before starting to run and the `requirements.txt` is used for that purpose. However, there are open dependencies in the `requirements.txt` and the latest version of the packages are downloaded, not always but sometimes, the latest version is released with errors, that is why we freeze the dependencies in the docker image to use the ones that we know that are working. They are detailed in the file `frozen_dependencies.txt`. To get them, use:
+```
+docker-compose run frozen_dependencies
 ```
 
 ## CLI
 
 The pipeline includes a CLI that can be used to start both local test runs and
-remote full runs. Just run `docker-compose run [anchorages|name_anchorages|port_events] --help` and follow the
+remote full runs. Just run `docker-compose run anchorages_pipeline` and follow the
 instructions there.
 
 
@@ -31,8 +48,8 @@ instructions there.
 
 
 Run:
-  
-    docker-compose run anchorages \
+
+    docker-compose run anchorages_pipeline port_events \
                          --job_name JOB-NAME \
                          --start_date YYYY-MM-DD \
                          --end_date YYYY-MM-DD \
@@ -57,7 +74,7 @@ Standard dataflow options must also be specified.
 
 For example, to run all years:
 
-    docker-compose run anchorages \
+    docker-compose run anchorages_pipeline port_events \
                          --job_name unnamed-anchorages \
                          --start_date 2012-01-01 \
                          --end_date 2019-06-30 \
@@ -80,7 +97,7 @@ For example, to run all years:
 
 Or to run a minimal testing run:
 
-    docker-compose run anchorages \
+    docker-compose run anchorages_pipeline port_events \
                          --job_name unnamed-anchorages \
                          --start_date 2017-01-01 \
                          --end_date 2017-06-30 \
@@ -110,7 +127,7 @@ After a set of anchorages is created, names are assigned using `name_anchorages_
 
 For example:
 
-    docker-compose run name_anchorages \
+    docker-compose run anchorages_pipeline name_anchorages \
                  --job_name name-anchorages \
                  --input_table machine_learning_dev_ttl_120d.unnamed_anchorages_test \
                  --output_table machine_learning_dev_ttl_120d.named_anchorages_test \
@@ -128,7 +145,7 @@ For example:
 
 or
 
-    docker-compose run name_anchorages \
+    docker-compose run anchorages_pipeline name_anchorages \
                  --job_name name-anchorages \
                  --input_table anchorages.unnamed_anchorages_v20190816 \
                  --output_table machine_learning_dev_ttl_120d.named_anchorages_v20191205_py3 \
@@ -155,7 +172,7 @@ It should have the following fields: s2uid,label,iso3,anchor_lat,anchor_lon,subl
 
 To update a day of events, run, for example:
 
-    docker-compose run port_events \
+    docker-compose run anchorages_pipeline port_events \
         --job_name porteventstest \
         --input_table pipe_production_v20190502.position_messages_ \
         --anchorage_table anchorages.named_anchorages_v20191205 \
@@ -176,12 +193,12 @@ To update a day of events, run, for example:
 
 For a full list of options run:
 
-    python -m port_events -h
+    docker-compose run anchorages_pipeline port_events -h
 
 
 To create a corresponding day of visits do:
 
-    docker-compose run port_visits \
+    docker-compose run anchorages_pipeline port_visits \
         --job_name portvisitssharded \
         --events_table machine_learning_dev_ttl_120d.new_pipeline_port_events_test_v20191209_py3 \
         --start_date 2017-12-01 \
