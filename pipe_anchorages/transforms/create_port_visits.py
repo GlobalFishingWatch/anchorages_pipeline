@@ -49,15 +49,19 @@ class CreatePortVisits(beam.PTransform):
         tagged.sort()
         events = [x for (_, _, x) in tagged]
 
+        first_msg = True
+        is_visit = False
         visit_events = None
         for evt in events:
-            if evt.event_type == 'PORT_ENTRY':
-                if visit_events is not None:
+            if first_msg or evt.event_type == 'PORT_ENTRY':
+                if visit_events:
                     logging.warning('PORT_ENTRY without earlier exit.\n'
                                     'Disarding previous event')
                 visit_events = [evt]
                 is_visit = False
+                first_msg = False
                 continue
+
             if visit_events is None:
                 logging.warning('non PORT_ENTRY without earlier entry.\n'
                                 'Disarding')
@@ -78,11 +82,18 @@ class CreatePortVisits(beam.PTransform):
 
             if evt.event_type == 'PORT_EXIT':
                 # Only yield a visit if this qualifies as a visit; that is
-                # there has been a stop or a gap.
-                if is_visit == True:
+                # there has been a stop or a gap, OR if there is no port entry
+                # indicating that the track started while this vessel was in port.
+                if is_visit or visit_events[0].event_type != 'PORT_ENTRY':
                     yield self.create_visit(visit_events)
-                visit_events = None
+                visit_events = []
+                is_visit = False
 
+        if visit_events and is_visit and visit_events[0].event_type == 'PORT_ENTRY':
+            # Yield final visit even if it isn't finished yet.
+            # The final condition ensures that all events have at least one of PORT_ENTRY
+            # or PORT_EXIT, preventing orphan port visits.
+            yield self.create_visit(visit_events)
 
 
     def expand(self, tagged_records):

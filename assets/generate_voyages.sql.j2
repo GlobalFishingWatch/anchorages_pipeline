@@ -25,7 +25,7 @@ with
   #
   # Get all port visits and include the vessel-id from the map created above
   #
-  all_real_port_visits_with_track_id as (
+  initial_real_port_visits_with_track_id as (
     SELECT
       ssvid,
       track_id,
@@ -39,7 +39,26 @@ with
     from `{{ dataset }}.{{ port_visits_table }}*`
     join ssvid_map
       using (ssvid, track_id)
+    where events[offset(array_length(events) - 1)].event_type = 'PORT_EXIT'
   ),
+
+  final_real_port_visits_with_track_id as (
+    SELECT
+      ssvid,
+      track_id,
+      track_rank,
+      is_noise,
+      start_anchorage_id,
+      visit_id,
+      start_timestamp,
+      end_anchorage_id,
+      end_timestamp
+    from `{{ dataset }}.{{ port_visits_table }}*`
+    join ssvid_map
+      using (ssvid, track_id)
+    where events[offset(0)].event_type = 'PORT_ENTRY'
+  ),
+
 
   dummy_initial_port_visits_with_track_id as (
     select
@@ -69,13 +88,18 @@ with
     from (select ssvid, track_id, track_rank, is_noise from ssvid_map group by 1,2,3,4)
   ),
 
-  all_port_visits_with_track_id as (
+  combined_initial_port_visits_with_track_id as (
     select * from 
       (select * from dummy_initial_port_visits_with_track_id)
       union all
+      (select * from initial_real_port_visits_with_track_id)
+  ),
+
+  combined_final_port_visits_with_track_id as (
+    select * from 
       (select * from dummy_final_port_visits_with_track_id)
       union all
-      (select * from all_real_port_visits_with_track_id)
+      (select * from final_real_port_visits_with_track_id)
   ),
 
   #
@@ -89,7 +113,7 @@ with
       start_anchorage_id as anchorage_id,
       visit_id,
       start_timestamp as timestamp
-    from all_port_visits_with_track_id 
+    from combined_final_port_visits_with_track_id 
     group by 1,2,3,4,5,6
   ),
 
@@ -104,7 +128,7 @@ with
       end_anchorage_id as anchorage_id,
       visit_id,
       end_timestamp as timestamp 
-    from all_port_visits_with_track_id
+    from combined_initial_port_visits_with_track_id
     group by 1,2,3,4,5,6
   ),
 

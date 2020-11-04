@@ -49,8 +49,7 @@ def run(options):
 
     p = beam.Pipeline(options=options)
 
-    start_date = datetime.datetime.strptime(visit_args.start_date, '%Y-%m-%d').replace(tzinfo=pytz.utc) 
-    start_window = start_date - datetime.timedelta(days=visit_args.start_padding)
+    start_date = datetime.datetime.strptime(visit_args.initial_data_date, '%Y-%m-%d').replace(tzinfo=pytz.utc) 
     end_date = datetime.datetime.strptime(visit_args.end_date, '%Y-%m-%d').replace(tzinfo=pytz.utc)
 
     dataset, table = visit_args.output_table.split('.') 
@@ -66,8 +65,7 @@ def run(options):
         )
 
 
-    queries = VisitEvent.create_queries(visit_args.events_table, 
-                                        start_window, end_date)
+    queries = VisitEvent.create_queries(visit_args.events_table, start_date, end_date)
 
     sources = [(p | "Read_{}".format(i) >> beam.io.Read(
                         beam.io.gcp.bigquery.BigQuerySource(query=x)))
