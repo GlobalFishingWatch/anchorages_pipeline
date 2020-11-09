@@ -13,7 +13,7 @@ class AnchorageOptions(PipelineOptions):
         required.add_argument('--messages_table', required=True,
                             help='Messages table to pull data from')
         required.add_argument('--segments_table', required=True,
-                            help='Sements table to pull data from')
+                            help='Segments table to pull data from')
         required.add_argument('--output_table', required=True,
                             help='Output table to write results to.')
         required.add_argument('--start_date', required=True,
