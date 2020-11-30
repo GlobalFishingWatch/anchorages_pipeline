@@ -19,9 +19,9 @@ from .options.port_events_options import PortEventsOptions
 
 def create_queries(args):
     template = """
-    select vessel_id as ident, lat, lon, timestamp, speed from 
-       `{table}*`
-       where _table_suffix between '{start:%Y%m%d}' and '{end:%Y%m%d}' 
+    SELECT track_id AS ident, ssvid, lat, lon, timestamp, speed 
+    FROM `{table}*`
+    WHERE _table_suffix BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}' 
     """
     start_date = datetime.datetime.strptime(args.start_date, '%Y-%m-%d') 
     start_window = start_date - datetime.timedelta(days=args.start_padding)
@@ -59,7 +59,7 @@ def run(options):
 
     tagged_records = (sources
         | beam.Flatten()
-        | cmn.CreateVesselRecords([], destination=None)
+        | cmn.CreateVesselRecords(destination=None)
         | cmn.CreateTaggedRecords(config['min_port_events_positions'])
         )
 

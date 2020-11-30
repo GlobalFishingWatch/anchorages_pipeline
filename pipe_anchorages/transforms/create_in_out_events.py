@@ -69,7 +69,7 @@ class CreateInOutEvents(beam.PTransform):
         return closest, min_dist
 
     def create_in_out_events(self, tagged_records, anchorage_map):
-        vessel_id, records = tagged_records
+        track_id, records = tagged_records
         state = None
         active_port = None
         events = []
@@ -88,7 +88,7 @@ class CreateInOutEvents(beam.PTransform):
                 state = self.STOPPED if is_stopped else self.IN_PORT
                 if last_timestamp is not None:
                     delta_minutes = (rcd.timestamp - last_timestamp).total_seconds() / 60.0
-                    if delta_minutes >= self.min_gap_minutes:
+                    if last_state in ('IN_PORT', 'STOPPED') and delta_minutes >= self.min_gap_minutes:
                         event_types.append(self.EVT_GAP)
             else:
                 state = self.AT_SEA
@@ -105,7 +105,7 @@ class CreateInOutEvents(beam.PTransform):
                                          lon=active_port.mean_location.lon, 
                                          vessel_lat=rcd.location.lat,
                                          vessel_lon=rcd.location.lon,
-                                         vessel_id=vessel_id, 
+                                         track_id=track_id, 
                                          timestamp=rcd.timestamp, 
                                          event_type=etype)) 
 

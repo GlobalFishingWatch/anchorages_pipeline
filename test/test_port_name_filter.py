@@ -165,43 +165,6 @@ invalid_suffixes = set([
     ])
 
 
-blacklist = set([
-'CITY',
-'B # A',
-'AN',
-'NULL',
-'T #NKCL KR V',
-'A ARO',
-'VIGO MOANA VIGO',
-'BDAM VIA NOK',
-'GILLNETTER #',
-'OIL AND GAS ACTIVITY',
-'# #',
-'HOME',
-'A B C O',
-'SOUTH FLORIDA',
-'# T E D JT',
-'O P',
-'M Y SPACE OR SHORE',
-'OWER BY NAVALMARINE',
-'A#B #GD E',
-'Y B AND Y YY AND FY AND X',
-'# # N # # E',
-'ON THE BAY',
-'PLY PTOWN PLY',
-'SPLIT DUBROVNIK SPLI',
-'#O#',
-'BBBBBBBBB',
-'# # #',
-'ON THE BAY',
-'NO DESTINATION',
-'CLASSIFIED',
-])
-
-
-
-
-
 
 def test_is_valid_name():
     assert list(port_name_filter.normalized_valid_names(bad_examples)) == []

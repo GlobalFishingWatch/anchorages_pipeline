@@ -7,6 +7,7 @@ from apache_beam.transforms.window import TimestampedValue
 from pipe_tools.io import WriteToBigQueryDatePartitioned
 from ..objects.namedtuples import epoch
 from ..schema.port_event import build as build_event_schema
+from ..schema.named_anchorage import build as build_named_anchorage_schema
 
 
 
@@ -149,43 +150,11 @@ class NamedAnchorageSink(PTransform):
             }
 
 
-    spec = {
-            "lat": "float",
-            "lon": "float",
-            "total_visits": "integer",
-            "drift_radius": "float",
-            "top_destination" : "string",
-            "unique_stationary_ssvid": "integer",
-            "unique_stationary_fishing_ssvid": "integer",
-            "unique_active_ssvid": "integer",
-            "unique_total_ssvid": "integer",
-            'active_ssvid_days': "float",
-            "stationary_ssvid_days": "float",
-            "stationary_fishing_ssvid_days": "float",
-            "s2id": "string",
-            'label': 'string',
-            'sublabel': 'string',
-            'label_source': 'string',
-            "iso3": "string",
-        }
 
 
     @property
     def schema(self):
-
-        def build_table_schema(spec):
-            schema = io.gcp.internal.clients.bigquery.TableSchema()
-
-            for name, type in spec.items():
-                field = io.gcp.internal.clients.bigquery.TableFieldSchema()
-                field.name = name
-                field.type = type
-                field.mode = 'nullable'
-                schema.fields.append(field)
-
-            return schema   
-
-        return build_table_schema(self.spec)
+        return build_named_anchorage_schema()
 
     def expand(self, xs):        
         return xs | Map(self.encode) | io.Write(io.gcp.bigquery.BigQuerySink(

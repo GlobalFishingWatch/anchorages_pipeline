@@ -35,6 +35,7 @@ def event_to_msg(x):
 
 def visit_to_msg(x):
     x = x._asdict()
+    x['ssvid'] = x['track_id'].split('-')[0]
     x['events'] = [event_to_msg(y) for y in x['events']]
     x['start_timestamp'] = _datetime_to_s(x['start_timestamp'])
     x['end_timestamp'] = _datetime_to_s(x['end_timestamp'])
@@ -48,8 +49,7 @@ def run(options):
 
     p = beam.Pipeline(options=options)
 
-    start_date = datetime.datetime.strptime(visit_args.start_date, '%Y-%m-%d').replace(tzinfo=pytz.utc) 
-    start_window = start_date - datetime.timedelta(days=visit_args.start_padding)
+    start_date = datetime.datetime.strptime(visit_args.initial_data_date, '%Y-%m-%d').replace(tzinfo=pytz.utc) 
     end_date = datetime.datetime.strptime(visit_args.end_date, '%Y-%m-%d').replace(tzinfo=pytz.utc)
 
     dataset, table = visit_args.output_table.split('.') 
@@ -60,12 +60,12 @@ def run(options):
         table=table,
         project=cloud_args.project,
         write_disposition="WRITE_TRUNCATE",
-        schema=build_visit_schema()
+        schema=build_visit_schema(),
+        temp_shards_per_day=10
         )
 
 
-    queries = VisitEvent.create_queries(visit_args.events_table, 
-                                        start_window, end_date)
+    queries = VisitEvent.create_queries(visit_args.events_table, start_date, end_date)
 
     sources = [(p | "Read_{}".format(i) >> beam.io.Read(
                         beam.io.gcp.bigquery.BigQuerySource(query=x)))

@@ -26,6 +26,31 @@ The pipeline includes a CLI that can be used to start both local test runs and
 remote full runs. Just run `docker-compose run [anchorages|name_anchorages|port_events] --help` and follow the
 instructions there.
 
+### Updating the Named Anchorages
+
+The most common manual task is updating the named anchorages, which needs to be done whenever
+anchorage overrides is edited. This is accomplished by running the following command:
+
+    docker-compose run name_anchorages \
+                 --job_name name-anchorages \
+                 --input_table anchorages.CURRENT_UNNAMED_ANCHORAGES \
+                 --output_table TARGET_DATASET.TARGET_TABLE \
+                 --config ./name_anchorages_cfg.yaml \
+                 --max_num_workers 100 \
+                 --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
+                 --project world-fishing-827 \
+                 --requirements_file requirements.txt \
+                 --project world-fishing-827 \
+                 --staging_location gs://machine-learning-dev-ttl-120d/anchorages/anchorages/output/staging \
+                 --temp_location gs://machine-learning-dev-ttl-120d/anchorages/temp \
+                 --setup_file ./setup.py \
+                 --runner DataflowRunner \
+                 --disk_size_gb 100
+
+where `CURRENT_UNNAMED_ANCHORAGES` is the current (typically most recent) unnamed anchorages
+table and `TARGET_DATASET.TARGET_TABLE` is where the unnamed anchorages are stored.  I often
+put this in a temporary table for inspection, then copy it to it's final destination.
+
 
 ### Creating Anchorage Points
 
@@ -36,9 +61,7 @@ Run:
                          --job_name JOB-NAME \
                          --start_date YYYY-MM-DD \
                          --end_date YYYY-MM-DD \
-                         --input_dataset INPUT_DATASET \
-                         --messages_segmented_table messages_segmented_ \
-                         --segments_table legacy_segments_v1 \
+                         --messages_thinned_table DATASET.messages_thinned_ \
                          --output_table OUTPUT_DATASET_NAME.OUTPUT_TABLE_NAME \
                          --config anchorage_cfg.yaml \
                          --max_num_workers MAX_WORKER \
@@ -61,9 +84,7 @@ For example, to run all years:
                          --job_name unnamed-anchorages \
                          --start_date 2012-01-01 \
                          --end_date 2019-06-30 \
-                         --input_dataset pipe_production_b \
-                         --messages_segmented_table messages_segmented_ \
-                         --segments_table legacy_segments_v1 \
+                         --messages_thinned_table pipe_production_b.messages_thinned_ \
                          --output_table machine_learning_dev_ttl_120d.unnamed_anchorages_v20190816 \
                          --config anchorage_cfg.yaml \
                          --max_num_workers 300 \
@@ -83,13 +104,11 @@ Or to run a minimal testing run:
     docker-compose run anchorages \
                          --job_name unnamed-anchorages \
                          --start_date 2017-01-01 \
-                         --end_date 2017-06-30 \
-                         --input_dataset pipe_production_b \
-                         --messages_segmented_table messages_segmented_ \
-                         --segments_table legacy_segments_v1 \
+                         --end_date 2017-01-31 \
+                         --messages_thinned_table machine_learning_dev_ttl_120d.messages_segmented_ \
                          --output_table machine_learning_dev_ttl_120d.unnamed_anchorages_test \
                          --config anchorage_cfg.yaml \
-                         --max_num_workers 300 \
+                         --max_num_workers 200 \
                          --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
                          --project world-fishing-827 \
                          --requirements_file requirements.txt \
@@ -131,7 +150,7 @@ or
     docker-compose run name_anchorages \
                  --job_name name-anchorages \
                  --input_table anchorages.unnamed_anchorages_v20190816 \
-                 --output_table machine_learning_dev_ttl_120d.named_anchorages_v20191205_py3 \
+                 --output_table machine_learning_dev_ttl_120d.named_anchorages_v20200421_schema \
                  --config ./name_anchorages_cfg.yaml \
                  --max_num_workers 100 \
                  --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
@@ -187,7 +206,7 @@ To create a corresponding day of visits do:
         --start_date 2017-12-01 \
         --end_date 2017-12-01 \
         --start_padding 365 \
-        --output_table machine_learning_dev_ttl_120d.new_pipeline_port_visits_test_v20191209_py3 \
+        --output_table machine_learning_dev_ttl_120d.new_pipeline_port_visits_test_v20191209_py3_x2 \
         --project world-fishing-827 \
         --max_num_workers 200 \
         --requirements_file requirements.txt \
