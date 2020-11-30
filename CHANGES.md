@@ -8,26 +8,6 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ## [Unreleased]
 
-## v3.0.4 - 2020-09-11
-
-### [GlobalFishingWatch/pipe-anchorages](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/65)
-
-### Added
-
-* Add descriptions to schema
-
-### Removed
-
-* Remove effectively unused ssvid block list
-
-### Changed
-
-* Replace vessel-id with track-id
-* Rather than a list of vessel-ids, voyages now have a single track-id
-* Create port-visits even if there is an exit, an entry event, or both), to avoid some
-   corner cases where vessels enter a port and aren't seen leaving or we miss the entry.
-* Fix Peru anchorages
-
 ## v3.0.3 - 2020-06-11
 
 ### Added
