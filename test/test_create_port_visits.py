@@ -10,7 +10,7 @@ from pipe_anchorages.transforms.create_port_visits import CreatePortVisits
 
 
 expected_1 = OrderedDict([('visit_id', '5f7c9418d55d07a5087874af60c2375a'),('vessel_id', '412424227'),
-    ('start_timestamp', 1476426402.0), ('start_lat', 29.9667462525), ('start_lon', 29.9667462525),
+    ('start_timestamp', 1476426402.0), ('start_lat', 29.9667462525), ('start_lon', 122.4396281067),
     ('start_anchorage_id', u'345328af'), ('end_timestamp', 1476495140.0), ('end_lat', 29.9667462525),
     ('end_lon', 122.4396281067), ('end_anchorage_id', u'345328af'),
     ('events', [
@@ -40,7 +40,7 @@ expected_1 = OrderedDict([('visit_id', '5f7c9418d55d07a5087874af60c2375a'),('ves
 
 
 expected_2 = OrderedDict([('visit_id', 'b1e7e8bc8760dd2e50f49d9994e8dda9'),('vessel_id', '273386660'),
-    ('start_timestamp', 1475241790.0), ('start_lat', 45.7285312075), ('start_lon', 45.7285312075),
+    ('start_timestamp', 1475241790.0), ('start_lat', 45.7285312075), ('start_lon', 47.6336454619),
     ('start_anchorage_id', u'41abf04b'), ('end_timestamp', 1475290556.0), ('end_lat', 46.3122421582),
     ('end_lon', 47.9769367751), ('end_anchorage_id', u'41a90e45'),
     ('events', [
