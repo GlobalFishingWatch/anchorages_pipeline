@@ -32,7 +32,7 @@ class CreatePortVisits(beam.PTransform):
                          vessel_id=str(visit_events[0].vessel_id),
                          start_timestamp=visit_events[0].timestamp,
                          start_lat=visit_events[0].lat,
-                         start_lon=visit_events[0].lat,
+                         start_lon=visit_events[0].lon,
                          start_anchorage_id=visit_events[0].anchorage_id,
                          end_timestamp=visit_events[-1].timestamp,
                          end_lat=visit_events[-1].lat,

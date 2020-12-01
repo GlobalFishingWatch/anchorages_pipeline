@@ -8,6 +8,12 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ## [Unreleased]
 
+## Fixed
+
+* [PIPELINE-256](https://globalfishingwatch.atlassian.net/browse/PIPELINE-256):
+  Fix port visits wrongly setting `start_lon` to the same value it's using for
+  `start_lat`.
+
 ## v3.0.3 - 2020-06-11
 
 ### Added
