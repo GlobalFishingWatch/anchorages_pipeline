@@ -1,2 +1,2 @@
-https://codeload.github.com/GlobalFishingWatch/pipe-tools/tar.gz/v2.0.0-HOTFIX1#egg=pipe-tools-2.0.0-HOTFIX1
+https://codeload.github.com/GlobalFishingWatch/pipe-tools/tar.gz/v2.0.0-HOTFIX2#egg=pipe-tools-2.0.0-HOTFIX2
 

@@ -8,6 +8,24 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ## [Unreleased]
 
+## v1.3.1-HOTFIX2 - 2020-12-30
+
+### Added
+
+* [PIPELINE-255](https://globalfishingwatch.atlassian.net/browse/PIPELINE-255) Adds
+  pin over the library `packaging-20.4`, the `pipe-tools:v2.0.0-HOTFIX2` and
+  the `python` image to make the code compile.
+
+
+## v1.3.1-HOTFIX1 - 2020-03-09
+
+### Added
+
+* [GlobalFishingWatch/gfw-eng-tasks#31](https://github.com/GlobalFishingWatch/gfw-eng-tasks/issues/31): Adds
+  pin over library `ujson` to use version `1.35` and
+  `pipe-tools:v2.0.0-HOTFIX1` that makes the code compile.
+
+
 ## v1.3.1 - 2019-07-30
 
 * [#49](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/49)

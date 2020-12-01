@@ -5,6 +5,7 @@ import setuptools
 package = __import__('pipe_anchorages')
 
 DEPENDENCIES = [
+    'packaging==20.4',
     'more_itertools',
     'statistics',
     'pytz',
@@ -15,7 +16,7 @@ DEPENDENCIES = [
     'pyyaml',
     'unidecode',
     'numpy',
-    "pipe-tools==2.0.0-HOTFIX1",
+    "pipe-tools==2.0.0-HOTFIX2",
     "jinja2-cli",
     "tzlocal==1.5.1"
 ]
