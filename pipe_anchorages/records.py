@@ -1,5 +1,6 @@
 from collections import namedtuple
 import datetime
+import pytz
 
 def is_location_message(msg):
     return (
@@ -24,9 +25,7 @@ class VesselRecord(object):
     @staticmethod
     def tagged_from_msg(msg):
 
-        # `ident` is some sort of vessel identifier, currently either `ssvid` or `track_id` 
-        # depending if this is being used by anchorages or port_visits. Eventually, we'd
-        # probably like it to just be `track_id`
+        # `ident` is some sort of vessel identifier, currently either `ssvid`, `seg_id`, 'vessel_id' or 'track_id'  
         ident = msg['ident']
 
         if is_location_message(msg) and has_valid_location(msg):
@@ -46,8 +45,9 @@ class InvalidRecord(
 
     @staticmethod
     def from_msg(msg):
+        naive_time = datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S.%f %Z')
         return InvalidRecord(
-            timestamp=datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S.%f %Z'),
+            timestamp=naive_time.replace(tzinfo=pytz.utc)
             )
 
 
@@ -59,8 +59,9 @@ class VesselInfoRecord(
 
     @staticmethod
     def from_msg(msg):
+        naive_time = datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S.%f %Z')
         return VesselInfoRecord(
-                timestamp=datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S.%f %Z'),
+                timestamp=naive_time.replace(tzinfo=pytz.utc),
                 destination=msg['destination']
                 )
 
@@ -75,9 +76,9 @@ class VesselLocationRecord(
     def from_msg(msg):
         from .common import LatLon
         latlon = LatLon(msg['lat'], msg['lon'])
-
+        naive_time = datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S.%f %Z')
         return VesselLocationRecord(
-            timestamp=datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S.%f %Z'), 
+            timestamp=naive_time.replace(tzinfo=pytz.utc), 
             location=latlon, 
             speed=msg['speed'],
             destination=None

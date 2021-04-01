@@ -53,21 +53,21 @@ class CreateVesselRecords(beam.PTransform):
 
 class CreateTaggedRecords(beam.PTransform):
 
-    def __init__(self, min_required_positions):
+    def __init__(self, min_required_positions, thin=True):
         self.min_required_positions = min_required_positions
+        self.thin = thin
         self.FIVE_MINUTES = datetime.timedelta(minutes=5)
 
     def order_by_timestamp(self, item):
         ident, records = item
-        records = list(records)
-        records.sort(key=lambda x: (x.timestamp, x.speed, x.location))
+        records = sorted(records,  key=lambda x: (x.timestamp, x.speed, x.location))
         return ident, records
 
     def dedup_by_timestamp(self, item):
         key, source = item
         seen = set()
         sink = []
-        for x in source:
+        for x in sorted(source, key=lambda x: (x.timestamp, x.speed, x.location)):
             if x.timestamp not in seen:
                 sink.append(x)
                 seen.add(x.timestamp)
@@ -78,6 +78,8 @@ class CreateTaggedRecords(beam.PTransform):
         return len(records) >= self.min_required_positions
 
     def thin_records(self, item):
+        if not self.thin:
+            return item
         ident, records = item
         last_timestamp = datetime.datetime(datetime.MINYEAR, 1, 1)
         thinned = []

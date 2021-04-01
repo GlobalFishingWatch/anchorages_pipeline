@@ -2,7 +2,6 @@ min_required_positions: 200
 stationary_period_min_duration_minutes: 720
 stationary_period_max_distance_km: 0.5
 min_unique_vessels_for_anchorage: 20
-min_port_events_positions: 2
 anchorage_entry_distance_km: 3.0
 anchorage_exit_distance_km: 4.0
 stopped_begin_speed_knots: 0.2

@@ -14,14 +14,14 @@ class PortEventsOptions(PipelineOptions):
                             help='Name of of anchorages table (BQ)')
         required.add_argument('--input_table', required=True,
                             help='Thinned messsage table to pull position messages from')
+        required.add_argument('--state_table', required=True,
+                            help='Table containing port state on each day')
         required.add_argument('--output_table', required=True,
                             help='Output table (BQ) to write results to.')
         required.add_argument('--start_date', required=True, 
                               help="First date to look for entry/exit events.")
         required.add_argument('--end_date', required=True, 
                             help="Last date (inclusive) to look for entry/exit events.")
-        required.add_argument('--start_padding', required=True, type=int,
-                              help="number of days before start to look messages.")
         
         optional.add_argument('--config', default='anchorage_cfg.yaml',
                             help="path to configuration file")

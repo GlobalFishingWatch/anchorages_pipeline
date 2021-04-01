@@ -1,3 +1,4 @@
+import datetime
 import logging
 import pytz
 from apache_beam import PTransform
@@ -6,9 +7,10 @@ from apache_beam import io
 from apache_beam.transforms.window import TimestampedValue
 from pipe_tools.io import WriteToBigQueryDatePartitioned
 from ..objects.namedtuples import epoch
-from ..schema.port_event import build as build_event_schema
+from ..schema.port_event import build as build_event_schema, build_event_state_schema
 from ..schema.named_anchorage import build as build_named_anchorage_schema
 
+epoch = datetime.datetime.utcfromtimestamp(0).replace(tzinfo=pytz.utc)
 
 
 class EventSink(PTransform):
@@ -25,10 +27,9 @@ class EventSink(PTransform):
 
         def encode_datetimes_to_s(x):
 
-            for field in ['timestamp']:
-                x[field] = (x[field].replace(tzinfo=pytz.utc) - epoch).total_seconds()
-
-            # logging.info("Encoded: %s", str(x))
+            for field in ['timestamp', 'last_timestamp']:
+                if x[field] is not None:
+                    x[field] = (x[field] - epoch).total_seconds()
 
             return x
 
@@ -45,13 +46,58 @@ class EventSink(PTransform):
             schema=build_event_schema()
             )
 
-
         logging.info('sink params: \n\t%s\n\t%s\n\t%s\n\t%s', self.temp_location, dataset, table, self.project)
 
         return (xs 
             | Map(as_dict)
             | Map(encode_datetimes_to_s)
             | Map(lambda x: TimestampedValue(x, x['timestamp'])) 
+            | sink
+            )
+
+
+class EventStateSink(PTransform):
+    def __init__(self, table, temp_location, project):
+        self.table = table
+        self.temp_location = temp_location
+        self.project = project
+
+    def expand(self, xs):
+
+        def encode_datetimes_to_s(x):
+
+            x = x.copy()
+
+            for field in ['last_timestamp', 'date']:
+                x[field] = (x[field] - epoch).total_seconds()
+
+            assert isinstance(x['seg_id'], str)
+            assert isinstance(x['date'], (int, float))
+            assert isinstance(x['state'], str)
+            assert isinstance(x['last_timestamp'], (int, float))
+            assert x['active_port'] is None or isinstance(x['active_port'], str), x['active_port']
+            assert len(x) == 5
+
+            return x
+
+        dataset, table = self.table.split('.')
+
+
+        sink = WriteToBigQueryDatePartitioned(
+            temp_gcs_location=self.temp_location,
+            dataset=dataset,
+            table=table,
+            project=self.project,
+            write_disposition="WRITE_TRUNCATE",
+            schema=build_event_state_schema()
+            )
+
+
+        logging.info('sink params: \n\t%s\n\t%s\n\t%s\n\t%s', self.temp_location, dataset, table, self.project)
+
+        return (xs 
+            | Map(encode_datetimes_to_s)
+            | Map(lambda x: TimestampedValue(x, x['date'])) 
             | sink
             )
 

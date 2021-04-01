@@ -1,10 +1,16 @@
 from __future__ import absolute_import, print_function, division
 
+import datetime
+from datetime import timedelta
+import pytz
 import apache_beam as beam
+from apache_beam import pvalue
 
 from pipe_anchorages import common as cmn
 from pipe_anchorages.distance import distance, inf
 from pipe_anchorages.objects.visit_event import VisitEvent
+from pipe_anchorages.objects.namedtuples import s_to_datetime
+import logging
 
 
 class CreateInOutEvents(beam.PTransform):
@@ -34,13 +40,16 @@ class CreateInOutEvents(beam.PTransform):
     def __init__(self, anchorages, 
                  anchorage_entry_dist, anchorage_exit_dist,
                  stopped_begin_speed, stopped_end_speed,
-                 min_gap_minutes):
+                 min_gap_minutes, start_date, end_date):
         self.anchorages = anchorages
         self.anchorage_entry_dist = anchorage_entry_dist
         self.anchorage_exit_dist = anchorage_exit_dist
         self.stopped_begin_speed = stopped_begin_speed
         self.stopped_end_speed = stopped_end_speed
         self.min_gap_minutes = min_gap_minutes
+        self.start_date = start_date
+        self.end_date = end_date
+        assert isinstance(self.start_date, datetime.datetime)
 
     def _is_in_port(self, state, dist):
         if dist <= self.anchorage_entry_dist:
@@ -61,24 +70,69 @@ class CreateInOutEvents(beam.PTransform):
     def _anchorage_distance(self, loc, anchorages):
         closest = None
         min_dist = inf
-        for anch in anchorages:
+        for anch in sorted(anchorages, key=lambda x: x.s2id):
             dist = distance(loc, anch.mean_location)
             if dist < min_dist:
                 min_dist = dist
                 closest = anch
         return closest, min_dist
 
-    def create_in_out_events(self, tagged_records, anchorage_map):
-        track_id, records = tagged_records
-        state = None
-        active_port = None
-        events = []
-        last_timestamp = None
-        for rcd in records:
+    def _extract_records(self, items):
+        n_records = len(items['records'])
+        if n_records == 0:
+            return []
+        elif n_records == 1:
+            return items['records'][0]
+        else:
+            raise ValueError('grouped_states_and_records should have 0 or 1 sets of records')
+
+    def parse_datetime(self, text):
+        naive = datetime.datetime.strptime(state_info['date'], '%Y-%m-%d %H:%M:%S.%f %Z')
+        return naive.replace(tzinfo=pytz.utc)
+
+
+    def _extract_state_info(self, items, anchorage_map):
+        n_states = len(items['state'])
+        if n_states == 0:
+            return None, None, None
+        elif n_states == 1:
+            [state_info] = items['state']
+            state = state_info['state']
+            assert state in ("IN_PORT", "AT_SEA", "STOPPED"), state
+            if state_info['active_port'] is None:
+                active_port = None
+            else:
+                s2id = state_info['active_port']
+                active_port = anchorage_map.get(s2id)
+                assert active_port is not None, (s2id, type(s2id),
+                    list(anchorage_map.keys())[0], type(list(anchorage_map.keys())[0]))
+                [active_port] = [x for x in active_port if x.s2id == s2id]
+            date = self.parse_datetime(state_info['date'])
+            last_timestamp = self.parse_datetime(state_info['last_timestamp'])
+            assert date == self.start_date - timedelta(days=1)
+            return state, active_port, last_timestamp
+        else:
+            raise ValueError('grouped_states_and_records should have 0 or 1 states')
+
+    def create_in_out_events(self, grouped_states_and_records, anchorage_map):
+        seg_id, items = grouped_states_and_records
+        state, active_port, last_timestamp = self._extract_state_info(items, anchorage_map)
+        port_id = None if (active_port is None) else active_port.s2id
+        state_info_map = {self.start_date : {
+                    'seg_id' : seg_id,
+                    'date' : self.start_date, 
+                    'state' : state, 
+                    'active_port' : port_id, 
+                    'last_timestamp' : last_timestamp
+                }}
+
+        for rcd in self._extract_records(items):
+            last_state = state
+
             s2id = rcd.location.S2CellId(cmn.VISITS_S2_SCALE).to_token()
+            assert isinstance(s2id, str), (type(s2id), s2id)
             port, dist = self._anchorage_distance(rcd.location, anchorage_map.get(s2id, []))
 
-            last_state = state
             is_in_port = self._is_in_port(state, dist)
             is_stopped = self._is_stopped(state, rcd.speed)
 
@@ -93,27 +147,48 @@ class CreateInOutEvents(beam.PTransform):
             else:
                 state = self.AT_SEA
 
-            if (last_state is None) or (active_port is None):
-                # Not enough information yet.
-                continue 
 
-            event_types.extend(self.transition_map[(last_state, state)])
+            date = datetime.datetime.combine(rcd.timestamp.date(), datetime.time(), tzinfo=pytz.utc)
+            active_port_id = None if (active_port is None) else active_port.s2id
+            state_info_map[date] = {
+                    'seg_id' : seg_id,
+                    'date' : date, 
+                    'state' : state, 
+                    'active_port' : active_port_id, 
+                    'last_timestamp' : rcd.timestamp
+                }
 
-            for etype in event_types:
-                events.append(VisitEvent(anchorage_id=active_port.s2id, 
-                                         lat=active_port.mean_location.lat, 
-                                         lon=active_port.mean_location.lon, 
-                                         vessel_lat=rcd.location.lat,
-                                         vessel_lon=rcd.location.lon,
-                                         track_id=track_id, 
-                                         timestamp=rcd.timestamp, 
-                                         event_type=etype)) 
+
+            if (last_state is not None) and (active_port is not None):
+                event_types.extend(self.transition_map[(last_state, state)])
+
+                for etype in event_types:
+                    yield VisitEvent(anchorage_id=active_port.s2id, 
+                                     lat=active_port.mean_location.lat, 
+                                     lon=active_port.mean_location.lon, 
+                                     vessel_lat=rcd.location.lat,
+                                     vessel_lon=rcd.location.lon,
+                                     seg_id=seg_id, 
+                                     timestamp=rcd.timestamp, 
+                                     event_type=etype,
+                                     last_timestamp=last_timestamp,
+                                     )
 
             last_timestamp = rcd.timestamp
-        return events
 
-    def expand(self, tagged_records):
-        anchorage_map = beam.pvalue.AsSingleton(self.anchorages)
-        return (tagged_records
-            | beam.FlatMap(self.create_in_out_events, anchorage_map=anchorage_map)
+
+        date = self.start_date
+        state_info = state_info_map[date]
+        while date <= self.end_date:
+            state_info = state_info_map.get(date, state_info).copy()
+            state_info['date'] = date
+            if state_info['state'] is not None:
+                yield pvalue.TaggedOutput('state', state_info)
+            date += timedelta(days=1)
+
+
+    def expand(self, grouped_states_and_records):
+        anchorage_map = beam.pvalue.AsDict(self.anchorages)
+        return (grouped_states_and_records
+            | beam.FlatMap(self.create_in_out_events, anchorage_map=anchorage_map).with_outputs('state', main='records')
             )
