@@ -68,17 +68,24 @@ class EventStateSink(PTransform):
 
             x = x.copy()
 
-            for field in ['last_timestamp', 'date']:
+            for field in ['last_timestamp']:
                 x[field] = (x[field] - epoch).total_seconds()
 
+            dt = datetime.datetime.combine(x['date'], datetime.time.min, tzinfo=pytz.utc)
+            ts_field = (dt - epoch).total_seconds()
+
+            for field in ['date']:
+                x[field] = '{:%Y-%m-%d}'.format(x[field])
+
+
             assert isinstance(x['seg_id'], str)
-            assert isinstance(x['date'], (int, float))
+            assert isinstance(x['date'], (str))
             assert isinstance(x['state'], str)
             assert isinstance(x['last_timestamp'], (int, float))
             assert x['active_port'] is None or isinstance(x['active_port'], str), x['active_port']
             assert len(x) == 5
 
-            return x
+            return ts_field, x
 
         dataset, table = self.table.split('.')
 
@@ -97,7 +104,7 @@ class EventStateSink(PTransform):
 
         return (xs 
             | Map(encode_datetimes_to_s)
-            | Map(lambda x: TimestampedValue(x, x['date'])) 
+            | Map(lambda x: TimestampedValue(x[1], x[0]))
             | sink
             )
 

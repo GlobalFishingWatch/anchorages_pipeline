@@ -1,6 +1,6 @@
 from collections import namedtuple
+from .objects.namedtuples import s_to_datetime
 import datetime
-import pytz
 
 def is_location_message(msg):
     return (
@@ -45,9 +45,8 @@ class InvalidRecord(
 
     @staticmethod
     def from_msg(msg):
-        naive_time = datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S.%f %Z')
         return InvalidRecord(
-            timestamp=naive_time.replace(tzinfo=pytz.utc)
+            timestamp=s_to_datetime(msg['timestamp'])
             )
 
 
@@ -59,9 +58,8 @@ class VesselInfoRecord(
 
     @staticmethod
     def from_msg(msg):
-        naive_time = datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S.%f %Z')
         return VesselInfoRecord(
-                timestamp=naive_time.replace(tzinfo=pytz.utc),
+                timestamp=s_to_datetime(msg['timestamp']),
                 destination=msg['destination']
                 )
 
@@ -76,9 +74,8 @@ class VesselLocationRecord(
     def from_msg(msg):
         from .common import LatLon
         latlon = LatLon(msg['lat'], msg['lon'])
-        naive_time = datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S.%f %Z')
         return VesselLocationRecord(
-            timestamp=naive_time.replace(tzinfo=pytz.utc), 
+            timestamp=s_to_datetime(msg['timestamp']), 
             location=latlon, 
             speed=msg['speed'],
             destination=None

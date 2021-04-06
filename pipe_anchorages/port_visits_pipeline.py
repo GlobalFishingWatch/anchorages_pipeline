@@ -64,6 +64,11 @@ def run(options):
         temp_shards_per_day=10
         )
 
+    # TODO: add optional bad_segs input table
+    # TODO: read by all events per vessel_id by seg_id
+    # TODO: ouput ssvid, vessel_id
+    # TODO: add duration to port visits
+    # (Perhaps internally create 'ssvid-vessel_id' as ident so we can pass around easily)
 
     queries = VisitEvent.create_queries(visit_args.events_table, start_date, end_date)
 

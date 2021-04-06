@@ -2,6 +2,7 @@ from __future__ import absolute_import, print_function, division
 
 import datetime
 import logging
+import pytz
 
 import apache_beam as beam
 from apache_beam import Filter
@@ -20,17 +21,16 @@ from .options.port_events_options import PortEventsOptions
 from .schema.port_event import build_event_state_schema 
 
 
-def create_queries(args):
+def create_queries(args, start_date, end_date):
     template = """
-    SELECT seg_id AS ident, ssvid, lat, lon, timestamp, speed -- use seg_id TODO
+    SELECT seg_id AS ident, ssvid, lat, lon, speed,
+            CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp,
     FROM `{table}*`
     WHERE _table_suffix BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}' 
 
     -- AND vessel_id = '0d59d9f05-5189-96fb-f1d9-28d0294e4924' -- REMOVE
     """
-    start_date = datetime.datetime.strptime(args.start_date, '%Y-%m-%d')
     start_window = start_date
-    end_date= datetime.datetime.strptime(args.end_date, '%Y-%m-%d') 
     shift = 1000
     while start_window <= end_date:
         end_window = min(start_window + datetime.timedelta(days=shift), end_date)
@@ -41,17 +41,6 @@ def create_queries(args):
         start_window = end_window + datetime.timedelta(days=1)
 
 
-def create_state_query(args):
-    template = """
-    SELECT *
-    FROM `{table}*`
-    WHERE _table_suffix ='{date:%Y%m%d}'' 
-    """
-    start_date = datetime.datetime.strptime(args.start_date, '%Y-%m-%d') 
-    date = start_date - datetime.timedelta(days=1)
-    return template.format(table=args.state_table, date=date)
-
-
 anchorage_query = 'SELECT lat as anchor_lat, lon as anchor_lon, s2id as anchor_id, label FROM `{}`'
 
 
@@ -60,14 +49,14 @@ def run(options):
     known_args = options.view_as(PortEventsOptions)
     cloud_options = options.view_as(GoogleCloudOptions)
 
-    start_date = datetime.datetime.strptime(known_args.start_date, '%Y-%m-%d')
-    end_date = datetime.datetime.strptime(known_args.end_date, '%Y-%m-%d')
+    start_date = datetime.datetime.strptime(known_args.start_date, '%Y-%m-%d').date()
+    end_date = datetime.datetime.strptime(known_args.end_date, '%Y-%m-%d').date()
 
     p = beam.Pipeline(options=options)
 
     config = cmn.load_config(known_args.config)
 
-    queries = create_queries(known_args)
+    queries = create_queries(known_args, start_date, end_date)
 
     sources = [(p | "Read_{}".format(i) >> 
                         beam.io.Read(beam.io.gcp.bigquery.BigQuerySource(query=x, use_standard_sql=True)))

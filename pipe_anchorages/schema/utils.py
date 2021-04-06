@@ -7,7 +7,8 @@ class SchemaBuilder(object):
         "FLOAT",
         "TIMESTAMP",
         "STRING",
-        "RECORD"
+        "RECORD",
+        "DATE"
     }
 
     def __init__(self):
