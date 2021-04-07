@@ -6,8 +6,8 @@ def build():
     builder = SchemaBuilder()
     builder.add("visit_id", "STRING",
         description="Unique ID for this visit")
-    builder.add("track_id", "STRING",
-        description="`track_id` of the track this visit was found on")
+    builder.add("vessel_id", "STRING",
+        description="`vessel_id` of the track this visit was found on")
     builder.add("ssvid", "STRING",
         description="`ssvid` of the vessel involved in the visit."
                     "N.B. Some `ssvid` may be associated with multiple tracks")
@@ -23,7 +23,10 @@ def build():
         description="timestamp at which vessel crossed out the anchorage")
     builder.add("end_lat", "FLOAT",
         description="latitude of vessel at `end_timestamp`")
-    builder.add("end_lon", "FLOAT")
+    builder.add("end_lon", "FLOAT",
+        description="longitude of vessel at `end_timestamp`")
+    builder.add('duration_hrs', "FLOAT",
+        description='duration of visit in hours')
     builder.add("end_anchorage_id", "STRING",
         description="longitude of vessel at `end_timestamp`")
     builder.add("events", mode="REPEATED", 

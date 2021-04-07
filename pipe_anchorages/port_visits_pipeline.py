@@ -22,11 +22,43 @@ from .schema.port_visit import build as build_visit_schema
 from .transforms.create_port_visits import CreatePortVisits
 
 
+
+
+def create_queries(args, start_date, end_date):
+    template = """
+    SELECT events.* except(timestamp, last_timestamp),
+            CAST(UNIX_MICROS(events.timestamp) AS FLOAT64) / 1000000 AS timestamp,
+            CAST(UNIX_MICROS(events.last_timestamp) AS FLOAT64) / 1000000 AS last_timestamp,
+            ssvid, vessel_id
+    FROM `{evt_table}*` events
+    JOIN `{vid_table}` vids
+    USING (seg_id)
+    WHERE events._table_suffix BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}' 
+    {condition}
+    -- AND ssvid IN '0d59d9f05-5189-96fb-f1d9-28d0294e4924' -- SHOULD BE IN vid_table if we use segment_info
+    """
+    if args.bad_segs_table is None:
+        condition = ''
+    else:
+        condition = f'  AND seg_id NOT IN (SELECT seg_id FROM {args.bad_segs_table})'
+
+    start_window = start_date
+    shift = 1000
+    while start_window <= end_date:
+        end_window = min(start_window + datetime.timedelta(days=shift), end_date)
+        query = template.format(evt_table=args.events_table, 
+                                vid_table=args.vessel_id_table,
+                                condition=condition,
+                                start=start_window, end=end_window)
+        yield query
+        start_window = end_window + datetime.timedelta(days=1)
+
 def from_msg(x):
     x['timestamp'] =  datetime.datetime.utcfromtimestamp(
             x['timestamp']).replace(tzinfo=pytz.utc)
-    return VisitEvent(**x)
-
+    ssvid = x.pop('ssvid')
+    vessel_id = x.pop('vessel_id')
+    return (ssvid, vessel_id), VisitEvent(**x)
 
 def event_to_msg(x):
     x = x._asdict()
@@ -35,7 +67,6 @@ def event_to_msg(x):
 
 def visit_to_msg(x):
     x = x._asdict()
-    x['ssvid'] = x['track_id'].split('-')[0]
     x['events'] = [event_to_msg(y) for y in x['events']]
     x['start_timestamp'] = _datetime_to_s(x['start_timestamp'])
     x['end_timestamp'] = _datetime_to_s(x['end_timestamp'])
@@ -49,7 +80,7 @@ def run(options):
 
     p = beam.Pipeline(options=options)
 
-    start_date = datetime.datetime.strptime(visit_args.initial_data_date, '%Y-%m-%d').replace(tzinfo=pytz.utc) 
+    start_date = datetime.datetime.strptime(visit_args.start_date, '%Y-%m-%d').replace(tzinfo=pytz.utc) 
     end_date = datetime.datetime.strptime(visit_args.end_date, '%Y-%m-%d').replace(tzinfo=pytz.utc)
 
     dataset, table = visit_args.output_table.split('.') 
@@ -64,25 +95,21 @@ def run(options):
         temp_shards_per_day=10
         )
 
-    # TODO: add optional bad_segs input table
-    # TODO: read by all events per vessel_id by seg_id
-    # TODO: ouput ssvid, vessel_id
+    # TODO: add optional bad_segs input table (X)
+    # TODO: read by all events per vessel_id by seg_id (x)
     # TODO: add duration to port visits
-    # (Perhaps internally create 'ssvid-vessel_id' as ident so we can pass around easily)
 
-    queries = VisitEvent.create_queries(visit_args.events_table, start_date, end_date)
+    queries = create_queries(visit_args, start_date, end_date)
 
     sources = [(p | "Read_{}".format(i) >> beam.io.Read(
-                        beam.io.gcp.bigquery.BigQuerySource(query=x)))
+                        beam.io.gcp.bigquery.BigQuerySource(query=x, use_standard_sql=True)))
                             for (i, x) in enumerate(queries)]
 
     tagged_records = (sources
         | beam.Flatten()
         | beam.Map(from_msg)
         | CreatePortVisits()
-        | "FilterVisits" >> Filter(lambda x: start_date.date() <= x.end_timestamp.date() <= end_date.date())
-        | Map(lambda x: TimestampedValue(visit_to_msg(x), 
-                                        _datetime_to_s(x.end_timestamp)))
+        | Map(lambda x: TimestampedValue(visit_to_msg(x), _datetime_to_s(x.end_timestamp)))
         | sink
         )
 

@@ -11,13 +11,16 @@ class PortVisitsOptions(PipelineOptions):
         optional = parser.add_argument_group('Optional')
 
         required.add_argument('--events_table', 
-                            help='Name of of events table (BQ)')
+                            help='Name of events table (BQ)')
+        required.add_argument('--vessel_id_table', 
+                            help='Name of table mapping vessel_id to seg_id (BQ). '
+                            'Should have one vessel_id per seg_id, e.g. the `segment_info` table.')
         required.add_argument('--output_table', required=True,
                             help='Output table (BQ) to write results to.')
-        required.add_argument('--initial_data_date', required=True, 
-                              help="First date port events are available fors.")
+        required.add_argument('--start_date', required=True, 
+                            help="Last date (inclusive) to include in visits")
         required.add_argument('--end_date', required=True, 
-                            help="Last date (inclusive) to generate visits.")
+                            help="Last date (inclusive) to generate visits")
+        optional.add_argument('--bad_segs_table', 
+                            help='table of containing segment ids of bad segments')
 
-        
-   

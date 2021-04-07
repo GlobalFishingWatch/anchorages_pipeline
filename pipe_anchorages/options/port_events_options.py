@@ -13,7 +13,7 @@ class PortEventsOptions(PipelineOptions):
         required.add_argument('--anchorage_table', 
                             help='Name of of anchorages table (BQ)')
         required.add_argument('--input_table', required=True,
-                            help='Thinned messsage table to pull position messages from')
+                            help='Table to pull position messages from')
         required.add_argument('--state_table', required=True,
                             help='Table containing port state on each day')
         required.add_argument('--output_table', required=True,
