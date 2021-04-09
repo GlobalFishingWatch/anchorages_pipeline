@@ -21,6 +21,9 @@ class CreateInOutEvents(beam.PTransform):
     AT_SEA  = "AT_SEA"
     STOPPED = "STOPPED"
 
+    in_port_states = (IN_PORT, STOPPED)
+    all_states = (IN_PORT, AT_SEA, STOPPED)
+
     EVT_ENTER = 'PORT_ENTRY'
     EVT_EXIT  = 'PORT_EXIT'
     EVT_STOP  = 'PORT_STOP_BEGIN'
@@ -113,7 +116,7 @@ class CreateInOutEvents(beam.PTransform):
         elif n_states == 1:
             [state_info] = items['state']
             state = state_info['state']
-            assert state in ("IN_PORT", "AT_SEA", "STOPPED"), state
+            assert state in self.all_states, state
             if state_info['active_port'] is None:
                 active_port = None
             else:
@@ -163,7 +166,7 @@ class CreateInOutEvents(beam.PTransform):
 
     def _possibly_yield_gap_beg(self, seg_id, last_timestamp, last_state, next_timestamp, active_port):
         if next_timestamp - last_timestamp >= self.min_gap:
-            if last_state in ('IN_PORT', 'STOPPED'):
+            if last_state in self.in_port_states:
                 evt_timestamp = last_timestamp + self.min_gap
                 if self.start_date <= evt_timestamp.date() <= self.end_date:
                     assert evt_timestamp <= next_timestamp
@@ -195,7 +198,7 @@ class CreateInOutEvents(beam.PTransform):
             state = self._compute_state(is_in_port, is_stopped)
 
             if last_timestamp is not None:
-                if (is_in_port and 
+                if (last_state in self.in_port_states and 
                     rcd.timestamp - last_timestamp >= self.min_gap and
                     last_timestamp.date() >= self.start_date - timedelta(days=1)):
                     # if is_in_port: # and last_state in (self.IN_PORT, self.STOPPED): # Current logic

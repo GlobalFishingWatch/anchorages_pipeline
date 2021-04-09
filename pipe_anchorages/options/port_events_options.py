@@ -24,7 +24,8 @@ class PortEventsOptions(PipelineOptions):
                             help="Last date (inclusive) to look for entry/exit events.")
         
         optional.add_argument('--config', default='anchorage_cfg.yaml',
-                            help="path to configuration file")
-        optional.add_argument('--fast_test', action='store_true', 
-                            help='limit query size for testing')
+                            help="Path to configuration file")
+        optional.add_argument('--ssvid_filter', 
+                            help='Subquery or list of ssvid to limit processing to.\n'
+                                 'If prefixed by @, load from given path')
    

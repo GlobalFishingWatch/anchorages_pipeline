@@ -35,7 +35,6 @@ def create_queries(args, start_date, end_date):
     USING (seg_id)
     WHERE events._table_suffix BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}' 
     {condition}
-    -- AND ssvid IN '0d59d9f05-5189-96fb-f1d9-28d0294e4924' -- SHOULD BE IN vid_table if we use segment_info
     """
     if args.bad_segs_table is None:
         condition = ''
