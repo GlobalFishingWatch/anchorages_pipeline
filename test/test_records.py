@@ -3,6 +3,7 @@ import pytest
 import json
 import datetime
 import pickle
+import pytz
 from pipe_anchorages import common
 from pipe_anchorages.records import is_location_message, has_valid_location
 from pipe_anchorages.records import VesselRecord
@@ -15,7 +16,10 @@ with open(path) as f:
     example_data = f.read().strip()
 
 examples_msgs = [json.loads(x) for x in example_data.split("\n")]
-
+for msg in examples_msgs:
+    msg['timestamp'] = (datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S.%f UTC')
+                        .replace(tzinfo=pytz.utc).timestamp())
+# '2016-01-01 05:20:13.000000 UTC' 
 # Sabotage example message so that we can see some bad messages later
 examples_msgs[3]['lat'] = 361
 
@@ -34,7 +38,7 @@ class TestVesselLocationRecord(object):
     def test_create(self):
         (md, obj) = VesselRecord.tagged_from_msg(examples_msgs[0])
         assert obj == VesselLocationRecord(
-                    timestamp=datetime.datetime(2016, 1, 1, 5, 20, 13), 
+                    timestamp=datetime.datetime(2016, 1, 1, 5, 20, 13, tzinfo=pytz.UTC), 
                     location=common.LatLon(lat=55.2189674377, lon=9.2907962799), 
                     destination=None, 
                     speed=15.8999996185)
