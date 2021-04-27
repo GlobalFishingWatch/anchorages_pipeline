@@ -4,6 +4,7 @@ import logging
 import apache_beam as beam
 import six
 import hashlib
+import math
 
 from pipe_anchorages import common as cmn
 from pipe_anchorages.objects.port_visit import PortVisit
@@ -11,8 +12,7 @@ from pipe_anchorages.objects.port_visit import PortVisit
 
 class CreatePortVisits(beam.PTransform):
 
-    TYPE_ORDER = {x : i for (i, x) in 
-        enumerate(['PORT_ENTRY',
+    EVENT_TYPES = ['PORT_ENTRY',
                    # The order of PORT_GAP_XXX is somewhat arbitrary, but it
                    # Shouldn't matter as long as it occurs between ENTRY
                    # and EXIT.
@@ -20,10 +20,12 @@ class CreatePortVisits(beam.PTransform):
                    'PORT_GAP_END',
                    'PORT_STOP_BEGIN',
                    'PORT_STOP_END',
-                   'PORT_EXIT'])}
+                   'PORT_EXIT']
 
-    def __init__(self):
-        pass
+    TYPE_ORDER = {x : i for (i, x) in enumerate(EVENT_TYPES)}
+
+    def __init__(self, max_interseg_dist_nm):
+        self.max_interseg_dist_nm = max_interseg_dist_nm
 
     def create_visit(self, id_, visit_events):
         ssvid, vessel_id = id_
@@ -46,6 +48,26 @@ class CreatePortVisits(beam.PTransform):
                          duration_hrs=duration_hrs,
                          events=visit_events)
 
+
+    def possibly_yield_visit(self, id_, events):
+        event_types = set(x.event_type for x in events)
+        has_stop = 'PORT_STOP_BEGIN' in event_types
+        has_gap = 'PORT_GAP_BEGIN' in event_types
+        has_entry = 'PORT_ENTRY' in event_types
+        has_exit = 'PORT_EXIT' in event_types
+        if (has_stop or has_gap) and (has_entry or has_exit):
+            yield self.create_visit(id_, events)
+
+    def has_long_interseg_gap(self, evt1, evt2):
+        if evt1.seg_id == evt2.seg_id:
+            return False
+        dlat = evt2.lat - evt1.lat
+        lat = 0.5 * (evt1.lat + evt2.lat)
+        scale = math.cos(math.radians(lat))
+        dlon = evt2.lon - evt1.lon
+        dist_nm = math.hypot(dlat, scale * dlon) * 60 
+        return dist_nm > self.max_interseg_dist_nm
+
     def create_port_visits(self, tagged_events):
         id_, events = tagged_events
         # Sort events by timestamp, and also so that enter, stop, start,
@@ -53,54 +75,23 @@ class CreatePortVisits(beam.PTransform):
         tagged = [(x.timestamp, self.TYPE_ORDER[x.event_type], x)
                     for x in events]
         tagged.sort()
-        events = [x for (_, _, x) in tagged]
+        ordered_events = [x for (_, _, x) in tagged]
 
-        first_msg = True
-        is_visit = False
-        visit_events = None
-        for evt in events:
-            if first_msg or evt.event_type == 'PORT_ENTRY':
-                if visit_events:
-                    logging.warning('PORT_ENTRY without earlier exit.\n'
-                                    'Disarding previous event')
-                visit_events = [evt]
-                is_visit = False
-                first_msg = False
-                continue
-
-            if visit_events is None:
-                logging.warning('non PORT_ENTRY without earlier entry.\n'
-                                'Disarding')
-                continue
-
-            if evt.event_type not in ('PORT_STOP_BEGIN', 
-                                      'PORT_STOP_END',
-                                      'PORT_EXIT',
-                                      'PORT_GAP_BEGIN',
-                                      'PORT_GAP_END'):
-                logging.error('Unknown event type: %s\n'
-                              'Discarding', evt.event_type)
-                continue
-
-            visit_events.append(evt)
-
-            if evt.event_type in ('PORT_STOP_BEGIN', 'PORT_GAP_BEGIN'):
-                is_visit = True
-
-            if evt.event_type == 'PORT_EXIT':
-                # Only yield a visit if this qualifies as a visit; that is
-                # there has been a stop or a gap, OR if there is no port entry
-                # indicating that the track started while this vessel was in port.
-                if is_visit or visit_events[0].event_type != 'PORT_ENTRY':
-                    yield self.create_visit(id_, visit_events)
+        visit_events = []
+        for i, evt in enumerate(ordered_events):
+            has_long_gap = self.has_long_interseg_gap(visit_events[-1], evt) if visit_events else False
+            if evt.event_type in 'PORT_ENTRY' or has_long_gap:
+                yield from self.possibly_yield_visit(id_, visit_events)
                 visit_events = []
-                is_visit = False
+            if evt.event_type not in self.EVENT_TYPES:
+                logging.error(f'Unknown event type "{evt.event_type}", discarding.')
+                continue
+            visit_events.append(evt)
+            is_last = (i == len(ordered_events) - 1)
+            if (evt.event_type == 'PORT_EXIT') or is_last:
+                yield from self.possibly_yield_visit(id_, visit_events)
+                visit_events = []
 
-        if visit_events and is_visit and visit_events[0].event_type == 'PORT_ENTRY':
-            # Yield final visit even if it isn't finished yet.
-            # The final condition ensures that all events have at least one of PORT_ENTRY
-            # or PORT_EXIT, preventing orphan port visits.
-            yield self.create_visit(id_, visit_events)
 
 
     def expand(self, tagged_records):

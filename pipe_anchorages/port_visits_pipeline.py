@@ -107,7 +107,7 @@ def run(options):
     tagged_records = (sources
         | beam.Flatten()
         | beam.Map(from_msg)
-        | CreatePortVisits()
+        | CreatePortVisits(visit_args.max_inter_seg_dist_nm)
         | Map(lambda x: TimestampedValue(visit_to_msg(x), _datetime_to_s(x.end_timestamp)))
         | sink
         )
