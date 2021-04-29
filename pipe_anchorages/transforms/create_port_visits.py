@@ -27,6 +27,24 @@ class CreatePortVisits(beam.PTransform):
     def __init__(self, max_interseg_dist_nm):
         self.max_interseg_dist_nm = max_interseg_dist_nm
 
+    def compute_confidence(self, events):
+        event_types = set(x.event_type for x in events)
+        has_stop = ('PORT_STOP_BEGIN' in event_types) or ('PORT_STOP_END' in event_types)
+        has_gap = ('PORT_GAP_BEGIN' in event_types) or ('PORT_GAP_END' in event_types) 
+        has_entry = 'PORT_ENTRY' in event_types
+        has_exit = 'PORT_EXIT' in event_types
+        if (has_stop or has_gap) and (has_entry and has_exit):
+            return 4
+        if (has_stop or has_gap) and (has_entry or has_exit):
+            return 3
+        if (has_stop or has_gap):
+            return 2
+        if (has_entry or has_exit):
+            return 1
+        raise ValueError(f'`events` missing expected event types. Has {set(event_types)}')
+
+
+
     def create_visit(self, id_, visit_events):
         ssvid, vessel_id = id_
         raw_visit_id = "{}-{}-{}".format(vessel_id, 
@@ -46,16 +64,12 @@ class CreatePortVisits(beam.PTransform):
                          end_lon=visit_events[-1].lon,
                          end_anchorage_id=visit_events[-1].anchorage_id,
                          duration_hrs=duration_hrs,
+                         confidence=self.compute_confidence(visit_events),
                          events=visit_events)
 
 
     def possibly_yield_visit(self, id_, events):
-        event_types = set(x.event_type for x in events)
-        has_stop = 'PORT_STOP_BEGIN' in event_types
-        has_gap = 'PORT_GAP_BEGIN' in event_types
-        has_entry = 'PORT_ENTRY' in event_types
-        has_exit = 'PORT_EXIT' in event_types
-        if (has_stop or has_gap) and (has_entry or has_exit):
+        if events:
             yield self.create_visit(id_, events)
 
     def has_long_interseg_gap(self, evt1, evt2):

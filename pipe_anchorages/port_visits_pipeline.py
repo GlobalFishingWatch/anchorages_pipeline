@@ -5,6 +5,7 @@ import logging
 import pytz
 
 import apache_beam as beam
+from apache_beam import io
 from apache_beam import Map
 from apache_beam import Filter
 from apache_beam.options.pipeline_options import GoogleCloudOptions
@@ -84,19 +85,13 @@ def run(options):
 
     dataset, table = visit_args.output_table.split('.') 
 
-    sink = WriteToBigQueryDatePartitioned(
-        temp_gcs_location=cloud_args.temp_location,
-        dataset=dataset,
-        table=table,
-        project=cloud_args.project,
-        write_disposition="WRITE_TRUNCATE",
+    sink = io.WriteToBigQuery(
+        visit_args.output_table,
         schema=build_visit_schema(),
-        temp_shards_per_day=10
-        )
+        write_disposition=io.BigQueryDisposition.WRITE_TRUNCATE,
+        create_disposition=io.BigQueryDisposition.CREATE_IF_NEEDED,
+        additional_bq_parameters={'timePartitioning': {'type': 'DAY'}})
 
-    # TODO: add optional bad_segs input table (X)
-    # TODO: read by all events per vessel_id by seg_id (x)
-    # TODO: add duration to port visits
 
     queries = create_queries(visit_args, start_date, end_date)
 

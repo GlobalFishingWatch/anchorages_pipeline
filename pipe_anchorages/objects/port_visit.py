@@ -6,7 +6,7 @@ PortVisit = namedtuple("PortVisit",
      'start_timestamp', 'start_lat', 'start_lon', 'start_anchorage_id',
      'end_timestamp',   'end_lat',   'end_lon',   'end_anchorage_id', 
      'duration_hrs',
-     'events'])
+     'events', 'confidence'])
 
 
 class PortVisitCoder(NamedtupleCoder):
