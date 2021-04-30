@@ -31,7 +31,8 @@ expected_1 = OrderedDict([('visit_id', '983f3328bed78676306504f0df69e75e'), ('ss
             ('timestamp', 1476489542.0), ('event_type', 'PORT_STOP_END'), ('last_timestamp', 1476436086.0)]), 
         OrderedDict([('anchorage_id', '345328af'), ('lat', 29.9667462525), ('lon', 122.4396281067), 
             ('vessel_lat', 30.0182361603), ('vessel_lon', 122.475944519), ('seg_id', 412424227), 
-            ('timestamp', 1476495140.0), ('event_type', 'PORT_EXIT'), ('last_timestamp', 1476436086.0)])])])
+            ('timestamp', 1476495140.0), ('event_type', 'PORT_EXIT'), ('last_timestamp', 1476436086.0)])]),
+    ('confidence', 4)])
 
 
 expected_2 = OrderedDict([('visit_id', '4d00bc906664b0d659e9971f45482790'), ('ssvid', 'None'), ('vessel_id', 'None'), 
@@ -55,7 +56,8 @@ expected_2 = OrderedDict([('visit_id', '4d00bc906664b0d659e9971f45482790'), ('ss
             ('event_type', 'PORT_STOP_END'), ('last_timestamp', 1476426302.0)]), 
         OrderedDict([('anchorage_id', '41a90e45'), ('lat', 46.3122421582), ('lon', 47.9769367751), 
             ('vessel_lat', 46.1234703064), ('vessel_lon', 47.7903404236), ('seg_id', 273386660), ('timestamp', 1475290556.0), 
-            ('event_type', 'PORT_EXIT'), ('last_timestamp', 1476426302.0)])])])
+            ('event_type', 'PORT_EXIT'), ('last_timestamp', 1476426302.0)])]),
+    ('confidence', 4)])
     
 
 expected_3 = [
@@ -71,7 +73,8 @@ expected_3 = [
                 ('timestamp', 1476426400.0), ('event_type', 'PORT_STOP_END'), ('last_timestamp', 1476436086.0)]), 
             OrderedDict([('anchorage_id', '345328af'), ('lat', 29.9667462525), ('lon', 122.4396281067), 
                 ('vessel_lat', 30.0182361603), ('vessel_lon', 122.475944519), ('seg_id', 412424227), 
-                ('timestamp', 1476426401.0), ('event_type', 'PORT_EXIT'), ('last_timestamp', 1476436086.0)])])]), 
+                ('timestamp', 1476426401.0), ('event_type', 'PORT_EXIT'), ('last_timestamp', 1476436086.0)])]),
+        ('confidence', 3)]), 
     OrderedDict([('visit_id', '983f3328bed78676306504f0df69e75e'), ('ssvid', 'None'), ('vessel_id', 'None'), 
         ('start_timestamp', 1476426402.0), ('start_lat', 29.9667462525), ('start_lon', 122.4396281067), 
         ('start_anchorage_id', '345328af'), ('end_timestamp', 1476495140.0), ('end_lat', 29.9667462525), 
@@ -93,7 +96,8 @@ expected_3 = [
                 ('timestamp', 1476489542.0), ('event_type', 'PORT_STOP_END'), ('last_timestamp', 1476436086.0)]), 
             OrderedDict([('anchorage_id', '345328af'), ('lat', 29.9667462525), ('lon', 122.4396281067), 
                 ('vessel_lat', 30.0182361603), ('vessel_lon', 122.475944519), ('seg_id', 412424227), 
-                ('timestamp', 1476495140.0), ('event_type', 'PORT_EXIT'), ('last_timestamp', 1476436086.0)])])])]
+                ('timestamp', 1476495140.0), ('event_type', 'PORT_EXIT'), ('last_timestamp', 1476436086.0)])]),
+        ('confidence', 4)])]
 
 # Add some out of order stuff to expected_1. 
  #The stuff before port_entry at events[3] becomes an event with no start.
@@ -107,12 +111,6 @@ events_3 = [
         OrderedDict([('anchorage_id', u'345328af'), ('lat', 29.9667462525), ('lon', 122.4396281067),
             ('vessel_lat', 30.0182361603), ('vessel_lon', 122.475944519), ('seg_id', 412424227),
             ('timestamp', 1476426401.0), ('last_timestamp', 1476436086.0), ('event_type', u'PORT_EXIT')]),
-        OrderedDict([('anchorage_id', u'345328af'), ('lat', 29.9667462525), ('lon', 122.4396281067),
-            ('vessel_lat', 29.9806137085), ('vessel_lon', 122.4564437866), ('seg_id', 412424227),
-            ('timestamp', 1476426401.8), ('last_timestamp', 1476436086.0), ('event_type', u'PORT_ENTRY')]),
-        OrderedDict([('anchorage_id', u'3452d969'), ('lat', 29.9407869352), ('lon', 122.27906699),
-            ('vessel_lat', 29.9408073425), ('vessel_lon', 122.2787628174), ('seg_id', 412424227),
-            ('timestamp', 1476426401.9), ('last_timestamp', 1476436086.0), ('event_type', u'PORT_STOP_BEGIN')]),
         OrderedDict([('anchorage_id', u'345328af'), ('lat', 29.9667462525), ('lon', 122.4396281067),
             ('vessel_lat', 29.9806137085), ('vessel_lon', 122.4564437866), ('seg_id', 412424227),
             ('timestamp', 1476426402.0), ('last_timestamp', 1476436086.0), ('event_type', u'PORT_ENTRY')]),
@@ -229,7 +227,7 @@ class TestCreatePortVisits(object):
 
 
     def test_creation(self):
-        target = CreatePortVisits()
+        target = CreatePortVisits(max_interseg_dist_nm=60.0)
         for events, expected in self.generate_test_cases():
             result = target.create_port_visits(((None, None), events))
             visits = [visit_to_msg(x) for x in result]
