@@ -16,7 +16,7 @@ DEPENDENCIES = [
     'pyyaml',
     'unidecode',
     'numpy',
-    "pipe-tools==3.1.2",
+    "pipe-tools==3.2.0",
     "jinja2-cli",
     "tzlocal==1.5.1",
     "cython"

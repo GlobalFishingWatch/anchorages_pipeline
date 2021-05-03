@@ -9,12 +9,11 @@ cache:
   - ~/.cache/pip
 
 python:
-- 2.7
+- 3.7
 
 install:
   - docker volume create --name=gcp
   - docker-compose build
 
 script:
-  - docker-compose --version
   - docker-compose run test
