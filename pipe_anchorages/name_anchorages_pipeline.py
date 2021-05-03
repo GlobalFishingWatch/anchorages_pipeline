@@ -80,7 +80,8 @@ class AddNamesToAnchorages(beam.PTransform):
     def add_best_label(self, anchorage):
         port_info, source = self.port_info_finder.find(anchorage.mean_location)
         if port_info is None:
-            port_info = Port(iso3='', label=anchorage.top_destination, sublabel='', lat=None, lon=None)
+            port_info = Port(iso3='', label=anchorage.top_destination, 
+                             sublabel='', lat=None, lon=None)
             source = 'top_destination' 
         map = anchorage._asdict()
         map['label'] = normalize_label(port_info.label)
