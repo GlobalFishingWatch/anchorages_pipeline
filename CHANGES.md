@@ -8,6 +8,15 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ## [Unreleased]
 
+## v3.1.0 - 2021-05-03
+
+### Added
+
+* [PIPELINE-84](https://globalfishingwatch.atlassian.net/browse/PIPELINE-84): Adds
+  support for Apache Beam `2.28.0`.
+  Increments pipe-tools to version `v3.2.0`.
+  Increments Google SDK version to `338.0.0`.
+
 ## v3.0.4 - 2020-12-01
 
 ### Fixed
