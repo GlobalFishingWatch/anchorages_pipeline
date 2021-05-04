@@ -46,8 +46,13 @@ class InvalidRecord(
 
     @staticmethod
     def from_msg(msg):
+        timestamp=None
+        try:
+            timestamp=datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S.%f %Z')
+        except ValueError:
+            timestamp=datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S %Z')
         return InvalidRecord(
-            timestamp=datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S.%f %Z'),
+            timestamp=timestamp,
             )
 
 
@@ -59,8 +64,13 @@ class VesselInfoRecord(
 
     @staticmethod
     def from_msg(msg):
+        timestamp=None
+        try:
+            timestamp=datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S.%f %Z')
+        except ValueError:
+            timestamp=datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S %Z')
         return VesselInfoRecord(
-                timestamp=datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S.%f %Z'),
+                timestamp=timestamp,
                 destination=msg['destination']
                 )
 
@@ -76,9 +86,14 @@ class VesselLocationRecord(
         from .common import LatLon
         latlon = LatLon(msg['lat'], msg['lon'])
 
+        timestamp=None
+        try:
+            timestamp=datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S.%f %Z')
+        except ValueError:
+            timestamp=datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S %Z')
         return VesselLocationRecord(
-            timestamp=datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S.%f %Z'), 
-            location=latlon, 
+            timestamp=timestamp,
+            location=latlon,
             speed=msg['speed'],
             destination=None
            )

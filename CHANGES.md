@@ -16,6 +16,7 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
   support for Apache Beam `2.28.0`.
   Increments pipe-tools to version `v3.2.0`.
   Increments Google SDK version to `338.0.0`.
+  Fixes timestamp format parsing in records.
 
 ## v3.0.4 - 2020-12-01
 
