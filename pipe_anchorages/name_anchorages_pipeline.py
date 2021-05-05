@@ -80,7 +80,8 @@ class AddNamesToAnchorages(beam.PTransform):
     def add_best_label(self, anchorage):
         port_info, source = self.port_info_finder.find(anchorage.mean_location)
         if port_info is None:
-            port_info = Port(iso3='', label=anchorage.top_destination, sublabel='', lat=None, lon=None)
+            port_info = Port(iso3='', label=anchorage.top_destination, 
+                             sublabel='', lat=None, lon=None)
             source = 'top_destination' 
         map = anchorage._asdict()
         map['label'] = normalize_label(port_info.label)
@@ -126,7 +127,7 @@ class FindUsedS2ids(beam.PTransform):
 
     def find_used_s2ids(self, named_anchorage):
         if named_anchorage.s2id in self.s2ids_in_overrides:
-            return named_anchorage.s2id
+            yield named_anchorage.s2id
 
     def expand(self, anchorages):
         return anchorages | beam.FlatMap(self.find_used_s2ids)
