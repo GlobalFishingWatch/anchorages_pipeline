@@ -23,6 +23,6 @@ class PortVisitsOptions(PipelineOptions):
                             help="Last date (inclusive) to generate visits")
         optional.add_argument('--bad_segs_table', 
                             help='table of containing segment ids of bad segments')
-        optional.add_argument('--max-inter-seg-dist-nm', default=60, type=float,
+        optional.add_argument('--max_inter_seg_dist_nm', default=60, type=float,
                             help='Segments more than this distance apart will not be joined when creating visits')
 
