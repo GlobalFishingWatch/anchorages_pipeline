@@ -6,187 +6,147 @@
 #
 
 #
-# Get a map of ssvid to track_id
+# Get a map of ssvid to vessel_id
 #
-with 
+with
 
-  ssvid_map as (
-    SELECT
-      ssvid, 
-      track_id, 
-      index + 1 as track_rank,
-      is_noise
-      -- TODO: once tracks move into productions make this match format for primary dataset
-      from `{{ tracks_table }}*`
-      where _TABLE_SUFFIX in (select max(_TABLE_SUFFIX) from `{{ tracks_table }}*`)
-      group by ssvid, track_id, track_rank, is_noise
-    ),
-
-  #
-  # Get all port visits and include the vessel-id from the map created above
-  #
-  initial_real_port_visits_with_track_id as (
-    SELECT
-      ssvid,
-      track_id,
-      track_rank,
-      is_noise,
-      start_anchorage_id,
-      visit_id,
-      start_timestamp,
-      end_anchorage_id,
-      end_timestamp
-    from `{{ dataset }}.{{ port_visits_table }}*`
-    join ssvid_map
-      using (ssvid, track_id)
-    where events[offset(array_length(events) - 1)].event_type = 'PORT_EXIT'
-  ),
-
-  final_real_port_visits_with_track_id as (
-    SELECT
-      ssvid,
-      track_id,
-      track_rank,
-      is_noise,
-      start_anchorage_id,
-      visit_id,
-      start_timestamp,
-      end_anchorage_id,
-      end_timestamp
-    from `{{ dataset }}.{{ port_visits_table }}*`
-    join ssvid_map
-      using (ssvid, track_id)
-    where events[offset(0)].event_type = 'PORT_ENTRY'
-  ),
-
-
-  dummy_initial_port_visits_with_track_id as (
-    select
-      ssvid,
-      track_id,
-      track_rank,
-      is_noise,
-      'NO_PREVIOUS_DATA' as start_anchorage_id,
-      'NO_PREVIOUS_DATA' as visit_id,
-      timestamp('0001-2-3') as start_timestamp,
-      'NO_PREVIOUS_DATA' as end_anchorage_id,
-      timestamp('0001-2-3') as end_timestamp
-    from (select ssvid, track_id, track_rank, is_noise from ssvid_map group by 1,2,3,4)
-  ),
-
-  dummy_final_port_visits_with_track_id as (
-    select
-      ssvid,
-      track_id,
-      track_rank,
-      False,
-      'ACTIVE_VOYAGE' as start_anchorage_id,
-      'ACTIVE_VOYAGE' as visit_id,
-      timestamp('9999-9-9') as start_timestamp,
-      'ACTIVE_VOYAGE' as end_anchorage_id,
-      timestamp('9999-9-10') as end_timestamp
-    from (select ssvid, track_id, track_rank, is_noise from ssvid_map group by 1,2,3,4)
-  ),
-
-  combined_initial_port_visits_with_track_id as (
-    select * from 
-      (select * from dummy_initial_port_visits_with_track_id)
-      union all
-      (select * from initial_real_port_visits_with_track_id)
-  ),
-
-  combined_final_port_visits_with_track_id as (
-    select * from 
-      (select * from dummy_final_port_visits_with_track_id)
-      union all
-      (select * from final_real_port_visits_with_track_id)
-  ),
-
-  #
-  # Get all port entries
-  #
-  entries as (
-    SELECT
-      ssvid, 
-      track_id,
-      track_rank,
-      start_anchorage_id as anchorage_id,
-      visit_id,
-      start_timestamp as timestamp
-    from combined_final_port_visits_with_track_id 
-    group by 1,2,3,4,5,6
-  ),
-
-  #
-  # Get all port exits
-  #
-  exits as (
-    SELECT
-      ssvid, 
-      track_id,
-      track_rank,
-      end_anchorage_id as anchorage_id,
-      visit_id,
-      end_timestamp as timestamp 
-    from combined_initial_port_visits_with_track_id
-    group by 1,2,3,4,5,6
-  ),
-
-  #
-  # Generate pairs of port entries and exits taking into account the
-  # timestamp of the events
-  #
-  pairs as (
-    select
-      ssvid,
-      track_id,
-      track_rank,
-      exits.timestamp as exit,
-      entries.timestamp as entry,
-      exits.anchorage_id as exit_id,
-      entries.anchorage_id as entry_id,
-      exits.visit_id as exit_visit_id,
-      entries.visit_id as entry_visit_id
-    from exits
-    join entries
-      using (ssvid, track_id, track_rank)
-    where entries.timestamp > exits.timestamp
-    and not (
-             exits.anchorage_id = 'NO_PREVIOUS_DATA' 
-             and
-             entries.anchorage_id = 'ACTIVE_VOYAGE'
-            )
-  ),
-
-  ranked as (
-    select
-      ssvid,
-      track_id,
-      track_rank,
-      exit,
-      entry,
-      exit_id,
-      entry_id,
-      exit_visit_id,
-      entry_visit_id,
-      row_number() over (partition by track_id, exit order by entry asc) as rn
-    from pairs
-  )
-
+#
+# Get all port visits and include the vessel-id from the map created above
+#
+all_real_port_visits as (
   select
     ssvid,
-    track_id,
-    track_rank,
-    exit as trip_start,
-    entry as trip_end, 
-    exit_id as trip_start_anchorage_id,
-    entry_id as trip_end_anchorage_id,
-    exit_visit_id as trip_start_visit_id,
-    entry_visit_id as trip_end_visit_id,
-    concat(
-      track_id,
-      '-',
-      format('%012x', timestamp_diff(exit, timestamp('1970-01-01'), MILLISECOND))
-    ) as trip_id
-  from ranked
-  where rn = 1
+    vessel_id,
+    start_anchorage_id,
+    visit_id,
+    start_timestamp,
+    end_anchorage_id,
+    end_timestamp,
+    confidence
+  from `{{ port_visits_table }}`
+  where confidence >= {{ min_confidence }}
+),
+
+dummy_initial_port_visits as (
+  select
+    ssvid,
+    vessel_id,
+    'NO_PREVIOUS_DATA' as start_anchorage_id,
+    'NO_PREVIOUS_DATA' as visit_id,
+    timestamp('0001-2-3') as start_timestamp,
+    'NO_PREVIOUS_DATA' as end_anchorage_id,
+    timestamp('0001-2-3') as end_timestamp,
+    null as confidence
+  from (select ssvid, vessel_id from all_real_port_visits group by 1,2)
+),
+
+dummy_final_port_visits as (
+  select
+    ssvid,
+    vessel_id,
+    'ACTIVE_VOYAGE' as start_anchorage_id,
+    'ACTIVE_VOYAGE' as visit_id,
+    timestamp('9999-9-9') as start_timestamp,
+    'ACTIVE_VOYAGE' as end_anchorage_id,
+    timestamp('9999-9-10') as end_timestamp,
+    null as confidence
+  from (select ssvid, vessel_id from all_real_port_visits group by 1,2)
+),
+
+all_port_visits as (
+  select * from 
+    (select * from dummy_initial_port_visits)
+    union all
+    (select * from dummy_final_port_visits)
+    union all
+    (select * from all_real_port_visits)
+),
+
+#
+# Get all port entries
+#
+entries as (
+  SELECT
+    ssvid, 
+    vessel_id,
+    start_anchorage_id as anchorage_id,
+    visit_id,
+    start_timestamp as timestamp,
+    confidence
+  from all_port_visits
+),
+
+#
+# Get all port exits
+#
+exits as (
+  SELECT
+    ssvid, 
+    vessel_id,
+    end_anchorage_id as anchorage_id,
+    visit_id,
+    end_timestamp as timestamp,
+    confidence
+  from all_port_visits
+),
+
+#
+# Generate pairs of port entries and exits taking into account the
+# timestamp of the events
+#
+pairs as (
+  select
+    ssvid,
+    vessel_id vessel_id,
+    exits.timestamp as exit,
+    entries.timestamp as entry,
+    exits.anchorage_id as exit_id,
+    entries.anchorage_id as entry_id,
+    exits.visit_id as exit_visit_id,
+    entries.visit_id as entry_visit_id,
+    entries.confidence as entry_confidence,
+    exits.confidence as exit_confidence
+  from exits
+  join entries
+    using (ssvid, vessel_id)
+  where entries.timestamp > exits.timestamp
+  and not (
+           exits.anchorage_id = 'NO_PREVIOUS_DATA' 
+           and
+           entries.anchorage_id = 'ACTIVE_VOYAGE'
+          )
+),
+
+ranked as (
+  select
+    ssvid,
+    vessel_id,
+    exit,
+    entry,
+    exit_id,
+    entry_id,
+    exit_visit_id,
+    entry_visit_id,
+    entry_confidence,
+    exit_confidence,
+    row_number() over (partition by vessel_id, exit order by entry asc) as rn
+  from pairs
+)
+
+select
+  ssvid,
+  vessel_id,
+  exit as trip_start,
+  entry as trip_end, 
+  exit_id as trip_start_anchorage_id,
+  entry_id as trip_end_anchorage_id,
+  exit_visit_id as trip_start_visit_id,
+  entry_visit_id as trip_end_visit_id,
+  exit_confidence as trip_start_confidence,
+  entry_confidence as trip_end_confidence,
+  concat(
+    ssvid, '-', vessel_id, '-',
+    format('%012x', timestamp_diff(exit, timestamp('1970-01-01'), MILLISECOND))
+  ) as trip_id
+from ranked
+where rn = 1
