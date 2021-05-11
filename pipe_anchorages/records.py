@@ -45,13 +45,8 @@ class InvalidRecord(
 
     @staticmethod
     def from_msg(msg):
-        timestamp=None
-        try:
-            timestamp=datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S.%f %Z')
-        except ValueError:
-            timestamp=datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S %Z')
         return InvalidRecord(
-            timestamp=s_to_datetime(msg['timestamp'])
+            timestamp=s_to_datetime(msg['timestamp']),
             )
 
 
