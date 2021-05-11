@@ -16,5 +16,4 @@ install:
   - docker-compose build
 
 script:
-  - docker-compose --version
   - docker-compose run test

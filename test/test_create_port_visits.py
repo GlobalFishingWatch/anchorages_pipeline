@@ -101,6 +101,7 @@ expected_3 = [
 
 # Add some out of order stuff to expected_1. 
  #The stuff before port_entry at events[3] becomes an event with no start.
+
 events_3 = [
         OrderedDict([('anchorage_id', u'3452d95f'), ('lat', 29.941832869), ('lon', 122.2689838563),
             ('vessel_lat', 29.9417858124), ('vessel_lon', 122.2697219849), ('seg_id', 412424227),

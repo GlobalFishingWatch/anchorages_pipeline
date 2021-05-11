@@ -8,25 +8,36 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ## [Unreleased]
 
-## v3.0.4 - 2020-09-11
+## v3.?.0 - 2021-05-11
 
-### [GlobalFishingWatch/pipe-anchorages](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/65)
+* [anchorages_pipeline-71](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/71)
+
+    - Switch from vessel-id to segment-id for port events. This makes the the port events table a 
+      static table and opens up the possibility of filtering by bad segments later.
+    - Rather than using a finite lookback, we create an auxilliary table keeping track of the current 
+      state so that we can look back "infinitely"
+    - Continue to use vessel-id for port-visits, which requires a table mapping seg-id to vessel-id, 
+      This keeps the output similar to previously but makes the separation between static tables (events)
+      and dynamic tables (visits) explicit.
+    - Support a bad-segments table that filters events before they are assembled into visits.
+
+## v3.1.0 - 2021-05-03
 
 ### Added
 
-* Add descriptions to schema
+* [PIPELINE-84](https://globalfishingwatch.atlassian.net/browse/PIPELINE-84): Adds
+  support for Apache Beam `2.28.0`.
+  Increments pipe-tools to version `v3.2.0`.
+  Increments Google SDK version to `338.0.0`.
+  Fixes timestamp format parsing in records.
 
-### Removed
+## v3.0.4 - 2020-12-01
 
-* Remove effectively unused ssvid block list
+### Fixed
 
-### Changed
-
-* Replace vessel-id with track-id
-* Rather than a list of vessel-ids, voyages now have a single track-id
-* Create port-visits even if there is an exit, an entry event, or both), to avoid some
-   corner cases where vessels enter a port and aren't seen leaving or we miss the entry.
-* Fix Peru anchorages
+* [PIPELINE-256](https://globalfishingwatch.atlassian.net/browse/PIPELINE-256):
+  Fix port visits wrongly setting `start_lon` to the same value it's using for
+  `start_lat`.
 
 ## v3.0.3 - 2020-06-11
 
