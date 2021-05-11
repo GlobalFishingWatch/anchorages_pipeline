@@ -18,7 +18,7 @@ class PortVisitsOptions(PipelineOptions):
         required.add_argument('--output_table', required=True,
                             help='Output table (BQ) to write results to.')
         required.add_argument('--start_date', required=True, 
-                            help="Last date (inclusive) to include in visits")
+                            help="First date (inclusive) to include in visits")
         required.add_argument('--end_date', required=True, 
                             help="Last date (inclusive) to generate visits")
         optional.add_argument('--bad_segs_table', 
