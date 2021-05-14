@@ -47,9 +47,9 @@ class CreatePortVisits(beam.PTransform):
 
     def create_visit(self, id_, visit_events):
         ssvid, vessel_id = id_
-        raw_visit_id = "{}-{}-{}".format(vessel_id, 
+        raw_visit_id = "{}-{}-{}-{}".format(vessel_id, 
                                 visit_events[0].timestamp.isoformat(),
-                                visit_events[-1].timestamp.isoformat())
+                                visit_events[0].lon, visit_events[0].lat)
         duration_hrs = ((visit_events[-1].timestamp - visit_events[0].timestamp)
                         .total_seconds() / (60 * 60))
         return PortVisit(visit_id=hashlib.md5(six.ensure_binary(raw_visit_id)).hexdigest(),
