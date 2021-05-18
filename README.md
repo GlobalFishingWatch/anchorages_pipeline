@@ -177,8 +177,8 @@ To update a day of events, run, for example:
         --anchorage_table anchorages.named_anchorages_v20201104 \
         --start_date 2018-01-01 \
         --end_date 2018-12-31 \
-        --output_table machine_learning_dev_ttl_120d.port_event_test_v20210420_events_ \
-        --state_table machine_learning_dev_ttl_120d.port_event__test_v20210420_batch_state_ \
+        --output_table machine_learning_dev_ttl_120d.raw_port_events_v20210506_ \
+        --state_table machine_learning_dev_ttl_120d.port_port_state_v20210506_ \
         --project world-fishing-827 \
         --max_num_workers 100 \
         --requirements_file requirements.txt \
@@ -188,8 +188,27 @@ To update a day of events, run, for example:
         --setup_file ./setup.py \
         --runner DataflowRunner \
         --disk_size_gb 100 \
-        --region us-central1
+        --region us-central1 \
+        --ssvid_filter '(select case(vi_ssvid as string) from machine_learning_dev_ttl_120d.vessel_list_new_visits_5_6_21)'
 
+    docker-compose run port_events \
+            --job_name porteventstest \
+            --input_table pipe_production_v20201001.position_messages_ \
+            --anchorage_table anchorages.named_anchorages_v20201104 \
+            --start_date 2017-01-01 \
+            --end_date 2021-4-30 \
+            --output_table machine_learning_dev_ttl_120d.port_event_test_v20210506_events_ \
+            --state_table machine_learning_dev_ttl_120d.port_event__test_v20210506_batch_state_ \
+            --project world-fishing-827 \
+            --max_num_workers 100 \
+            --requirements_file requirements.txt \
+            --project world-fishing-827 \
+            --staging_location gs://machine-learning-dev-ttl-30d/anchorages/portevents/output/staging \
+            --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp \
+            --setup_file ./setup.py \
+            --runner DataflowRunner \
+            --disk_size_gb 100 \
+            --region us-central1
 
 For a full list of options run:
 
@@ -200,12 +219,12 @@ To create a corresponding day of visits do:
 
     docker-compose run port_visits \
         --job_name portvisitstest \
-        --events_table machine_learning_dev_ttl_120d.port_event_test_v20210420_events_ \
+        --events_table machine_learning_dev_ttl_120d.raw_port_events_v20210506_ \
         --vessel_id_table pipe_production_v20201001.segment_info \
         --bad_segs_table "(SELECT DISTINCT seg_id FROM world-fishing-827.gfw_research.pipe_v20201001_segs WHERE overlapping_and_short)" \
         --start_date 2018-01-01 \
         --end_date 2018-12-31 \
-        --output_table machine_learning_dev_ttl_120d.port_event_test_v20210420_visits_p \
+        --output_table machine_learning_dev_ttl_120d.port_visit_test_v20210506_stableid \
         --project world-fishing-827 \
         --max_num_workers 50 \
         --requirements_file requirements.txt \
@@ -214,7 +233,29 @@ To create a corresponding day of visits do:
         --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp \
         --setup_file ./setup.py \
         --runner DataflowRunner \
-        --disk_size_gb 100 
+        --disk_size_gb 100 \
+        --region us-central1
+
+
+
+    docker-compose run port_visits \
+            --job_name portvisitstest \
+            --events_table machine_learning_dev_ttl_120d.port_event_test_v20210506_events_ \
+            --vessel_id_table pipe_production_v20201001.segment_info \
+            --bad_segs_table "(SELECT DISTINCT seg_id FROM world-fishing-827.gfw_research.pipe_v20201001_segs WHERE overlapping_and_short)" \
+            --start_date 2017-01-01 \
+            --end_date 2021-04-30 \
+            --output_table machine_learning_dev_ttl_120d.port_visit_test_v20210506_stableid \
+            --project world-fishing-827 \
+            --max_num_workers 50 \
+            --requirements_file requirements.txt \
+            --project world-fishing-827 \
+            --staging_location gs://machine-learning-dev-ttl-30d/anchorages/portevents/output/staging \
+            --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp \
+            --setup_file ./setup.py \
+            --runner DataflowRunner \
+            --disk_size_gb 100 \
+            --region us-central1
 
 
 

@@ -45,14 +45,14 @@
     {
     "mode": "NULLABLE",
     "name": "trip_start_confidence",
-    "type": "STRING",
-    "description": "The id of the visit where the voyage starts."
+    "type": "INTEGER",
+    "description": "The confidence of the visit where the voyage starts."
   },
   {
     "mode": "NULLABLE",
     "name": "trip_end_confidence",
-    "type": "STRING",
-    "description": "The id of the visit where the voyage ends."
+    "type": "INTEGER",
+    "description": "The confidence of the visit where the voyage ends."
   },
   {
     "mode": "NULLABLE",

@@ -29,7 +29,7 @@ def build():
         description='duration of visit in hours')
     builder.add("end_anchorage_id", "STRING",
         description="longitude of vessel at `end_timestamp`")
-    builder.add("confidence", "FLOAT",
+    builder.add("confidence", "INTEGER",
         description="""How confident are we that this is a real visit based on components of the visits:
     1 -> no stop or gap; only an entry and/or exit
     2 -> only stop and/or gap; no entry or exit
