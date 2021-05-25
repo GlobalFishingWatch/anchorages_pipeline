@@ -161,7 +161,8 @@ or
                  --temp_location gs://machine-learning-dev-ttl-120d/anchorages/temp \
                  --setup_file ./setup.py \
                  --runner DataflowRunner \
-                 --disk_size_gb 100
+                 --disk_size_gb 100 \
+                 --region us-central1
 
 
 ### Updating Port Events
