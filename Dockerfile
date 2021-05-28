@@ -25,7 +25,9 @@ RUN  \
   gcloud config set component_manager/disable_update_check true && \
   gcloud config set metrics/environment github_docker_image
 
-RUN apt-get -y install gdal-bin libgdal-dev
+RUN apt-get -qqy install gdal-bin libgdal-dev && \
+  export GDAL_VERSION=`gdal-config --version`
+
 
 # Setup a volume for configuration and auth data
 VOLUME ["/root/.config"]

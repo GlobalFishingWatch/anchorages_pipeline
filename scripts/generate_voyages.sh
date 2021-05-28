@@ -51,7 +51,7 @@ echo "Table Description"
 echo "${TABLE_DESC}"
 echo ""
 echo "Executing query..."
-SQL=$(jinja2 ${SQL} -D port_visits_table=${SOURCE_TABLE//:/.}) -D min_confidence=${MIN_CONFIDENCE}
+SQL=$(jinja2 ${SQL} -D port_visits_table=${SOURCE_TABLE//:/.} -D min_confidence=${MIN_CONFIDENCE})
 echo "${SQL}" \
   | bq query \
     --headless \
