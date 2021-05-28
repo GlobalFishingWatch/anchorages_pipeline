@@ -123,6 +123,16 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                 date=self.source_sensor_date_nodash()
             )
 
+            segment_info_exists = BigQueryCheckOperator(
+                task_id='segment_info_exists',
+                sql='SELECT count(*) FROM `{source_dataset}.{segment_info_table}`'.format(**config),
+                use_legacy_sql=False,
+                retries=3,
+                retry_delay=timedelta(minutes=30),
+                max_retry_delay=timedelta(minutes=30),
+                on_failure_callback=config_tools.failure_callback_gfw
+            )
+
             # aggregated_segments_exists = BigQueryCheckOperator(
             #     task_id='aggregated_segments_exists',
             #     sql='SELECT count(*) FROM `{research_aggregated_segments_table}`'.format(**config),
@@ -203,6 +213,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
             )
 
             dag >> source_exists >> port_visits
+            dag >> segment_info_exists >> port_visits
             # dag >> aggregated_segments_exists >> port_visits
 
             port_visits >> ensure_creation_tables
