@@ -1,5 +1,5 @@
 cython==0.29.21
-fiona==1.8.18
+fiona==1.8.17
 jinja2-cli==0.7.0
 more-itertools==8.7.0
 numpy==1.19.5

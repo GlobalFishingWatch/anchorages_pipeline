@@ -123,15 +123,15 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                 date=self.source_sensor_date_nodash()
             )
 
-            aggregated_segments_exists = BigQueryCheckOperator(
-                task_id='aggregated_segments_exists',
-                sql='SELECT count(*) FROM `{research_aggregated_segments_table}`'.format(**config),
-                use_legacy_sql=False,
-                retries=3,
-                retry_delay=timedelta(minutes=30),
-                max_retry_delay=timedelta(minutes=30),
-                on_failure_callback=config_tools.failure_callback_gfw
-            )
+            # aggregated_segments_exists = BigQueryCheckOperator(
+            #     task_id='aggregated_segments_exists',
+            #     sql='SELECT count(*) FROM `{research_aggregated_segments_table}`'.format(**config),
+            #     use_legacy_sql=False,
+            #     retries=3,
+            #     retry_delay=timedelta(minutes=30),
+            #     max_retry_delay=timedelta(minutes=30),
+            #     on_failure_callback=config_tools.failure_callback_gfw
+            # )
 
             # Note: task_id must use '-' instead of '_' because it gets used to create the dataflow job name, and
             # only '-' is allowed
@@ -154,7 +154,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                     end_date=end_date,
 
                     # Optional
-                    bad_segs_table='(SELECT DISTINCT seg_id FROM {research_aggregated_segments_table} WHERE overlapping_and_short)'.format(**config),
+                    # bad_segs_table='(SELECT DISTINCT seg_id FROM {research_aggregated_segments_table} WHERE overlapping_and_short)'.format(**config),
 
                     # GoogleCloud Option
                     project=config['project_id'],
@@ -203,7 +203,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
             )
 
             dag >> source_exists >> port_visits
-            dag >> aggregated_segments_exists >> port_visits
+            # dag >> aggregated_segments_exists >> port_visits
 
             port_visits >> ensure_creation_tables
 
