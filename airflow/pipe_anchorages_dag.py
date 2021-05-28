@@ -1,12 +1,18 @@
 from airflow import DAG
+from airflow.contrib.operators.bigquery_check_operator import BigQueryCheckOperator
 from airflow.models import Variable
 
+from airflow_ext.gfw import config as config_tools
 from airflow_ext.gfw.models import DagFactory
 from airflow_ext.gfw.operators.bigquery_operator import BigQueryCreateEmptyTableOperator
 from airflow_ext.gfw.operators.dataflow_operator import DataFlowDirectRunnerOperator
 
+from datetime import timedelta
+
 import logging
 import posixpath as pp
+
+
 
 
 PIPELINE = 'pipe_anchorages'
@@ -117,6 +123,16 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                 date=self.source_sensor_date_nodash()
             )
 
+            aggregated_segments_exists = BigQueryCheckOperator(
+                task_id='aggregated_segments_exists',
+                sql='SELECT count(*) FROM `{research_aggregated_segments_table}`'.format(**config),
+                use_legacy_sql=False,
+                retries=3,
+                retry_delay=timedelta(minutes=30),
+                max_retry_delay=timedelta(minutes=30),
+                on_failure_callback=config_tools.failure_callback_gfw
+            )
+
             # Note: task_id must use '-' instead of '_' because it gets used to create the dataflow job name, and
             # only '-' is allowed
             port_visits = DataFlowDirectRunnerOperator(
@@ -136,6 +152,9 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                     output_table='{pipeline_dataset}.{port_visits_table}'.format(**config),
                     start_date=start_date,
                     end_date=end_date,
+
+                    # Optional
+                    bad_segs_table='(SELECT DISTINCT seg_id FROM {research_aggregated_segments_table} WHERE overlapping_and_short)'.format(**config),
 
                     # GoogleCloud Option
                     project=config['project_id'],
@@ -183,7 +202,10 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                 end_date_str=end_date
             )
 
-            dag >> source_exists >> port_visits >> ensure_creation_tables
+            dag >> source_exists >> port_visits
+            dag >> aggregated_segments_exists >> port_visits
+
+            port_visits >> ensure_creation_tables
 
             return dag
 
