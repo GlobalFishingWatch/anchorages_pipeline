@@ -1,11 +1,11 @@
-cython==0.29.23
-fiona==1.8.19
+cython==0.29.21
+fiona==1.8.18
 jinja2-cli==0.7.0
-more_itertools==8.8.0
+more-itertools==8.7.0
 numpy==1.19.5
 pipe-tools @ https://codeload.github.com/GlobalFishingWatch/pipe-tools/tar.gz/v3.2.0
-pytz==2021.1
-pyyaml==5.4.1
+pytz==2020.1
+pyyaml==5.3.1
 s2sphere==0.2.5
 shapely==1.7.1
 statistics==1.0.3.5
