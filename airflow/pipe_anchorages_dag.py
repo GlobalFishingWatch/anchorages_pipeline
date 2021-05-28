@@ -55,7 +55,7 @@ class PortEventsDagFactory(AnchorageDagFactory):
                     runner='{dataflow_runner}'.format(**config),
 
                     # Required
-                    anchorage_table='{project_id}:{anchorage_table}'.format(**config),
+                    anchorage_table='{anchorage_table}'.format(**config),
                     input_table='{source_dataset}.{source_table}'.format(**config),
                     state_table='{pipeline_dataset}.{port_events_state_table}'.format(**config),
                     output_table='{pipeline_dataset}.{port_events_table}'.format(**config),
@@ -147,8 +147,8 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                     runner='{dataflow_runner}'.format(**config),
 
                     # Required
-                    events_table='{project_id}:{pipeline_dataset}.{port_events_table}'.format(**config),
-                    vessel_id_table='{project_id}:{source_dataset}.{segment_info_table}'.format(**config),
+                    events_table='{pipeline_dataset}.{port_events_table}'.format(**config),
+                    vessel_id_table='{source_dataset}.{segment_info_table}'.format(**config),
                     output_table='{pipeline_dataset}.{port_visits_table}'.format(**config),
                     start_date=start_date,
                     end_date=end_date,
