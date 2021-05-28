@@ -66,7 +66,7 @@ class PortEventsDagFactory(AnchorageDagFactory):
                     project=config['project_id'],
                     temp_location='gs://{temp_bucket}/dataflow_temp'.format(**config),
                     staging_location='gs://{temp_bucket}/dataflow_staging'.format(**config),
-                    region='{region}',
+                    region='{region}'.format(**config),
 
                     # Worker Option
                     max_num_workers='{dataflow_max_num_workers}'.format(**config),
@@ -160,7 +160,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                     project=config['project_id'],
                     temp_location='gs://{temp_bucket}/dataflow_temp'.format(**config),
                     staging_location='gs://{temp_bucket}/dataflow_staging'.format(**config),
-                    region='{region}',
+                    region='{region}'.format(**config),
 
                     #Worker Option
                     max_num_workers='{dataflow_max_num_workers}'.format(**config),
