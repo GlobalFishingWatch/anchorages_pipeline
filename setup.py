@@ -3,7 +3,8 @@ import setuptools
 package = __import__('pipe_anchorages')
 
 DEPENDENCIES = [
-    'fiona'
+    'fiona',
+    'shapely'
 ]
 setuptools.setup(
     name='pipe-anchorages',
