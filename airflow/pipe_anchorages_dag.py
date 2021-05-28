@@ -230,20 +230,48 @@ class VoyagesDagFactory(AnchorageDagFactory):
                 date=self.source_sensor_date_nodash()
             )
 
-            voyage_generation = self.build_docker_task({
-                'task_id':'anchorages_voyage_generation',
+            voyage_c2_generation = self.build_docker_task({
+                'task_id':'voyage_c2_generation',
                 'pool':'k8operators_limit',
                 'docker_run':'{docker_run}'.format(**config),
                 'image':'{docker_image}'.format(**config),
-                'name':'anchorages-voyage-generation',
+                'name':'voyage-c2-generation',
                 'dag':dag,
                 'arguments':['generate_voyages',
                              '{project_id}:{pipeline_dataset}.{port_visits_table}'.format(**config),
-                             '{min_confidence}'.format(**config),
-                             '{project_id}:{pipeline_dataset}.{voyages_table}'.format(**config)]
+                             '2'.format(**config),
+                             '{project_id}:{pipeline_dataset}.{voyages_table}_c2'.format(**config)]
             })
 
-            dag >> source_exists >> voyage_generation
+            voyage_c3_generation = self.build_docker_task({
+                'task_id':'voyage_c3_generation',
+                'pool':'k8operators_limit',
+                'docker_run':'{docker_run}'.format(**config),
+                'image':'{docker_image}'.format(**config),
+                'name':'voyage-c3-generation',
+                'dag':dag,
+                'arguments':['generate_voyages',
+                             '{project_id}:{pipeline_dataset}.{port_visits_table}'.format(**config),
+                             '3'.format(**config),
+                             '{project_id}:{pipeline_dataset}.{voyages_table}_c3'.format(**config)]
+            })
+
+            voyage_c4_generation = self.build_docker_task({
+                'task_id':'voyage_c4_generation',
+                'pool':'k8operators_limit',
+                'docker_run':'{docker_run}'.format(**config),
+                'image':'{docker_image}'.format(**config),
+                'name':'voyage-c4-generation',
+                'dag':dag,
+                'arguments':['generate_voyages',
+                             '{project_id}:{pipeline_dataset}.{port_visits_table}'.format(**config),
+                             '4'.format(**config),
+                             '{project_id}:{pipeline_dataset}.{voyages_table}_c4'.format(**config)]
+            })
+
+            dag >> source_exists >> voyage_c2_generation
+            dag >> source_exists >> voyage_c3_generation
+            dag >> source_exists >> voyage_c4_generation
 
             return dag
 
