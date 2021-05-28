@@ -36,7 +36,7 @@ def build():
     3 -> port entry or exit with stop and/or gap
     4 -> port entry and exit with stop and/or gap"""
     )
-    builder.add("events", mode="REPEATED", 
+    builder.add("events", mode="REPEATED",
         schema_type=build_port_event_schema().fields,
         description="sequence of port events that occurred during visit"
     )

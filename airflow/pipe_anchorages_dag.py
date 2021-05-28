@@ -12,14 +12,20 @@ import posixpath as pp
 PIPELINE = 'pipe_anchorages'
 
 
-class PipeAnchoragesPortEventsDagFactory(DagFactory):
+class AnchorageDagFactory(DagFactory):
 
     def __init__(self, pipeline=PIPELINE, **kwargs):
-        super(PipeAnchoragesPortEventsDagFactory, self).__init__(pipeline=pipeline, **kwargs)
+        super(AnchorageDagFactory, self).__init__(pipeline=pipeline, **kwargs)
+        self.python_target = Variable.get('DATAFLOW_WRAPPER_STUB')
 
     def source_date(self):
         if schedule_interval!='@daily' and schedule_interval != '@monthly' and schedule_interval != '@yearly':
-            raise ValueError('Unsupported schedule interval {}'.format(self.schedule_interval))
+            raise ValueError(f'Unsupported schedule interval {self.schedule_interval}')
+
+class PortEventsDagFactory(AnchorageDagFactory):
+
+    def __init__(self, **kwargs):
+        super(PortEventsDagFactory, self).__init__(**kwargs)
 
     def build(self, dag_id):
         config = self.config
@@ -29,32 +35,40 @@ class PipeAnchoragesPortEventsDagFactory(DagFactory):
         with DAG(dag_id, schedule_interval=self.schedule_interval, default_args=self.default_args) as dag:
             source_sensors = self.source_table_sensors(dag)
 
-            python_target = Variable.get('DATAFLOW_WRAPPER_STUB')
-
             # Note: task_id must use '-' instead of '_' because it gets used to create the dataflow job name, and
             # only '-' is allowed
             port_events = DataFlowDirectRunnerOperator(
                 task_id='port-events',
                 pool='dataflow',
-                py_file=python_target,
+                py_file=self.python_target,
                 options=dict(
+                    # Airflow
                     startup_log_file=pp.join(Variable.get('DATAFLOW_WRAPPER_LOG_PATH'),
                                              'pipe_anchorages/port-events.log'),
                     command='{docker_run} {docker_image} port_events'.format(**config),
-                    project=config['project_id'],
                     runner='{dataflow_runner}'.format(**config),
-                    start_date=start_date,
-                    end_date=end_date,
+
+                    # Required
                     anchorage_table='{project_id}:{anchorage_table}'.format(**config),
                     input_table='{source_dataset}.{source_table}'.format(**config),
+                    state_table='{pipeline_dataset}.{port_events_state_table}'.format(**config),
                     output_table='{pipeline_dataset}.{port_events_table}'.format(**config),
+                    start_date=start_date,
+                    end_date=end_date,
+
+                    # GoogleCloud Option
+                    project=config['project_id'],
                     temp_location='gs://{temp_bucket}/dataflow_temp'.format(**config),
                     staging_location='gs://{temp_bucket}/dataflow_staging'.format(**config),
+                    region='{region}',
+
+                    # Worker Option
                     max_num_workers='{dataflow_max_num_workers}'.format(**config),
                     disk_size_gb='{dataflow_disk_size_gb}'.format(**config),
+
+                    # Setup Option
                     requirements_file='./requirements.txt',
-                    setup_file='./setup.py',
-                    start_padding='{port_events_start_padding}'.format(**config)
+                    setup_file='./setup.py'
                 )
             )
 
@@ -82,14 +96,10 @@ class PipeAnchoragesPortEventsDagFactory(DagFactory):
             return dag
 
 
-class PipeAnchoragesPortVisitsDagFactory(DagFactory):
+class PortVisitsDagFactory(AnchorageDagFactory):
 
-    def __init__(self, pipeline=PIPELINE, **kwargs):
-        super(PipeAnchoragesPortVisitsDagFactory, self).__init__(pipeline=pipeline, **kwargs)
-
-    def source_date(self):
-        if schedule_interval!='@daily' and schedule_interval != '@monthly' and schedule_interval != '@yearly':
-            raise ValueError('Unsupported schedule interval {}'.format(self.schedule_interval))
+    def __init__(self, **kwargs):
+        super(PortVisitsDagFactory, self).__init__(**kwargs)
 
     def build(self, dag_id):
         config = self.config
@@ -107,31 +117,37 @@ class PipeAnchoragesPortVisitsDagFactory(DagFactory):
                 date=self.source_sensor_date_nodash()
             )
 
-            python_target = Variable.get('DATAFLOW_WRAPPER_STUB')
-
-            logging.info("target: %s", python_target)
-
             # Note: task_id must use '-' instead of '_' because it gets used to create the dataflow job name, and
             # only '-' is allowed
             port_visits = DataFlowDirectRunnerOperator(
                 task_id='port-visits',
                 pool='dataflow',
-                py_file=python_target,
+                py_file=self.python_target,
                 options=dict(
+                    # Airflow
                     startup_log_file=pp.join(Variable.get('DATAFLOW_WRAPPER_LOG_PATH'),
                                              'pipe_anchorages/port-visits.log'),
                     command='{docker_run} {docker_image} port_visits'.format(**config),
-                    project=config['project_id'],
                     runner='{dataflow_runner}'.format(**config),
+
+                    # Required
+                    events_table='{project_id}:{pipeline_dataset}.{port_events_table}'.format(**config),
+                    vessel_id_table='{project_id}:{source_dataset}.{segment_info_table}'.format(**config),
+                    output_table='{pipeline_dataset}.{port_visits_table}'.format(**config),
                     start_date=start_date,
                     end_date=end_date,
-                    events_table='{project_id}:{pipeline_dataset}.{port_events_table}'.format(**config),
-                    start_padding='{port_visits_start_padding}'.format(**config),
-                    output_table='{pipeline_dataset}.{port_visits_table}'.format(**config),
+
+                    # GoogleCloud Option
+                    project=config['project_id'],
                     temp_location='gs://{temp_bucket}/dataflow_temp'.format(**config),
                     staging_location='gs://{temp_bucket}/dataflow_staging'.format(**config),
+                    region='{region}',
+
+                    #Worker Option
                     max_num_workers='{dataflow_max_num_workers}'.format(**config),
                     disk_size_gb='{dataflow_disk_size_gb}'.format(**config),
+
+                    # Setup Option
                     requirements_file='./requirements.txt',
                     setup_file='./setup.py'
                 )
@@ -173,14 +189,10 @@ class PipeAnchoragesPortVisitsDagFactory(DagFactory):
 
 
 
-class PipeAnchoragesVoyagesDagFactory(DagFactory):
+class VoyagesDagFactory(AnchorageDagFactory):
 
-    def __init__(self, pipeline=PIPELINE, **kwargs):
-        super(PipeAnchoragesVoyagesDagFactory, self).__init__(pipeline=pipeline, **kwargs)
-
-    def source_date(self):
-        if schedule_interval!='@daily' and schedule_interval != '@monthly' and schedule_interval != '@yearly':
-            raise ValueError('Unsupported schedule interval {}'.format(self.schedule_interval))
+    def __init__(self, **kwargs):
+        super(VoyagesDagFactory, self).__init__(**kwargs)
 
     def build(self, dag_id):
         config = self.config
@@ -204,8 +216,8 @@ class PipeAnchoragesVoyagesDagFactory(DagFactory):
                 'name':'anchorages-voyage-generation',
                 'dag':dag,
                 'arguments':['generate_voyages',
-                             '{project_id}:{pipeline_dataset}'.format(**config),
-                             '{port_visits_table}'.format(**config),
+                             '{project_id}:{pipeline_dataset}.{port_visits_table}'.format(**config),
+                             '{min_confidence}'.format(**config),
                              '{project_id}:{pipeline_dataset}.{voyages_table}'.format(**config)]
             })
 
@@ -215,7 +227,6 @@ class PipeAnchoragesVoyagesDagFactory(DagFactory):
 
 
 for mode in ['daily', 'monthly', 'yearly']:
-    interval = '@{}'.format(mode)
-    globals()['port_events_{}'.format(mode)] = PipeAnchoragesPortEventsDagFactory(schedule_interval=interval).build('port_events_{}'.format(mode))
-    globals()['port_visits_{}'.format(mode)] = PipeAnchoragesPortVisitsDagFactory(schedule_interval=interval).build('port_visits_{}'.format(mode))
-    globals()['pipe_anchorages_voyages_{}'.format(mode)] = PipeAnchoragesVoyagesDagFactory(schedule_interval=interval).build('pipe_anchorages_voyages_{}'.format(mode))
+    globals()[f'port_events_{mode}'] = PortEventsDagFactory(schedule_interval=f'@{mode}').build(f'port_events_{mode}')
+    globals()[f'port_visits_{mode}'] = PortVisitsDagFactory(schedule_interval=f'@{mode}').build(f'port_visits_{mode}')
+    globals()[f'pipe_anchorages_voyages_{mode}'] = VoyagesDagFactory(schedule_interval=f'@{mode}').build(f'pipe_anchorages_voyages_{mode}')

@@ -4,7 +4,7 @@ import datetime
 
 def is_location_message(msg):
     return (
-        msg['lat'] is not None and 
+        msg['lat'] is not None and
         msg['lon'] is not None and
         msg['speed'] is not None
         )
@@ -40,7 +40,7 @@ class VesselRecord(object):
 class InvalidRecord(
     namedtuple('InvalidRecord', ['timestamp']),
     VesselRecord):
-    
+
     __slots__ = ()
 
     @staticmethod
@@ -72,7 +72,7 @@ class VesselInfoRecord(
 class VesselLocationRecord(
     namedtuple("VesselLocationRecord", ['timestamp', 'location', 'speed', 'destination']),
     VesselRecord):
-    
+
     __slots__ = ()
 
     @staticmethod
@@ -80,8 +80,8 @@ class VesselLocationRecord(
         from .common import LatLon
         latlon = LatLon(msg['lat'], msg['lon'])
         return VesselLocationRecord(
-            timestamp=s_to_datetime(msg['timestamp']), 
-            location=latlon, 
+            timestamp=s_to_datetime(msg['timestamp']),
+            location=latlon,
             speed=msg['speed'],
             destination=None
            )

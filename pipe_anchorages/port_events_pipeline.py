@@ -18,7 +18,6 @@ from .transforms.create_tagged_anchorages import CreateTaggedAnchorages
 from .transforms.create_in_out_events import CreateInOutEvents
 from .transforms.sink import EventSink, EventStateSink
 from .options.port_events_options import PortEventsOptions
-from .schema.port_event import build_event_state_schema 
 
 
 def create_queries(args, start_date, end_date):
@@ -26,7 +25,7 @@ def create_queries(args, start_date, end_date):
     SELECT seg_id AS ident, ssvid, lat, lon, speed,
             CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
     FROM `{table}*`
-    WHERE _table_suffix BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}' 
+    WHERE _table_suffix BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}'
       {filter_text}
     """
     start_window = start_date
@@ -86,7 +85,7 @@ def run(options):
     # TODO: make into separate function
     client = bigquery.Client(project=cloud_options.project)
     try:
-        client.get_table(state_table) 
+        client.get_table(state_table)
         state_table_exists = True
     except NotFound:
         state_table_exists = False
@@ -111,22 +110,22 @@ def run(options):
 
     tagged_records, states = (tagged_records
         | CreateInOutEvents(anchorages=anchorages,
-                            anchorage_entry_dist=config['anchorage_entry_distance_km'], 
-                            anchorage_exit_dist=config['anchorage_exit_distance_km'], 
+                            anchorage_entry_dist=config['anchorage_entry_distance_km'],
+                            anchorage_exit_dist=config['anchorage_exit_distance_km'],
                             stopped_begin_speed=config['stopped_begin_speed_knots'],
                             stopped_end_speed=config['stopped_end_speed_knots'],
                             min_gap_minutes=config['minimum_port_gap_duration_minutes'],
-                            start_date=start_date, 
+                            start_date=start_date,
                             end_date=end_date)
         )
 
-    (tagged_records 
-        | "writeInOutEvents" >> EventSink(table=known_args.output_table, 
+    (tagged_records
+        | "writeInOutEvents" >> EventSink(table=known_args.output_table,
                                           temp_location=cloud_options.temp_location,
                                           project=cloud_options.project)
         )
 
-    states | 'WriteState' >> EventStateSink(known_args.state_table, 
+    states | 'WriteState' >> EventStateSink(known_args.state_table,
                                            temp_location=cloud_options.temp_location,
                                             project=cloud_options.project)
 

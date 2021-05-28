@@ -29,7 +29,7 @@ class SchemaBuilder(object):
         if is_record:
             for subfield in schema_type:
                 field.fields.append(subfield)
-        return field   
+        return field
 
     def add(self, name, schema_type, mode="REQUIRED", description=None):
         field = self.build(name, schema_type, mode, description)

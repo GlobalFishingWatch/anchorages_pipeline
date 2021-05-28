@@ -8,7 +8,7 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ## [Unreleased]
 
-## v3.?.0 - 2021-05-11
+## v3.2.0 - 2021-05-11
 
 * [anchorages_pipeline-71](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/71)
 

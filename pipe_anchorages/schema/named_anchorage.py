@@ -1,15 +1,14 @@
 from .utils import SchemaBuilder
-from .port_event import build as build_port_event_schema
 
 def build():
 
     builder = SchemaBuilder()
 
-    builder.add("s2id", "STRING", 
+    builder.add("s2id", "STRING",
         description="anchorage ID (id of the S2 grid cell)")
-    builder.add("lat", "FLOAT", 
+    builder.add("lat", "FLOAT",
         description="latitude of t'NULLABLE',he anchorage")
-    builder.add("lon", "FLOAT", 
+    builder.add("lon", "FLOAT",
         description="longitude of the anchorage")
     builder.add("label", "STRING", 'NULLABLE',
         description="port name")
