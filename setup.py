@@ -2,6 +2,9 @@ import setuptools
 
 package = __import__('pipe_anchorages')
 
+DEPENDENCIES = [
+    'fiona'
+]
 setuptools.setup(
     name='pipe-anchorages',
     author=package.__author__,
@@ -11,7 +14,7 @@ setuptools.setup(
     version=package.__version__,
     license="Apache 2.0",
     include_package_data=True,
-    install_requires=[],
+    install_requires=DEPENDENCIES,
     packages=setuptools.find_packages(),
     zip_safe=True,
     package_data={
