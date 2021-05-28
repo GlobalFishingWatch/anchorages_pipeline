@@ -78,26 +78,44 @@ class PortEventsDagFactory(AnchorageDagFactory):
                 )
             )
 
-            ensure_creation_tables = BigQueryCreateEmptyTableOperator(
+            ensure_creation_event_tables = BigQueryCreateEmptyTableOperator(
                 task_id='ensure_port_events_creation_tables',
                 dataset_id='{pipeline_dataset}'.format(**config),
                 table_id='{port_events_table}'.format(**config),
                 schema_fields=[
-                    {"name": "vessel_id", "type": "STRING", "mode": "REQUIRED"},
+                    {"name": "seg_id", "type": "STRING", "mode": "REQUIRED"},
                     {"name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED"},
                     {"name": "lat", "type":"FLOAT", "mode": "REQUIRED"},
                     {"name": "lon", "type":"FLOAT", "mode": "REQUIRED"},
-                    {"name": "vessel_lat", "type":"FLOAT", "mode": "REQUIRED"},
-                    {"name": "vessel_lon", "type":"FLOAT", "mode": "REQUIRED"},
+                    {"name": "vessel_lat", "type":"FLOAT", "mode": "NULLABLE"},
+                    {"name": "vessel_lon", "type":"FLOAT", "mode": "NULLABLE"},
                     {"name": "anchorage_id", "type": "STRING", "mode": "REQUIRED"},
-                    {"name": "event_type", "type": "STRING", "mode": "REQUIRED"}
+                    {"name": "event_type", "type": "STRING", "mode": "REQUIRED"},
+                    {"name": "last_timestamp", "type": "TIMESTAMP", "mode": "NULLABLE"}
+                ],
+                start_date_str=start_date,
+                end_date_str=end_date
+            )
+
+            ensure_creation_state_tables = BigQueryCreateEmptyTableOperator(
+                task_id='ensure_port_state_creation_tables',
+                dataset_id='{pipeline_dataset}'.format(**config),
+                table_id='{port_events_state_table}'.format(**config),
+                schema_fields=[
+                    {"name": "seg_id", "type": "STRING", "mode": "REQUIRED"},
+                    {"name": "date", "type": "DATE", "mode": "REQUIRED"},
+                    {"name": "state", "type":"STRING", "mode": "NULLABLE"},
+                    {"name": "active_port", "type":"STRING", "mode": "NULLABLE"},
+                    {"name": "last_timestamp", "type": "TIMESTAMP", "mode": "NULLABLE"}
                 ],
                 start_date_str=start_date,
                 end_date_str=end_date
             )
 
             for source_exists in source_sensors:
-                dag >> source_exists >> port_events >> ensure_creation_tables
+                dag >> source_exists >> port_events
+            port_events >> ensure_creation_events_tables
+            port_events >> ensure_creation_state_tables
 
             return dag
 
@@ -187,26 +205,31 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                 dataset_id='{pipeline_dataset}'.format(**config),
                 table_id='{port_visits_table}'.format(**config),
                 schema_fields=[
-                    { "mode": "REQUIRED", "name": "vessel_id", "type": "STRING" },
-                    { "mode": "REQUIRED", "name": "start_timestamp", "type": "TIMESTAMP" },
-                    { "mode": "REQUIRED", "name": "start_lat", "type": "FLOAT" },
-                    { "mode": "REQUIRED", "name": "start_lon", "type": "FLOAT" },
-                    { "mode": "REQUIRED", "name": "start_anchorage_id", "type": "STRING" },
-                    { "mode": "REQUIRED", "name": "end_timestamp", "type": "TIMESTAMP" },
-                    { "mode": "REQUIRED", "name": "end_lat", "type": "FLOAT" },
-                    { "mode": "REQUIRED", "name": "end_lon", "type": "FLOAT" },
-                    { "mode": "REQUIRED", "name": "end_anchorage_id", "type": "STRING" },
-                    { "fields": [
-                        { "mode": "REQUIRED", "name": "vessel_id", "type": "STRING" },
-                        { "mode": "REQUIRED", "name": "timestamp", "type": "TIMESTAMP" },
-                        { "mode": "REQUIRED", "name": "lat", "type": "FLOAT" },
-                        { "mode": "REQUIRED", "name": "lon", "type": "FLOAT" },
-                        { "mode": "REQUIRED", "name": "vessel_lat", "type": "FLOAT" },
-                        { "mode": "REQUIRED", "name": "vessel_lon", "type": "FLOAT" },
-                        { "mode": "REQUIRED", "name": "anchorage_id", "type": "STRING" },
-                        { "mode": "REQUIRED", "name": "event_type", "type": "STRING" }
-                    ],
-                    "mode": "REPEATED", "name": "events", "type": "RECORD" }
+                    {"name":"visit_id","type":"STRING","mode":"REQUIRED","description":"Unique ID for this visit"},
+                    {"name":"vessel_id","type":"STRING","mode":"REQUIRED","description":"`vessel_id` of the track this visit was found on"},
+                    {"name":"ssvid","type":"STRING","mode":"REQUIRED","description":"`ssvid` of the vessel involved in the visit.N.B. Some `ssvid` may be associated with multiple tracks"},
+                    {"name":"start_timestamp","type":"TIMESTAMP","mode":"REQUIRED","description":"timestamp at which vessel crossed into the anchorage"},
+                    {"name":"start_lat","type":"FLOAT","mode":"REQUIRED","description":"latitude of vessel at `start_timestamp`"},
+                    {"name":"start_lon","type":"FLOAT","mode":"REQUIRED","description":"longitude of vessel at `start_timestamp`"},
+                    {"name":"start_anchorage_id","type":"STRING","mode":"REQUIRED","description":"`anchorage_id` of anchorage where vessel entered port"},
+                    {"name":"end_timestamp","type":"TIMESTAMP","mode":"REQUIRED","description":"timestamp at which vessel crossed out the anchorage"},
+                    {"name":"end_lat","type":"FLOAT","mode":"REQUIRED","description":"latitude of vessel at `end_timestamp`"},
+                    {"name":"end_lon","type":"FLOAT","mode":"REQUIRED","description":"longitude of vessel at `end_timestamp`"},
+                    {"name":"duration_hrs","type":"FLOAT","mode":"REQUIRED","description":"duration of visit in hours"},
+                    {"name":"end_anchorage_id","type":"STRING","mode":"REQUIRED","description":"longitude of vessel at `end_timestamp`"},
+                    {"name":"confidence","type":"INTEGER","mode":"REQUIRED","description":"How confident are we that this is a real visit based on components of the visits:\n    1 -> no stop or gap; only an entry and/or exit\n    2 -> only stop and/or gap; no entry or exit\n    3 -> port entry or exit with stop and/or gap\n    4 -> port entry and exit with stop and/or gap"},
+                    {"name":"events","type":"RECORD","mode":"REPEATED",
+                    "fields":[{"name":"seg_id","type":"STRING","mode":"REQUIRED"},
+                      {"name":"timestamp","type":"TIMESTAMP","mode":"REQUIRED"},
+                      {"name":"lat","type":"FLOAT","mode":"REQUIRED"},
+                      {"name":"lon","type":"FLOAT","mode":"REQUIRED"},
+                      {"name":"vessel_lat","type":"FLOAT","mode":"NULLABLE"},
+                      {"name":"vessel_lon","type":"FLOAT","mode":"NULLABLE"},
+                      {"name":"anchorage_id","type":"STRING","mode":"REQUIRED"},
+                      {"name":"event_type","type":"STRING","mode":"REQUIRED"},
+                      {"name":"last_timestamp","type":"TIMESTAMP","mode":"NULLABLE"}
+                      ],"description":"sequence of port events that occurred during visit"
+                    }
                 ],
                 start_date_str=start_date,
                 end_date_str=end_date

@@ -26,15 +26,13 @@ RUN  \
   gcloud config set metrics/environment github_docker_image
 
 RUN apt-get -qqy install gdal-bin libgdal-dev
-RUN export GDAL_VERSION="$(gdal-config --version)"
-
 
 # Setup a volume for configuration and auth data
 VOLUME ["/root/.config"]
 
 # Setup local application dependencies
 COPY . /opt/project
-RUN \
+RUN export GDAL_VERSION="$(gdal-config --version)" && \
   pip install -r requirements.txt && \
   pip install -e .
 
