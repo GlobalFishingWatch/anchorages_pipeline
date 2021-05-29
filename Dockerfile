@@ -33,7 +33,7 @@ VOLUME ["/root/.config"]
 # Setup local application dependencies
 COPY . /opt/project
 RUN export GDAL_VERSION="$(gdal-config --version)" && \
-  pip install -r requirements.txt && \
+  pip install -r requirements-scheduler-frozen.txt && \
   pip install -e .
 
 # Setup the entrypoint for quickly executing the pipelines
