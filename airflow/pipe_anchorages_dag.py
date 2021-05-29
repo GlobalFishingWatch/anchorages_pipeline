@@ -114,7 +114,7 @@ class PortEventsDagFactory(AnchorageDagFactory):
 
             for source_exists in source_sensors:
                 dag >> source_exists >> port_events
-            port_events >> ensure_creation_events_tables
+            port_events >> ensure_creation_event_tables
             port_events >> ensure_creation_state_tables
 
             return dag
