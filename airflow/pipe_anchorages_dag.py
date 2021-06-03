@@ -215,16 +215,18 @@ class VoyagesDagFactory(AnchorageDagFactory):
 
     def build(self, dag_id):
         config = self.config
+        start, end = self.source_date_range()
 
         with DAG(dag_id, schedule_interval=self.schedule_interval, default_args=self.default_args) as dag:
 
-            source_exists = self.table_sensor(
-                dag=dag,
+            source_exists = BigQueryCheckOperator(
                 task_id='source_exists_{port_visits_table}'.format(**config),
-                project='{project_id}'.format(**config),
-                dataset='{pipeline_dataset}'.format(**config),
-                table='{port_visits_table}'.format(**config),
-                date=self.source_sensor_date_nodash()
+                sql=f'SELECT count(*) FROM `{config["pipeline_dataset"]}.{config["port_visits_table"]}` WHERE date(start_timestamp) between {start} and {end}',
+                use_legacy_sql=False,
+                retries=3,
+                retry_delay=timedelta(minutes=30),
+                max_retry_delay=timedelta(minutes=30),
+                on_failure_callback=config_tools.failure_callback_gfw
             )
 
             voyage_c2_generation = self.build_docker_task({
