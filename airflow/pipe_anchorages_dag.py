@@ -221,7 +221,7 @@ class VoyagesDagFactory(AnchorageDagFactory):
 
             source_exists = BigQueryCheckOperator(
                 task_id='source_exists_{port_visits_table}'.format(**config),
-                sql=f'SELECT count(*) FROM `{config["pipeline_dataset"]}.{config["port_visits_table"]}` WHERE date(start_timestamp) between {start} and {end}',
+                sql=f'SELECT count(*) FROM `{config["pipeline_dataset"]}.{config["port_visits_table"]}` WHERE date(start_timestamp) between \'{start}\' and \'{end}\'',
                 use_legacy_sql=False,
                 retries=3,
                 retry_delay=timedelta(minutes=30),
