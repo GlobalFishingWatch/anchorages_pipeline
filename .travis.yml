@@ -13,6 +13,7 @@ python:
 
 install:
   - docker volume create --name=gcp
+  - echo "$DOCKER_USRENAME"
   - docker-compose build
 
 script:

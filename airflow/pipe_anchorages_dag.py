@@ -165,7 +165,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
             # only '-' is allowed
             port_visits = DataFlowDirectRunnerOperator(
                 task_id='port-visits',
-                pool='dataflow',
+                pool='dataflow2',
                 py_file=self.python_target,
                 options=dict(
                     # Airflow
