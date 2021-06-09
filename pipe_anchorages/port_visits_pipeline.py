@@ -92,17 +92,15 @@ def run(options):
     sink = io.WriteToBigQuery(
         visit_args.output_table,
         schema=build_visit_schema(),
-        write_disposition=io.BigQueryDisposition.WRITE_TRUNCATE,
+        write_disposition=io.BigQueryDisposition.WRITE_APPEND,
         create_disposition=io.BigQueryDisposition.CREATE_IF_NEEDED,
-        additional_bq_parameters={'timePartitioning': 
-                                        {'type': 'DAY',
-                                         'field' : 'end_timestamp'},
-                                  'clustering': {'fields': [
-                                         'start_timestamp',
-                                         'confidence',
-                                         'ssvid',
-                                         'vessel_id'
-                                  ]}}
+        additional_bq_parameters={
+            'timePartitioning': {
+                'type': 'DAY',
+                'field' : 'end_timestamp'
+            }, 'clustering': {
+                'fields': [ 'start_timestamp', 'confidence', 'ssvid', 'vessel_id' ]
+            }}
         )
 
     queries = create_queries(visit_args, start_date, end_date)
