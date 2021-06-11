@@ -45,6 +45,8 @@ TABLE_DESC=$( IFS=$'\n'; echo "${TABLE_DESC[*]}" )
 ############################################################
 # Run query to generate voyages.
 ############################################################
+PARTITION_BY_ID="trip_end"
+CLUSTER_BY="ssvid,vessel_id,trip_start,trip_id"
 echo "Publishing ${PROCESS} to ${DEST_TABLE}..."
 echo ""
 echo "Table Description"
@@ -58,10 +60,13 @@ echo "${SQL}" \
     --max_rows=0 \
     --allow_large_results \
     --replace \
+    --time_partitioning_type=DAY \
+    --time_partitioning_field="${PARTITION_BY_ID}" \
+    --clustering_fields "${CLUSTER_BY}" \
     --destination_table ${DEST_TABLE}
 
 if [ "$?" -ne 0 ]; then
-  echo "  Unable to run the voyage  generation query."
+  echo "  Unable to run the voyage generation query."
   exit 1
 else
   echo "  The voyage generation query has RUN."

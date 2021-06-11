@@ -24,14 +24,14 @@ class AnchorageDagFactory(DagFactory):
         super(AnchorageDagFactory, self).__init__(pipeline=pipeline, **kwargs)
         self.python_target = Variable.get('DATAFLOW_WRAPPER_STUB')
 
-    def source_date(self):
-        if schedule_interval!='@daily' and schedule_interval != '@monthly' and schedule_interval != '@yearly':
-            raise ValueError(f'Unsupported schedule interval {self.schedule_interval}')
-
 class PortEventsDagFactory(AnchorageDagFactory):
 
     def __init__(self, **kwargs):
         super(PortEventsDagFactory, self).__init__(**kwargs)
+
+    def source_date(self):
+        if schedule_interval!='@daily' and schedule_interval != '@monthly' and schedule_interval != '@yearly':
+            raise ValueError(f'Unsupported schedule interval {self.schedule_interval}')
 
     def build(self, dag_id):
         config = self.config
@@ -125,6 +125,10 @@ class PortVisitsDagFactory(AnchorageDagFactory):
     def __init__(self, **kwargs):
         super(PortVisitsDagFactory, self).__init__(**kwargs)
 
+    def source_date(self):
+        if schedule_interval!='@daily':
+            raise ValueError(f'Unsupported schedule interval {self.schedule_interval}')
+
     def build(self, dag_id):
         config = self.config
 
@@ -178,7 +182,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                     events_table='{pipeline_dataset}.{port_events_table}'.format(**config),
                     vessel_id_table='{source_dataset}.{segment_info_table}'.format(**config),
                     output_table='{pipeline_dataset}.{port_visits_table}'.format(**config),
-                    start_date=start_date,
+                    start_date=self.default_args['start_date'].strftime("%Y-%m-%d"),
                     end_date=end_date,
 
                     # Optional
@@ -198,35 +202,6 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                     requirements_file='./requirements-worker-frozen.txt',
                     setup_file='./setup.py'
                 )
-            )
-
-            dag >> source_exists >> port_visits
-            dag >> segment_info_exists >> port_visits
-            dag >> overlappingandshort_segments_exists >> port_visits
-
-            return dag
-
-
-
-class VoyagesDagFactory(AnchorageDagFactory):
-
-    def __init__(self, **kwargs):
-        super(VoyagesDagFactory, self).__init__(**kwargs)
-
-    def build(self, dag_id):
-        config = self.config
-        start, end = self.source_date_range()
-
-        with DAG(dag_id, schedule_interval=self.schedule_interval, default_args=self.default_args) as dag:
-
-            source_exists = BigQueryCheckOperator(
-                task_id='source_exists_{port_visits_table}'.format(**config),
-                sql=f'SELECT count(*) FROM `{config["pipeline_dataset"]}.{config["port_visits_table"]}` WHERE date(start_timestamp) between \'{start}\' and \'{end}\'',
-                use_legacy_sql=False,
-                retries=3,
-                retry_delay=timedelta(minutes=30),
-                max_retry_delay=timedelta(minutes=30),
-                on_failure_callback=config_tools.failure_callback_gfw
             )
 
             voyage_c2_generation = self.build_docker_task({
@@ -268,14 +243,42 @@ class VoyagesDagFactory(AnchorageDagFactory):
                              '{project_id}:{pipeline_dataset}.{voyages_table}_c4'.format(**config)]
             })
 
-            dag >> source_exists >> voyage_c2_generation
-            dag >> source_exists >> voyage_c3_generation
-            dag >> source_exists >> voyage_c4_generation
+            dag >> source_exists >> port_visits
+            dag >> segment_info_exists >> port_visits
+            dag >> overlappingandshort_segments_exists >> port_visits
+
+            port_visits >> voyage_c2_generation
+            port_visits >> voyage_c3_generation
+            port_visits >> voyage_c4_generation
 
             return dag
 
 
+
+# class VoyagesDagFactory(AnchorageDagFactory):
+
+#     def __init__(self, **kwargs):
+#         super(VoyagesDagFactory, self).__init__(**kwargs)
+
+#     def build(self, dag_id):
+#         config = self.config
+#         start, end = self.source_date_range()
+
+#         with DAG(dag_id, schedule_interval=self.schedule_interval, default_args=self.default_args) as dag:
+
+#             source_exists = BigQueryCheckOperator(
+#                 task_id='source_exists_{port_visits_table}'.format(**config),
+#                 sql=f'SELECT count(*) FROM `{config["pipeline_dataset"]}.{config["port_visits_table"]}` WHERE date(start_timestamp) between \'{start}\' and \'{end}\'',
+#                 use_legacy_sql=False,
+#                 retries=3,
+#                 retry_delay=timedelta(minutes=30),
+#                 max_retry_delay=timedelta(minutes=30),
+#                 on_failure_callback=config_tools.failure_callback_gfw
+#             )
+
+#             return dag
+
+
 for mode in ['daily', 'monthly', 'yearly']:
     globals()[f'port_events_{mode}'] = PortEventsDagFactory(schedule_interval=f'@{mode}').build(f'port_events_{mode}')
-    globals()[f'port_visits_{mode}'] = PortVisitsDagFactory(schedule_interval=f'@{mode}').build(f'port_visits_{mode}')
-    globals()[f'pipe_anchorages_voyages_{mode}'] = VoyagesDagFactory(schedule_interval=f'@{mode}').build(f'pipe_anchorages_voyages_{mode}')
+globals()[f'port_visits_voyages_daily'] = PortVisitsDagFactory(schedule_interval=f'@daily').build(f'port_visits_voyages_daily')
