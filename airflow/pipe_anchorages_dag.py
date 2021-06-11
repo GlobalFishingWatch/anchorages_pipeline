@@ -132,8 +132,6 @@ class PortVisitsDagFactory(AnchorageDagFactory):
     def build(self, dag_id):
         config = self.config
 
-        start_date, end_date = self.source_date_range()
-
         with DAG(dag_id, schedule_interval=self.schedule_interval, default_args=self.default_args) as dag:
 
             source_exists = self.table_sensor(
@@ -183,7 +181,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                     vessel_id_table='{source_dataset}.{segment_info_table}'.format(**config),
                     output_table='{pipeline_dataset}.{port_visits_table}'.format(**config),
                     start_date=self.default_args['start_date'].strftime("%Y-%m-%d"),
-                    end_date=end_date,
+                    end_date=f'{config["ds"]}',
 
                     # Optional
                     bad_segs_table='(SELECT DISTINCT seg_id FROM {research_aggregated_segments_table} WHERE overlapping_and_short)'.format(**config),
