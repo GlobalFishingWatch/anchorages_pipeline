@@ -155,7 +155,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
 
             overlappingandshort_segments_exists = BigQueryCheckOperator(
                 task_id='overlappingandshort_segments_exists',
-                sql='SELECT count(DISTINCT seg_id) FROM `{research_aggregated_segments_table}` WHERE overlapping_and_short'.format(**config),
+                sql='SELECT count(DISTINCT seg_id) FROM `{research_aggregated_segments_table}` WHERE overlapping_and_short and date(last_timestamp) = "{ds}"'.format(**config),
                 use_legacy_sql=False,
                 retries=3,
                 retry_delay=timedelta(minutes=30),
@@ -204,7 +204,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
 
             voyage_c2_generation = self.build_docker_task({
                 'task_id':'voyage_c2_generation',
-                'pool':'k8operators_limit',
+                'pool':'voyages_limit',
                 'docker_run':'{docker_run}'.format(**config),
                 'image':'{docker_image}'.format(**config),
                 'name':'voyage-c2-generation',
@@ -217,7 +217,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
 
             voyage_c3_generation = self.build_docker_task({
                 'task_id':'voyage_c3_generation',
-                'pool':'k8operators_limit',
+                'pool':'voyages_limit',
                 'docker_run':'{docker_run}'.format(**config),
                 'image':'{docker_image}'.format(**config),
                 'name':'voyage-c3-generation',
@@ -230,7 +230,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
 
             voyage_c4_generation = self.build_docker_task({
                 'task_id':'voyage_c4_generation',
-                'pool':'k8operators_limit',
+                'pool':'voyages_limit',
                 'docker_run':'{docker_run}'.format(**config),
                 'image':'{docker_image}'.format(**config),
                 'name':'voyage-c4-generation',
