@@ -253,30 +253,6 @@ class PortVisitsDagFactory(AnchorageDagFactory):
 
 
 
-# class VoyagesDagFactory(AnchorageDagFactory):
-
-#     def __init__(self, **kwargs):
-#         super(VoyagesDagFactory, self).__init__(**kwargs)
-
-#     def build(self, dag_id):
-#         config = self.config
-#         start, end = self.source_date_range()
-
-#         with DAG(dag_id, schedule_interval=self.schedule_interval, default_args=self.default_args) as dag:
-
-#             source_exists = BigQueryCheckOperator(
-#                 task_id='source_exists_{port_visits_table}'.format(**config),
-#                 sql=f'SELECT count(*) FROM `{config["pipeline_dataset"]}.{config["port_visits_table"]}` WHERE date(start_timestamp) between \'{start}\' and \'{end}\'',
-#                 use_legacy_sql=False,
-#                 retries=3,
-#                 retry_delay=timedelta(minutes=30),
-#                 max_retry_delay=timedelta(minutes=30),
-#                 on_failure_callback=config_tools.failure_callback_gfw
-#             )
-
-#             return dag
-
-
 for mode in ['daily', 'monthly', 'yearly']:
     globals()[f'port_events_{mode}'] = PortEventsDagFactory(schedule_interval=f'@{mode}').build(f'port_events_{mode}')
 globals()[f'port_visits_voyages_daily'] = PortVisitsDagFactory(schedule_interval=f'@daily').build(f'port_visits_voyages_daily')

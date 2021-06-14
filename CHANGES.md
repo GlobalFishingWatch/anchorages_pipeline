@@ -8,6 +8,15 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ## [Unreleased]
 
+## v3.2.1 - 2021-05-11
+
+### Changed
+
+* [PIPELINE-399](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/399): Changes
+  Automate the new port schema in Airflow.
+  Port-visits and voyages are in same DAG. Port visits runs un across all the
+  encounters and completely regenerate the table every day.
+
 ## v3.2.0 - 2021-05-11
 
 * [anchorages_pipeline-71](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/71)
