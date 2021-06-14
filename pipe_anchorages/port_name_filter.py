@@ -19,7 +19,7 @@ invalid_suffixes = set([
     ])
 
 
-blacklist = set([
+known_false_destinations = set([
 'CITY',
 'B # A',
 'AN',
@@ -68,7 +68,7 @@ def is_valid_name(x):
     for s in invalid_suffixes:
         if x.endswith(s):
             return False
-    if x in blacklist:
+    if x in known_false_destinations:
         return False
     return True
 

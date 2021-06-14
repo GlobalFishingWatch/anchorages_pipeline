@@ -1,4 +1,5 @@
 from collections import namedtuple
+from .objects.namedtuples import s_to_datetime
 import datetime
 
 def is_location_message(msg):
@@ -24,9 +25,7 @@ class VesselRecord(object):
     @staticmethod
     def tagged_from_msg(msg):
 
-        # `ident` is some sort of vessel identifier, currently either `ssvid` or `vessel_id` 
-        # depending if this is being used by anchorages or port_visits. Eventually, we'd
-        # probably like it to be `uvi`
+        # `ident` is some sort of vessel identifier, currently either `ssvid`, `seg_id`, 'vessel_id' or 'track_id'  
         ident = msg['ident']
 
         if is_location_message(msg) and has_valid_location(msg):
@@ -46,13 +45,8 @@ class InvalidRecord(
 
     @staticmethod
     def from_msg(msg):
-        timestamp=None
-        try:
-            timestamp=datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S.%f %Z')
-        except ValueError:
-            timestamp=datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S %Z')
         return InvalidRecord(
-            timestamp=timestamp,
+            timestamp=s_to_datetime(msg['timestamp']),
             )
 
 
@@ -70,7 +64,7 @@ class VesselInfoRecord(
         except ValueError:
             timestamp=datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S %Z')
         return VesselInfoRecord(
-                timestamp=timestamp,
+                timestamp=s_to_datetime(msg['timestamp']),
                 destination=msg['destination']
                 )
 
@@ -85,15 +79,9 @@ class VesselLocationRecord(
     def from_msg(msg):
         from .common import LatLon
         latlon = LatLon(msg['lat'], msg['lon'])
-
-        timestamp=None
-        try:
-            timestamp=datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S.%f %Z')
-        except ValueError:
-            timestamp=datetime.datetime.strptime(msg['timestamp'], '%Y-%m-%d %H:%M:%S %Z')
         return VesselLocationRecord(
-            timestamp=timestamp,
-            location=latlon,
+            timestamp=s_to_datetime(msg['timestamp']), 
+            location=latlon, 
             speed=msg['speed'],
             destination=None
            )

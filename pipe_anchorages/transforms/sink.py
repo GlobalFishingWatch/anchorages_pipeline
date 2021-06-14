@@ -1,3 +1,4 @@
+import datetime
 import logging
 import pytz
 from apache_beam import PTransform
@@ -6,8 +7,10 @@ from apache_beam import io
 from apache_beam.transforms.window import TimestampedValue
 from pipe_tools.io import WriteToBigQueryDatePartitioned
 from ..objects.namedtuples import epoch
-from ..schema.port_event import build as build_event_schema
+from ..schema.port_event import build as build_event_schema, build_event_state_schema
+from ..schema.named_anchorage import build as build_named_anchorage_schema
 
+epoch = datetime.datetime.utcfromtimestamp(0).replace(tzinfo=pytz.utc)
 
 
 class EventSink(PTransform):
@@ -24,10 +27,9 @@ class EventSink(PTransform):
 
         def encode_datetimes_to_s(x):
 
-            for field in ['timestamp']:
-                x[field] = (x[field].replace(tzinfo=pytz.utc) - epoch).total_seconds()
-
-            # logging.info("Encoded: %s", str(x))
+            for field in ['timestamp', 'last_timestamp']:
+                if x[field] is not None:
+                    x[field] = (x[field] - epoch).total_seconds()
 
             return x
 
@@ -44,13 +46,65 @@ class EventSink(PTransform):
             schema=build_event_schema()
             )
 
-
         logging.info('sink params: \n\t%s\n\t%s\n\t%s\n\t%s', self.temp_location, dataset, table, self.project)
 
         return (xs 
             | Map(as_dict)
             | Map(encode_datetimes_to_s)
             | Map(lambda x: TimestampedValue(x, x['timestamp'])) 
+            | sink
+            )
+
+
+class EventStateSink(PTransform):
+    def __init__(self, table, temp_location, project):
+        self.table = table
+        self.temp_location = temp_location
+        self.project = project
+
+    def expand(self, xs):
+
+        def encode_datetimes_to_s(x):
+
+            x = x.copy()
+
+            for field in ['last_timestamp']:
+                x[field] = (x[field] - epoch).total_seconds()
+
+            dt = datetime.datetime.combine(x['date'], datetime.time.min, tzinfo=pytz.utc)
+            ts_field = (dt - epoch).total_seconds()
+
+            for field in ['date']:
+                x[field] = '{:%Y-%m-%d}'.format(x[field])
+
+
+            assert isinstance(x['seg_id'], str)
+            assert isinstance(x['date'], (str))
+            assert isinstance(x['state'], str)
+            assert isinstance(x['last_timestamp'], (int, float))
+            assert x['active_port'] is None or isinstance(x['active_port'], str), x['active_port']
+            assert len(x) == 5
+
+            return ts_field, x
+
+        dataset, table = self.table.split('.')
+
+
+        sink = WriteToBigQueryDatePartitioned(
+            temp_gcs_location=self.temp_location,
+            dataset=dataset,
+            table=table,
+            project=self.project,
+            write_disposition="WRITE_TRUNCATE",
+            schema=build_event_state_schema()
+            )
+
+
+        logging.info('sink params: \n\t%s\n\t%s\n\t%s\n\t%s', self.temp_location, dataset, table, self.project)
+
+        return (xs 
+            | Map(encode_datetimes_to_s)
+            | Map(lambda x: TimestampedValue(x[1], x[0]))
             | sink
             )
 
@@ -149,43 +203,11 @@ class NamedAnchorageSink(PTransform):
             }
 
 
-    spec = {
-            "lat": "float",
-            "lon": "float",
-            "total_visits": "integer",
-            "drift_radius": "float",
-            "top_destination" : "string",
-            "unique_stationary_ssvid": "integer",
-            "unique_stationary_fishing_ssvid": "integer",
-            "unique_active_ssvid": "integer",
-            "unique_total_ssvid": "integer",
-            'active_ssvid_days': "float",
-            "stationary_ssvid_days": "float",
-            "stationary_fishing_ssvid_days": "float",
-            "s2id": "string",
-            'label': 'string',
-            'sublabel': 'string',
-            'label_source': 'string',
-            "iso3": "string",
-        }
 
 
     @property
     def schema(self):
-
-        def build_table_schema(spec):
-            schema = io.gcp.internal.clients.bigquery.TableSchema()
-
-            for name, type in spec.items():
-                field = io.gcp.internal.clients.bigquery.TableFieldSchema()
-                field.name = name
-                field.type = type
-                field.mode = 'nullable'
-                schema.fields.append(field)
-
-            return schema   
-
-        return build_table_schema(self.spec)
+        return build_named_anchorage_schema()
 
     def expand(self, xs):        
         return xs | Map(self.encode) | io.Write(io.gcp.bigquery.BigQuerySink(

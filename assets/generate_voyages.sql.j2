@@ -8,32 +8,26 @@
 #
 # Get a map of ssvid to vessel_id
 #
-with ssvid_map as (
-  select
-    ANY_VALUE(ssvid) as ssvid,
-    vessel_id
-  from `{{ dataset }}.vessel_info`
-  group by vessel_id
-),
+with
 
 #
 # Get all port visits and include the vessel-id from the map created above
 #
-all_real_port_visits_with_vessel_id as (
-  SELECT
+all_real_port_visits as (
+  select
     ssvid,
     vessel_id,
     start_anchorage_id,
     visit_id,
     start_timestamp,
     end_anchorage_id,
-    end_timestamp
-  from `{{ dataset }}.{{ port_visits_table }}*`
-  join ssvid_map
-    using (vessel_id)
+    end_timestamp,
+    confidence
+  from `{{ port_visits_table }}`
+  where confidence >= {{ min_confidence }}
 ),
 
-dummy_initial_port_visits_with_vessel_id as (
+dummy_initial_port_visits as (
   select
     ssvid,
     vessel_id,
@@ -41,11 +35,12 @@ dummy_initial_port_visits_with_vessel_id as (
     'NO_PREVIOUS_DATA' as visit_id,
     timestamp('0001-2-3') as start_timestamp,
     'NO_PREVIOUS_DATA' as end_anchorage_id,
-    timestamp('0001-2-3') as end_timestamp
-  from (select ssvid, vessel_id from ssvid_map group by 1,2)
+    timestamp('0001-2-3') as end_timestamp,
+    null as confidence
+  from (select ssvid, vessel_id from all_real_port_visits group by 1,2)
 ),
 
-dummy_final_port_visits_with_vessel_id as (
+dummy_final_port_visits as (
   select
     ssvid,
     vessel_id,
@@ -53,17 +48,18 @@ dummy_final_port_visits_with_vessel_id as (
     'ACTIVE_VOYAGE' as visit_id,
     timestamp('9999-9-9') as start_timestamp,
     'ACTIVE_VOYAGE' as end_anchorage_id,
-    timestamp('9999-9-10') as end_timestamp
-  from (select ssvid, vessel_id from ssvid_map group by 1,2)
+    timestamp('9999-9-10') as end_timestamp,
+    null as confidence
+  from (select ssvid, vessel_id from all_real_port_visits group by 1,2)
 ),
 
-all_port_visits_with_vessel_id as (
+all_port_visits as (
   select * from 
-    (select * from dummy_initial_port_visits_with_vessel_id)
+    (select * from dummy_initial_port_visits)
     union all
-    (select * from dummy_final_port_visits_with_vessel_id)
+    (select * from dummy_final_port_visits)
     union all
-    (select * from all_real_port_visits_with_vessel_id)
+    (select * from all_real_port_visits)
 ),
 
 #
@@ -72,12 +68,12 @@ all_port_visits_with_vessel_id as (
 entries as (
   SELECT
     ssvid, 
-    ARRAY_AGG(vessel_id) vessel_ids,
+    vessel_id,
     start_anchorage_id as anchorage_id,
     visit_id,
-    start_timestamp as timestamp
-  from all_port_visits_with_vessel_id 
-  group by 1,3,4,5
+    start_timestamp as timestamp,
+    confidence
+  from all_port_visits
 ),
 
 #
@@ -86,11 +82,12 @@ entries as (
 exits as (
   SELECT
     ssvid, 
+    vessel_id,
     end_anchorage_id as anchorage_id,
     visit_id,
-    end_timestamp as timestamp 
-  from all_port_visits_with_vessel_id
-  group by 1,2,3,4
+    end_timestamp as timestamp,
+    confidence
+  from all_port_visits
 ),
 
 #
@@ -100,16 +97,18 @@ exits as (
 pairs as (
   select
     ssvid,
-    entries.vessel_ids,
+    vessel_id vessel_id,
     exits.timestamp as exit,
     entries.timestamp as entry,
     exits.anchorage_id as exit_id,
     entries.anchorage_id as entry_id,
     exits.visit_id as exit_visit_id,
-    entries.visit_id as entry_visit_id
+    entries.visit_id as entry_visit_id,
+    entries.confidence as entry_confidence,
+    exits.confidence as exit_confidence
   from exits
   join entries
-    using (ssvid)
+    using (ssvid, vessel_id)
   where entries.timestamp > exits.timestamp
   and not (
            exits.anchorage_id = 'NO_PREVIOUS_DATA' 
@@ -121,29 +120,32 @@ pairs as (
 ranked as (
   select
     ssvid,
-    vessel_ids,
+    vessel_id,
     exit,
     entry,
     exit_id,
     entry_id,
     exit_visit_id,
     entry_visit_id,
-    row_number() over (partition by ssvid, exit order by entry asc) as rn
+    entry_confidence,
+    exit_confidence,
+    row_number() over (partition by vessel_id, exit order by entry asc) as rn
   from pairs
 )
 
 select
   ssvid,
-  vessel_ids,
+  vessel_id,
   exit as trip_start,
   entry as trip_end, 
   exit_id as trip_start_anchorage_id,
   entry_id as trip_end_anchorage_id,
   exit_visit_id as trip_start_visit_id,
   entry_visit_id as trip_end_visit_id,
+  exit_confidence as trip_start_confidence,
+  entry_confidence as trip_end_confidence,
   concat(
-    ssvid,
-    '-',
+    ssvid, '-', vessel_id, '-',
     format('%012x', timestamp_diff(exit, timestamp('1970-01-01'), MILLISECOND))
   ) as trip_id
 from ranked

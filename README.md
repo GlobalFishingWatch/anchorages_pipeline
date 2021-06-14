@@ -26,6 +26,31 @@ The pipeline includes a CLI that can be used to start both local test runs and
 remote full runs. Just run `docker-compose run [anchorages|name_anchorages|port_events] --help` and follow the
 instructions there.
 
+### Updating the Named Anchorages
+
+The most common manual task is updating the named anchorages, which needs to be done whenever
+anchorage overrides is edited. This is accomplished by running the following command:
+
+    docker-compose run name_anchorages \
+                 --job_name name-anchorages \
+                 --input_table anchorages.CURRENT_UNNAMED_ANCHORAGES \
+                 --output_table TARGET_DATASET.TARGET_TABLE \
+                 --config ./name_anchorages_cfg.yaml \
+                 --max_num_workers 100 \
+                 --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
+                 --project world-fishing-827 \
+                 --requirements_file requirements.txt \
+                 --project world-fishing-827 \
+                 --staging_location gs://machine-learning-dev-ttl-120d/anchorages/anchorages/output/staging \
+                 --temp_location gs://machine-learning-dev-ttl-120d/anchorages/temp \
+                 --setup_file ./setup.py \
+                 --runner DataflowRunner \
+                 --disk_size_gb 100
+
+where `CURRENT_UNNAMED_ANCHORAGES` is the current (typically most recent) unnamed anchorages
+table and `TARGET_DATASET.TARGET_TABLE` is where the unnamed anchorages are stored.  I often
+put this in a temporary table for inspection, then copy it to it's final destination.
+
 
 ### Creating Anchorage Points
 
@@ -36,9 +61,7 @@ Run:
                          --job_name JOB-NAME \
                          --start_date YYYY-MM-DD \
                          --end_date YYYY-MM-DD \
-                         --input_dataset INPUT_DATASET \
-                         --messages_segmented_table messages_segmented_ \
-                         --segments_table legacy_segments_v1 \
+                         --messages_thinned_table DATASET.messages_thinned_ \
                          --output_table OUTPUT_DATASET_NAME.OUTPUT_TABLE_NAME \
                          --config anchorage_cfg.yaml \
                          --max_num_workers MAX_WORKER \
@@ -61,9 +84,7 @@ For example, to run all years:
                          --job_name unnamed-anchorages \
                          --start_date 2012-01-01 \
                          --end_date 2019-06-30 \
-                         --input_dataset pipe_production_b \
-                         --messages_segmented_table messages_segmented_ \
-                         --segments_table legacy_segments_v1 \
+                         --messages_thinned_table pipe_production_b.messages_thinned_ \
                          --output_table machine_learning_dev_ttl_120d.unnamed_anchorages_v20190816 \
                          --config anchorage_cfg.yaml \
                          --max_num_workers 300 \
@@ -83,13 +104,11 @@ Or to run a minimal testing run:
     docker-compose run anchorages \
                          --job_name unnamed-anchorages \
                          --start_date 2017-01-01 \
-                         --end_date 2017-06-30 \
-                         --input_dataset pipe_production_b \
-                         --messages_segmented_table messages_segmented_ \
-                         --segments_table legacy_segments_v1 \
+                         --end_date 2017-01-31 \
+                         --messages_thinned_table machine_learning_dev_ttl_120d.messages_segmented_ \
                          --output_table machine_learning_dev_ttl_120d.unnamed_anchorages_test \
                          --config anchorage_cfg.yaml \
-                         --max_num_workers 300 \
+                         --max_num_workers 200 \
                          --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
                          --project world-fishing-827 \
                          --requirements_file requirements.txt \
@@ -131,7 +150,7 @@ or
     docker-compose run name_anchorages \
                  --job_name name-anchorages \
                  --input_table anchorages.unnamed_anchorages_v20190816 \
-                 --output_table machine_learning_dev_ttl_120d.named_anchorages_v20191205_py3 \
+                 --output_table machine_learning_dev_ttl_120d.named_anchorages_v20210429 \
                  --config ./name_anchorages_cfg.yaml \
                  --max_num_workers 100 \
                  --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
@@ -142,10 +161,8 @@ or
                  --temp_location gs://machine-learning-dev-ttl-120d/anchorages/temp \
                  --setup_file ./setup.py \
                  --runner DataflowRunner \
-                 --disk_size_gb 100
-
-The override path points to a csv file containing anchorages that are either missing or incorrectly named.
-It should have the following fields: s2uid,label,iso3,anchor_lat,anchor_lon,sublabel.
+                 --disk_size_gb 100 \
+                 --region us-central1
 
 
 ### Updating Port Events
@@ -155,15 +172,16 @@ It should have the following fields: s2uid,label,iso3,anchor_lat,anchor_lon,subl
 
 To update a day of events, run, for example:
 
-    docker-compose run port_events \
+   docker-compose run port_events \
         --job_name porteventstest \
-        --input_table pipe_production_v20190502.position_messages_ \
-        --anchorage_table anchorages.named_anchorages_v20191205 \
-        --start_date 2017-12-01 \
-        --end_date 2017-12-01 \
-        --output_table machine_learning_dev_ttl_120d.new_pipeline_port_events_test_v20191209_py3 \
+        --input_table pipe_production_v20201001.position_messages_ \
+        --anchorage_table anchorages.named_anchorages_v20201104 \
+        --start_date 2018-01-01 \
+        --end_date 2018-12-31 \
+        --output_table machine_learning_dev_ttl_120d.raw_port_events_v20210506_ \
+        --state_table machine_learning_dev_ttl_120d.port_port_state_v20210506_ \
         --project world-fishing-827 \
-        --max_num_workers 200 \
+        --max_num_workers 100 \
         --requirements_file requirements.txt \
         --project world-fishing-827 \
         --staging_location gs://machine-learning-dev-ttl-30d/anchorages/portevents/output/staging \
@@ -171,8 +189,27 @@ To update a day of events, run, for example:
         --setup_file ./setup.py \
         --runner DataflowRunner \
         --disk_size_gb 100 \
-        --start_padding 1
+        --region us-central1 \
+        --ssvid_filter '(select case(vi_ssvid as string) from machine_learning_dev_ttl_120d.vessel_list_new_visits_5_6_21)'
 
+    docker-compose run port_events \
+            --job_name porteventstest \
+            --input_table pipe_production_v20201001.position_messages_ \
+            --anchorage_table anchorages.named_anchorages_v20201104 \
+            --start_date 2017-01-01 \
+            --end_date 2021-4-30 \
+            --output_table machine_learning_dev_ttl_120d.port_event_test_v20210506_events_ \
+            --state_table machine_learning_dev_ttl_120d.port_event__test_v20210506_batch_state_ \
+            --project world-fishing-827 \
+            --max_num_workers 100 \
+            --requirements_file requirements.txt \
+            --project world-fishing-827 \
+            --staging_location gs://machine-learning-dev-ttl-30d/anchorages/portevents/output/staging \
+            --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp \
+            --setup_file ./setup.py \
+            --runner DataflowRunner \
+            --disk_size_gb 100 \
+            --region us-central1
 
 For a full list of options run:
 
@@ -182,21 +219,45 @@ For a full list of options run:
 To create a corresponding day of visits do:
 
     docker-compose run port_visits \
-        --job_name portvisitssharded \
-        --events_table machine_learning_dev_ttl_120d.new_pipeline_port_events_test_v20191209_py3 \
-        --start_date 2017-12-01 \
-        --end_date 2017-12-01 \
-        --start_padding 365 \
-        --output_table machine_learning_dev_ttl_120d.new_pipeline_port_visits_test_v20191209_py3 \
+        --job_name portvisitstest \
+        --events_table machine_learning_dev_ttl_120d.raw_port_events_v20210506_ \
+        --vessel_id_table pipe_production_v20201001.segment_info \
+        --bad_segs_table "(SELECT DISTINCT seg_id FROM world-fishing-827.gfw_research.pipe_v20201001_segs WHERE overlapping_and_short)" \
+        --start_date 2018-01-01 \
+        --end_date 2018-12-31 \
+        --output_table machine_learning_dev_ttl_120d.port_visit_test_v20210506_stableid \
         --project world-fishing-827 \
-        --max_num_workers 200 \
+        --max_num_workers 50 \
         --requirements_file requirements.txt \
         --project world-fishing-827 \
         --staging_location gs://machine-learning-dev-ttl-30d/anchorages/portevents/output/staging \
         --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp \
         --setup_file ./setup.py \
         --runner DataflowRunner \
-        --disk_size_gb 100 
+        --disk_size_gb 100 \
+        --region us-central1
+
+
+
+    docker-compose run port_visits \
+            --job_name portvisitstest \
+            --events_table machine_learning_dev_ttl_120d.port_event_test_v20210506_events_ \
+            --vessel_id_table pipe_production_v20201001.segment_info \
+            --bad_segs_table "(SELECT DISTINCT seg_id FROM world-fishing-827.gfw_research.pipe_v20201001_segs WHERE overlapping_and_short)" \
+            --start_date 2017-01-01 \
+            --end_date 2021-04-30 \
+            --output_table machine_learning_dev_ttl_120d.port_visit_test_v20210506_stableid \
+            --project world-fishing-827 \
+            --max_num_workers 50 \
+            --requirements_file requirements.txt \
+            --project world-fishing-827 \
+            --staging_location gs://machine-learning-dev-ttl-30d/anchorages/portevents/output/staging \
+            --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp \
+            --setup_file ./setup.py \
+            --runner DataflowRunner \
+            --disk_size_gb 100 \
+            --region us-central1
+
 
 
 ### Config file

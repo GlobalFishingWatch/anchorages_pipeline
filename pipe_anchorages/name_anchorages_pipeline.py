@@ -80,7 +80,8 @@ class AddNamesToAnchorages(beam.PTransform):
     def add_best_label(self, anchorage):
         port_info, source = self.port_info_finder.find(anchorage.mean_location)
         if port_info is None:
-            port_info = Port(iso3='', label=anchorage.top_destination, sublabel='', lat=None, lon=None)
+            port_info = Port(iso3='', label=anchorage.top_destination, 
+                             sublabel='', lat=None, lon=None)
             source = 'top_destination' 
         map = anchorage._asdict()
         map['label'] = normalize_label(port_info.label)
@@ -121,12 +122,12 @@ class FindUsedS2ids(beam.PTransform):
 
     def __init__(self, override_path):
         self.override_path = override_path  
+        self.s2ids_in_overrides = set(row['s2id'] for row in 
+            get_override_list(mangled_path(self.override_path, 'port_lists')))
 
     def find_used_s2ids(self, named_anchorage):
-        for row in get_override_list(mangled_path(self.override_path, 'port_lists')):
-            if row['s2id'] == named_anchorage.s2id:
-                yield row['s2id']
-                break
+        if named_anchorage.s2id in self.s2ids_in_overrides:
+            yield named_anchorage.s2id
 
     def expand(self, anchorages):
         return anchorages | beam.FlatMap(self.find_used_s2ids)
@@ -201,7 +202,11 @@ def run(options):
 
     new_anchorages = p | CreateOverrideAnchorages(config['override_path'], used_s2ids)
 
-    named_anchorages = (existing_anchorages, new_anchorages) | beam.Flatten()
+    named_anchorages = ((existing_anchorages, new_anchorages) 
+        | beam.Flatten()
+        | beam.Filter(lambda x: not (x.label == 'REMOVE' and x.label_source == 'anchorage_overrides'))
+    )
+
 
     (named_anchorages | NamedAnchorageSink(table=known_args.output_table, 
                                       write_disposition="WRITE_TRUNCATE")

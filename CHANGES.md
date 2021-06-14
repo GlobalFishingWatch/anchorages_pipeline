@@ -8,6 +8,19 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ## [Unreleased]
 
+## v3.?.0 - 2021-05-11
+
+* [anchorages_pipeline-71](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/71)
+
+    - Switch from vessel-id to segment-id for port events. This makes the the port events table a 
+      static table and opens up the possibility of filtering by bad segments later.
+    - Rather than using a finite lookback, we create an auxilliary table keeping track of the current 
+      state so that we can look back "infinitely"
+    - Continue to use vessel-id for port-visits, which requires a table mapping seg-id to vessel-id, 
+      This keeps the output similar to previously but makes the separation between static tables (events)
+      and dynamic tables (visits) explicit.
+    - Support a bad-segments table that filters events before they are assembled into visits.
+
 ## v3.1.0 - 2021-05-03
 
 ### Added

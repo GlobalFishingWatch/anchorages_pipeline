@@ -11,14 +11,18 @@ class PortVisitsOptions(PipelineOptions):
         optional = parser.add_argument_group('Optional')
 
         required.add_argument('--events_table', 
-                            help='Name of of events table (BQ)')
+                            help='Name of events table (BQ)')
+        required.add_argument('--vessel_id_table', 
+                            help='Name of table mapping vessel_id to seg_id (BQ). '
+                            'Should have one vessel_id per seg_id, e.g. the `segment_info` table.')
         required.add_argument('--output_table', required=True,
                             help='Output table (BQ) to write results to.')
         required.add_argument('--start_date', required=True, 
-                              help="First date to generate visits.")
+                            help="First date (inclusive) to include in visits")
         required.add_argument('--end_date', required=True, 
-                            help="Last date (inclusive) to generate visits.")
-        required.add_argument('--start_padding', required=True, type=int,
-                              help="number of days before start to look at port events.")
-        
-   
+                            help="Last date (inclusive) to generate visits")
+        optional.add_argument('--bad_segs_table', 
+                            help='table of containing segment ids of bad segments')
+        optional.add_argument('--max_inter_seg_dist_nm', default=60, type=float,
+                            help='Segments more than this distance apart will not be joined when creating visits')
+

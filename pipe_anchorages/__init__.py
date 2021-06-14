@@ -2,7 +2,6 @@
 Pipe for processing anchorages and generating anchorages events. 
 """
 
-
 __version__ = '3.1.0'
 __author__ = 'Global Fishing Watch'
 __email__ = 'info@globalfishingwatch.org'
