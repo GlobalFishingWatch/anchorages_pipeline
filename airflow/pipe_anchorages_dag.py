@@ -157,7 +157,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                 task_id='overlappingandshort_segments_exists',
                 sql='SELECT count(DISTINCT seg_id) FROM `{research_aggregated_segments_table}` WHERE overlapping_and_short and date(last_timestamp) = "{ds}"'.format(**config),
                 use_legacy_sql=False,
-                retries=3,
+                retries=144,
                 retry_delay=timedelta(minutes=30),
                 max_retry_delay=timedelta(minutes=30),
                 on_failure_callback=config_tools.failure_callback_gfw
