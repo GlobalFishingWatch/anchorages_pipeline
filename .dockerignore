@@ -1,5 +1,4 @@
 .git
 Dockerfile
 docker-compose.yaml
-test
 notebooks
