@@ -9,6 +9,7 @@ display_usage() {
   echo "  anchorages              run anchorages dataflow"
   echo "  name_anchorages         run name anchorages dataflow"
   echo "  generate_voyages        generate voyages"
+  echo "  deletes_raw_port_visits deletes the raw port visits table"
 }
 
 
@@ -39,6 +40,10 @@ case $1 in
 
   generate_voyages)
     ${THIS_SCRIPT_DIR}/generate_voyages.sh "${@:2}"
+    ;;
+
+  deletes_raw_port_visits)
+    python -m pipe_anchorages.deletes_raw_port_visits "${@:2}"
     ;;
 
   *)

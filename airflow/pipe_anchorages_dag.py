@@ -163,6 +163,18 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                 on_failure_callback=config_tools.failure_callback_gfw
             )
 
+            deletes_raw_port_visits = self.build_docker_task({
+                'task_id':'deletes_raw_port_visits',
+                'pool':'k8operators_limit',
+                'docker_run':'{docker_run}'.format(**config),
+                'image':'{docker_image}'.format(**config),
+                'name':'deletes-raw-port-visits',
+                'dag':dag,
+                'arguments':['deletes_raw_port_visits',
+                             '--table_id',
+                             '{pipeline_dataset}.{port_visits_table}'.format(**config)]
+            })
+
             # Note: task_id must use '-' instead of '_' because it gets used to create the dataflow job name, and
             # only '-' is allowed
             port_visits = DataFlowDirectRunnerOperator(
@@ -241,9 +253,11 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                              '{project_id}:{pipeline_dataset}.{voyages_table}_c4'.format(**config)]
             })
 
-            dag >> source_exists >> port_visits
-            dag >> segment_info_exists >> port_visits
-            dag >> overlappingandshort_segments_exists >> port_visits
+            dag >> source_exists >> deletes_raw_port_visits
+            dag >> segment_info_exists >> deletes_raw_port_visits
+            dag >> overlappingandshort_segments_exists >> deletes_raw_port_visits
+
+            deletes_raw_port_visits >> port_visits
 
             port_visits >> voyage_c2_generation
             port_visits >> voyage_c3_generation
