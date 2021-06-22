@@ -38,4 +38,4 @@ steps:
   ]
   waitFor: [ 'build', 'test' ]
 
-timeout: 7200s
+timeout: 600s

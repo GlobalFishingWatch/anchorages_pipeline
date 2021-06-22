@@ -8,27 +8,27 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ## [Unreleased]
 
-## v3.2.1 - 2021-05-11
+## v3.2.1 - 2021-06-14
 
 ### Changed
 
 * [PIPELINE-399](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/399): Changes
   Automate the new port schema in Airflow.
-  Port-visits and voyages are in same DAG. Port visits runs un across all the
-  encounters and completely regenerate the table every day.
+  Port-visits and voyages are in same DAG. Port visits runs across all the
+  encounters and completely regenerate the table every day. The port-visit
+  table tooks about 270GB, and is deleted when the re-generate process starts.
 
 ## v3.2.0 - 2021-05-11
 
-* [anchorages_pipeline-71](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/71)
-
-    - Switch from vessel-id to segment-id for port events. This makes the the port events table a 
-      static table and opens up the possibility of filtering by bad segments later.
-    - Rather than using a finite lookback, we create an auxilliary table keeping track of the current 
-      state so that we can look back "infinitely"
-    - Continue to use vessel-id for port-visits, which requires a table mapping seg-id to vessel-id, 
-      This keeps the output similar to previously but makes the separation between static tables (events)
-      and dynamic tables (visits) explicit.
-    - Support a bad-segments table that filters events before they are assembled into visits.
+* [PIPELINE-380](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/380)
+  - Switch from vessel-id to segment-id for port events. This makes the the port events table a 
+    static table and opens up the possibility of filtering by bad segments later.
+  - Rather than using a finite lookback, we create an auxilliary table keeping track of the current 
+    state so that we can look back "infinitely"
+  - Continue to use vessel-id for port-visits, which requires a table mapping seg-id to vessel-id, 
+    This keeps the output similar to previously but makes the separation between static tables (events)
+    and dynamic tables (visits) explicit.
+  - Support a bad-segments table that filters events before they are assembled into visits.
 
 ## v3.1.0 - 2021-05-03
 
