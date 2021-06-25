@@ -20,6 +20,7 @@ from .objects.visit_event import VisitEvent
 from .objects.namedtuples import _datetime_to_s
 from .options.port_visits_options import PortVisitsOptions
 from .schema.port_visit import build as build_visit_schema
+from .schema.port_visit import build_compatibility as build_compatibility_port_visit_schema
 from .transforms.create_port_visits import CreatePortVisits
 
 
@@ -72,6 +73,11 @@ def visit_to_msg(x):
     x['end_timestamp'] = _datetime_to_s(x['end_timestamp'])
     return x
 
+def drop_new_fields(x):
+    x.pop('ssvid')
+    x.pop('duration_hrs')
+    x.pop('confidence')
+    return x
 
 def run(options):
 
@@ -83,15 +89,14 @@ def run(options):
     start_date = datetime.datetime.strptime(visit_args.start_date, '%Y-%m-%d').replace(tzinfo=pytz.utc) 
     end_date = datetime.datetime.strptime(visit_args.end_date, '%Y-%m-%d').replace(tzinfo=pytz.utc)
 
-    dataset, table = visit_args.output_table.split('.') 
-
     sink = io.WriteToBigQuery(
         visit_args.output_table,
         schema=build_visit_schema(),
         write_disposition=io.BigQueryDisposition.WRITE_TRUNCATE,
         create_disposition=io.BigQueryDisposition.CREATE_IF_NEEDED,
-        additional_bq_parameters={'timePartitioning': {'type': 'DAY'}})
-
+        additional_bq_parameters={'timePartitioning': 
+                                        {'type': 'DAY',
+                                         'field' : 'end_timestamp'}})
 
     queries = create_queries(visit_args, start_date, end_date)
 
@@ -103,10 +108,28 @@ def run(options):
         | beam.Flatten()
         | beam.Map(from_msg)
         | CreatePortVisits(visit_args.max_inter_seg_dist_nm)
-        | Map(lambda x: TimestampedValue(visit_to_msg(x), _datetime_to_s(x.end_timestamp)))
+        | Map(visit_to_msg)
+    )
+     
+    (tagged_records 
         | sink
+    )
+    
+    if visit_args.compat_output_table:
+        dataset, table = visit_args.compat_output_table.split('.') 
+        compat_sink = WriteToBigQueryDatePartitioned(
+                        temp_gcs_location=cloud_args.temp_location,
+                        dataset=dataset,
+                        table=table,
+                        project=cloud_args.project,
+                        write_disposition="WRITE_TRUNCATE",
+                        schema=build_compatibility_port_visit_schema()
+                        )
+        (tagged_records
+            | Filter(lambda x : x['confidence'] >= 4)
+            | Map(lambda x : TimestampedValue(drop_new_fields(x), x['end_timestamp']))
+            | compat_sink
         )
-
 
     result = p.run()
 

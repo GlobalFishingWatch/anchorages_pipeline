@@ -10,9 +10,9 @@ class PortVisitsOptions(PipelineOptions):
         required = parser.add_argument_group('Required')
         optional = parser.add_argument_group('Optional')
 
-        required.add_argument('--events_table', 
+        required.add_argument('--events_table', required=True,
                             help='Name of events table (BQ)')
-        required.add_argument('--vessel_id_table', 
+        required.add_argument('--vessel_id_table', required=True,
                             help='Name of table mapping vessel_id to seg_id (BQ). '
                             'Should have one vessel_id per seg_id, e.g. the `segment_info` table.')
         required.add_argument('--output_table', required=True,
@@ -21,6 +21,8 @@ class PortVisitsOptions(PipelineOptions):
                             help="First date (inclusive) to include in visits")
         required.add_argument('--end_date', required=True, 
                             help="Last date (inclusive) to generate visits")
+        optional.add_argument('--compat_output_table',
+                            help='Output table (BQ) to write backwards compatible results.')
         optional.add_argument('--bad_segs_table', 
                             help='table of containing segment ids of bad segments')
         optional.add_argument('--max_inter_seg_dist_nm', default=60, type=float,
