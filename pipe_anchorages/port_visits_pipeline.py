@@ -96,7 +96,13 @@ def run(options):
         create_disposition=io.BigQueryDisposition.CREATE_IF_NEEDED,
         additional_bq_parameters={'timePartitioning': 
                                         {'type': 'DAY',
-                                         'field' : 'end_timestamp'}})
+                                         'field' : 'end_timestamp'},
+                                  'clustering': {'fields': [
+                                        'confidence',
+                                        'ssvid',
+                                        'vessel_id'
+                                  ]}}
+        )
 
     queries = create_queries(visit_args, start_date, end_date)
 
