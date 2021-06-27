@@ -98,9 +98,10 @@ def run(options):
                                         {'type': 'DAY',
                                          'field' : 'end_timestamp'},
                                   'clustering': {'fields': [
-                                        'confidence',
-                                        'ssvid',
-                                        'vessel_id'
+                                         'start_timestamp',
+                                         'confidence',
+                                         'ssvid',
+                                         'vessel_id'
                                   ]}}
         )
 
