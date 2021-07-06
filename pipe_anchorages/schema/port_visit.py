@@ -20,7 +20,7 @@ def build():
     builder.add("start_anchorage_id", "STRING",
         description="`anchorage_id` of anchorage where vessel entered port")
     builder.add("end_timestamp", "TIMESTAMP",
-        description="timestamp at which vessel crossed out the anchorage")
+        description="timestamp at which vessel crossed out the anchorage.")
     builder.add("end_lat", "FLOAT",
         description="latitude of vessel at `end_timestamp`")
     builder.add("end_lon", "FLOAT",
@@ -36,6 +36,37 @@ def build():
     3 -> port entry or exit with stop and/or gap
     4 -> port entry and exit with stop and/or gap"""
     )
+    builder.add("events", mode="REPEATED", 
+        schema_type=build_port_event_schema().fields,
+        description="sequence of port events that occurred during visit"
+    )
+
+    return builder.schema
+
+
+def build_compatibility():
+
+    builder = SchemaBuilder()
+    builder.add("visit_id", "STRING",
+        description="Unique ID for this visit")
+    builder.add("vessel_id", "STRING",
+        description="`vessel_id` of the track this visit was found on")
+    builder.add("start_timestamp", "TIMESTAMP",
+        description="timestamp at which vessel crossed into the anchorage")
+    builder.add("start_lat", "FLOAT",
+        description="latitude of vessel at `start_timestamp`")
+    builder.add("start_lon", "FLOAT",
+        description="longitude of vessel at `start_timestamp`")
+    builder.add("start_anchorage_id", "STRING",
+        description="`anchorage_id` of anchorage where vessel entered port")
+    builder.add("end_timestamp", "TIMESTAMP",
+        description="timestamp at which vessel crossed out the anchorage.")
+    builder.add("end_lat", "FLOAT",
+        description="latitude of vessel at `end_timestamp`")
+    builder.add("end_lon", "FLOAT",
+        description="longitude of vessel at `end_timestamp`")
+    builder.add("end_anchorage_id", "STRING",
+        description="longitude of vessel at `end_timestamp`")
     builder.add("events", mode="REPEATED", 
         schema_type=build_port_event_schema().fields,
         description="sequence of port events that occurred during visit"
