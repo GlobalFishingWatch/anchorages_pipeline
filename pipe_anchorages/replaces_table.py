@@ -1,4 +1,5 @@
 from google.cloud import bigquery
+from google.cloud.bigquery.job import CopyJobConfig
 import argparse, sys
 
 def replace_table(project_id, from_table, to_table):
@@ -6,7 +7,8 @@ def replace_table(project_id, from_table, to_table):
     # client.delete_table(to_table, not_found_ok=True)
     # print(f"Deleted table '{to_table}'.")
 
-    job = client.copy_table(from_table, to_table)
+    override_table = CopyJobConfig(write_disposition="WRITE_TRUNCATE")
+    job = client.copy_table(from_table, to_table, job_config=override_table, timeout=200)
     job.result() # Wait for the job to complete.
     print(f"Copy table from '{from_table}' to '{to_table}'.")
     return 0

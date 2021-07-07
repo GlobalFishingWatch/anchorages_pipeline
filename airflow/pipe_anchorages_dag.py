@@ -125,7 +125,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
 
     def __init__(self, **kwargs):
         super(PortVisitsDagFactory, self).__init__(**kwargs)
-        self.temp_table_id = str(uuid.uuid4()).replace("-","_")
+        self.config["temp_table_id"] = str(uuid.uuid4()).replace("-","_")
 
     def source_date(self):
         if schedule_interval!='@daily':
@@ -165,7 +165,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                 on_failure_callback=config_tools.failure_callback_gfw
             )
 
-            aux_table = f'{config["temp_dataset"]}.{self.temp_table_id}'
+            aux_table = f'{config["temp_dataset"]}.{config["temp_table_id"]}'
             # Note: task_id must use '-' instead of '_' because it gets used to create the dataflow job name, and
             # only '-' is allowed
             port_visits = DataFlowDirectRunnerOperator(
