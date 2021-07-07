@@ -20,4 +20,5 @@ if __name__ == '__main__':
     parser.add_argument('--to_table', help='The BigQuery destination table id, format: your_dataset.your_table',
                         required=True)
     args = parser.parse_args()
-    sys.exit(reeplace_table(project_id=args.project_id, from_table=args.from_table, to_table=args.to_table))
+    print(vars(args))
+    sys.exit(replace_table(**vars(args)))

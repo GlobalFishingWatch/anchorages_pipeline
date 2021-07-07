@@ -125,6 +125,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
 
     def __init__(self, **kwargs):
         super(PortVisitsDagFactory, self).__init__(**kwargs)
+        self.temp_table_id = str(uuid.uuid4()).replace("-","_")
 
     def source_date(self):
         if schedule_interval!='@daily':
@@ -164,7 +165,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                 on_failure_callback=config_tools.failure_callback_gfw
             )
 
-            aux_table = f'{config["temp_dataset"]}.{str(uuid.uuid4()).replace("-","_")}'
+            aux_table = f'{config["temp_dataset"]}.{self.temp_table_id}'
             # Note: task_id must use '-' instead of '_' because it gets used to create the dataflow job name, and
             # only '-' is allowed
             port_visits = DataFlowDirectRunnerOperator(
@@ -220,6 +221,36 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                              '--to_table',
                              '{pipeline_dataset}.{port_visits_table}'.format(**config)]
             })
+
+            # ensure_creation_tables = BigQueryCreateEmptyTableOperator(
+            #     task_id='ensure_port_visits_creation_tables',
+            #     dataset_id='{pipeline_dataset}'.format(**config),
+            #     table_id='{port_visits_compatibility_table}'.format(**config),
+            #     schema_fields=[
+            #         { "mode": "REQUIRED", "name": "vessel_id", "type": "STRING" },
+            #         { "mode": "REQUIRED", "name": "start_timestamp", "type": "TIMESTAMP" },
+            #         { "mode": "REQUIRED", "name": "start_lat", "type": "FLOAT" },
+            #         { "mode": "REQUIRED", "name": "start_lon", "type": "FLOAT" },
+            #         { "mode": "REQUIRED", "name": "start_anchorage_id", "type": "STRING" },
+            #         { "mode": "REQUIRED", "name": "end_timestamp", "type": "TIMESTAMP" },
+            #         { "mode": "REQUIRED", "name": "end_lat", "type": "FLOAT" },
+            #         { "mode": "REQUIRED", "name": "end_lon", "type": "FLOAT" },
+            #         { "mode": "REQUIRED", "name": "end_anchorage_id", "type": "STRING" },
+            #         { "fields": [
+            #             { "mode": "REQUIRED", "name": "vessel_id", "type": "STRING" },
+            #             { "mode": "REQUIRED", "name": "timestamp", "type": "TIMESTAMP" },
+            #             { "mode": "REQUIRED", "name": "lat", "type": "FLOAT" },
+            #             { "mode": "REQUIRED", "name": "lon", "type": "FLOAT" },
+            #             { "mode": "REQUIRED", "name": "vessel_lat", "type": "FLOAT" },
+            #             { "mode": "REQUIRED", "name": "vessel_lon", "type": "FLOAT" },
+            #             { "mode": "REQUIRED", "name": "anchorage_id", "type": "STRING" },
+            #             { "mode": "REQUIRED", "name": "event_type", "type": "STRING" }
+            #         ],
+            #         "mode": "REPEATED", "name": "events", "type": "RECORD" }
+            #     ],
+            #     start_date_str=self.default_args['start_date'].strftime("%Y-%m-%d"),
+            #     end_date_str=f'{config["ds"]}'
+            # )
 
             voyage_generation = self.build_docker_task({
                 'task_id':'voyage_compat_generation',
@@ -277,9 +308,10 @@ class PortVisitsDagFactory(AnchorageDagFactory):
             dag >> segment_info_exists >> port_visits
             dag >> overlappingandshort_segments_exists >> port_visits
 
-            port_visits >> replaces_raw_port_visits
+            # port_visits >> ensure_creation_tables >> voyage_generation
+            port_visits >> voyage_generation
 
-            replaces_raw_port_visits >> voyage_generation
+            port_visits >> replaces_raw_port_visits
 
             replaces_raw_port_visits >> voyage_c2_generation
             replaces_raw_port_visits >> voyage_c3_generation
