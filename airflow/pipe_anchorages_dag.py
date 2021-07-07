@@ -11,6 +11,7 @@ from datetime import timedelta
 
 import logging
 import posixpath as pp
+import uuid
 
 
 
@@ -163,22 +164,11 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                 on_failure_callback=config_tools.failure_callback_gfw
             )
 
-            # deletes_raw_port_visits = self.build_docker_task({
-            #     'task_id':'deletes_raw_port_visits',
-            #     'pool':'k8operators_limit',
-            #     'docker_run':'{docker_run}'.format(**config),
-            #     'image':'{docker_image}'.format(**config),
-            #     'name':'deletes-raw-port-visits',
-            #     'dag':dag,
-            #     'arguments':['deletes_raw_port_visits',
-            #                  '--table_id',
-            #                  '{pipeline_dataset}.{port_visits_table}'.format(**config)]
-            # })
-
+            aux_table = f'{config["temp_dataset"]}.{str(uuid.uuid4()).replace("-","_")}'
             # Note: task_id must use '-' instead of '_' because it gets used to create the dataflow job name, and
             # only '-' is allowed
             port_visits = DataFlowDirectRunnerOperator(
-                task_id='port-visits',
+                task_id='port-compat-visits',
                 pool='dataflow',
                 py_file=self.python_target,
                 options=dict(
@@ -191,12 +181,13 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                     # Required
                     events_table='{pipeline_dataset}.{port_events_table}'.format(**config),
                     vessel_id_table='{source_dataset}.{segment_info_table}'.format(**config),
-                    output_table='{pipeline_dataset}.{port_visits_table}'.format(**config),
+                    output_table=f'{aux_table}',
                     start_date=self.default_args['start_date'].strftime("%Y-%m-%d"),
                     end_date=f'{config["ds"]}',
 
                     # Optional
                     bad_segs_table='(SELECT DISTINCT seg_id FROM {research_aggregated_segments_table} WHERE overlapping_and_short)'.format(**config),
+                    compat_output_table='{pipeline_dataset}.{port_visits_compatibility_table}'.format(**config),
 
                     # GoogleCloud Option
                     project=config['project_id'],
@@ -214,6 +205,35 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                 )
             )
 
+            replaces_raw_port_visits = self.build_docker_task({
+                'task_id':'replaces_raw_port_visits',
+                'pool':'k8operators_limit',
+                'docker_run':'{docker_run}'.format(**config),
+                'image':'{docker_image}'.format(**config),
+                'name':'replaces-raw-port-visits',
+                'dag':dag,
+                'arguments':['replaces_table',
+                             '--project_id',
+                             f'{config["project_id"]}',
+                             '--from_table',
+                             f'{aux_table}',
+                             '--to_table',
+                             '{pipeline_dataset}.{port_visits_table}'.format(**config)]
+            })
+
+            voyage_generation = self.build_docker_task({
+                'task_id':'voyage_compat_generation',
+                'pool':'k8operators_limit',
+                'docker_run':'{docker_run}'.format(**config),
+                'image':'{docker_image}'.format(**config),
+                'name':'voyage-compat-generation',
+                'dag':dag,
+                'arguments':['generate_voyages',
+                             '{project_id}:{pipeline_dataset}'.format(**config),
+                             '{port_visits_compatibility_table}'.format(**config),
+                             '{project_id}:{pipeline_dataset}.{voyages_table}'.format(**config)]
+            })
+
             voyage_c2_generation = self.build_docker_task({
                 'task_id':'voyage_c2_generation',
                 'pool':'voyages_limit',
@@ -221,7 +241,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                 'image':'{docker_image}'.format(**config),
                 'name':'voyage-c2-generation',
                 'dag':dag,
-                'arguments':['generate_voyages',
+                'arguments':['generate_confidence_voyages',
                              '{project_id}:{pipeline_dataset}.{port_visits_table}'.format(**config),
                              '2'.format(**config),
                              '{project_id}:{pipeline_dataset}.{voyages_table}_c2'.format(**config)]
@@ -234,7 +254,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                 'image':'{docker_image}'.format(**config),
                 'name':'voyage-c3-generation',
                 'dag':dag,
-                'arguments':['generate_voyages',
+                'arguments':['generate_confidence_voyages',
                              '{project_id}:{pipeline_dataset}.{port_visits_table}'.format(**config),
                              '3'.format(**config),
                              '{project_id}:{pipeline_dataset}.{voyages_table}_c3'.format(**config)]
@@ -247,24 +267,23 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                 'image':'{docker_image}'.format(**config),
                 'name':'voyage-c4-generation',
                 'dag':dag,
-                'arguments':['generate_voyages',
+                'arguments':['generate_confidence_voyages',
                              '{project_id}:{pipeline_dataset}.{port_visits_table}'.format(**config),
                              '4'.format(**config),
                              '{project_id}:{pipeline_dataset}.{voyages_table}_c4'.format(**config)]
             })
 
-            # dag >> source_exists >> deletes_raw_port_visits
-            # dag >> segment_info_exists >> deletes_raw_port_visits
-            # dag >> overlappingandshort_segments_exists >> deletes_raw_port_visits
-
-            # deletes_raw_port_visits >> port_visits
             dag >> source_exists >> port_visits
             dag >> segment_info_exists >> port_visits
             dag >> overlappingandshort_segments_exists >> port_visits
 
-            port_visits >> voyage_c2_generation
-            port_visits >> voyage_c3_generation
-            port_visits >> voyage_c4_generation
+            port_visits >> replaces_raw_port_visits
+
+            replaces_raw_port_visits >> voyage_generation
+
+            replaces_raw_port_visits >> voyage_c2_generation
+            replaces_raw_port_visits >> voyage_c3_generation
+            replaces_raw_port_visits >> voyage_c4_generation
 
             return dag
 
