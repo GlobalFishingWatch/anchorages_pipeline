@@ -262,7 +262,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                 'arguments':['generate_voyages',
                              '{project_id}:{pipeline_dataset}'.format(**config),
                              '{port_visits_compatibility_table}'.format(**config),
-                             '{project_id}:{pipeline_dataset}.{voyages_table}'.format(**config)]
+                             '{project_id}:{pipeline_dataset}.{voyages_compatibility_table}'.format(**config)]
             })
 
             voyage_c2_generation = self.build_docker_task({
