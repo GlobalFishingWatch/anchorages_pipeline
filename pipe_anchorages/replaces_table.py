@@ -9,7 +9,7 @@ def replace_table(project_id, from_table, to_table, timeout='200'):
     print(f"Deleted table '{to_table}'.")
 
     override_table = CopyJobConfig(write_disposition="WRITE_TRUNCATE")
-    job = client.copy_table(from_table, to_table, job_config=override_table, timeout=int(timeout))
+    job = client.copy_table(from_table, to_table, job_config=override_table, timeout=timeout)
     job.result() # Wait for the job to complete.
     print(f"Copy table from '{from_table}' to '{to_table}'.")
     return 0
