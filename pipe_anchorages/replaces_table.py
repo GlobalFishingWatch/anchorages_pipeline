@@ -1,17 +1,24 @@
+from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
 from google.cloud.bigquery.job import CopyJobConfig
+
 import argparse, sys
 
 def replace_table(project_id, from_table, to_table, timeout='200'):
     client = bigquery.Client(project=project_id)
-    # TODO replace this code with WRITE_TRUNCATE after solving error that throws.
-    client.delete_table(to_table, not_found_ok=True)
-    print(f"Deleted table '{to_table}'.")
+    try:
+        from_table_reference = client.get_table(from_table) # This let us know that the table exists.
+        client.delete_table(to_table, not_found_ok=True)
+        print(f"Deleted table '{to_table}'.")
 
-    override_table = CopyJobConfig(write_disposition="WRITE_TRUNCATE")
-    job = client.copy_table(from_table, to_table, job_config=override_table, timeout=timeout)
-    job.result() # Wait for the job to complete.
-    print(f"Copy table from '{from_table}' to '{to_table}'.")
+        override_table = CopyJobConfig(write_disposition="WRITE_TRUNCATE") # TODO WRITE_TRUNCATE is giving an error that is why is deleted first.
+        job = client.copy_table(from_table, to_table, job_config=override_table, timeout=timeout)
+        job.result() # Wait for the job to complete.
+        print(f"Copy table from '{from_table}' to '{to_table}'.")
+    except NotFound:
+        print(f"Cannot delete table '{to_table}' when from_table '{from_table}' does not exists.")
+        return 1
+
     return 0
 
 
