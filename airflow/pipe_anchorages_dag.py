@@ -179,7 +179,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                     # Required
                     events_table='{pipeline_dataset}.{port_events_table}'.format(**config),
                     vessel_id_table='{source_dataset}.{segment_info_table}'.format(**config),
-                    output_table='{temp_dataset}.{ds_nodash}'.format(**config),
+                    output_table='{temp_dataset}.{pipeline_dataset}_port_visit_{ds_nodash}'.format(**config),
                     start_date=self.default_args['start_date'].strftime("%Y-%m-%d"),
                     end_date=f'{config["ds"]}',
 
@@ -214,40 +214,10 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                              '--project_id',
                              f'{config["project_id"]}',
                              '--from_table',
-                             '{temp_dataset}.{ds_nodash}'.format(**config),
+                             '{temp_dataset}.{pipeline_dataset}_port_visit_{ds_nodash}'.format(**config),
                              '--to_table',
                              '{pipeline_dataset}.{port_visits_table}'.format(**config)]
             })
-
-            # ensure_creation_tables = BigQueryCreateEmptyTableOperator(
-            #     task_id='ensure_port_visits_creation_tables',
-            #     dataset_id='{pipeline_dataset}'.format(**config),
-            #     table_id='{port_visits_compatibility_table}'.format(**config),
-            #     schema_fields=[
-            #         { "mode": "REQUIRED", "name": "vessel_id", "type": "STRING" },
-            #         { "mode": "REQUIRED", "name": "start_timestamp", "type": "TIMESTAMP" },
-            #         { "mode": "REQUIRED", "name": "start_lat", "type": "FLOAT" },
-            #         { "mode": "REQUIRED", "name": "start_lon", "type": "FLOAT" },
-            #         { "mode": "REQUIRED", "name": "start_anchorage_id", "type": "STRING" },
-            #         { "mode": "REQUIRED", "name": "end_timestamp", "type": "TIMESTAMP" },
-            #         { "mode": "REQUIRED", "name": "end_lat", "type": "FLOAT" },
-            #         { "mode": "REQUIRED", "name": "end_lon", "type": "FLOAT" },
-            #         { "mode": "REQUIRED", "name": "end_anchorage_id", "type": "STRING" },
-            #         { "fields": [
-            #             { "mode": "REQUIRED", "name": "vessel_id", "type": "STRING" },
-            #             { "mode": "REQUIRED", "name": "timestamp", "type": "TIMESTAMP" },
-            #             { "mode": "REQUIRED", "name": "lat", "type": "FLOAT" },
-            #             { "mode": "REQUIRED", "name": "lon", "type": "FLOAT" },
-            #             { "mode": "REQUIRED", "name": "vessel_lat", "type": "FLOAT" },
-            #             { "mode": "REQUIRED", "name": "vessel_lon", "type": "FLOAT" },
-            #             { "mode": "REQUIRED", "name": "anchorage_id", "type": "STRING" },
-            #             { "mode": "REQUIRED", "name": "event_type", "type": "STRING" }
-            #         ],
-            #         "mode": "REPEATED", "name": "events", "type": "RECORD" }
-            #     ],
-            #     start_date_str=self.default_args['start_date'].strftime("%Y-%m-%d"),
-            #     end_date_str=f'{config["ds"]}'
-            # )
 
             voyage_generation = self.build_docker_task({
                 'task_id':'voyage_compat_generation',
@@ -305,7 +275,6 @@ class PortVisitsDagFactory(AnchorageDagFactory):
             dag >> segment_info_exists >> port_visits
             dag >> overlappingandshort_segments_exists >> port_visits
 
-            # port_visits >> ensure_creation_tables >> voyage_generation
             port_visits >> voyage_generation
 
             port_visits >> replaces_raw_port_visits

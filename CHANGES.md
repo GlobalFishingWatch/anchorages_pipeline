@@ -12,6 +12,18 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ### Changed
 
+* [PIPELINE-439](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/439): Changes
+  Automte the compatibility version of port visits and voyages.
+  the new compatibility automate consists in outputting the following tables
+  - proto_raw_port_events_YYYYMMDD
+  - proto_port_state
+  - proto_port_visists
+  - proto_voyages_c2
+  - proto_voyages_c3
+  - proto_voyages_c4
+  - port_visits_YYYYMMDD (Compatibility part)
+  - voyages (Compatibility part)
+
 * [PIPELINE-399](https://github.com/GlobalFishingWatch/anchorages_pipeline/pull/399): Changes
   Automate the new port schema in Airflow.
   Port-visits and voyages are in same DAG. Port visits runs across all the
