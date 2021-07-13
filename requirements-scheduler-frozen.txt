@@ -70,7 +70,7 @@ pyparsing==2.4.7
 pytest==6.2.4
 python-dateutil==2.8.1
 pytz==2020.1
-PyYAML==5.3.1
+PyYAML==5.4
 requests==2.25.1
 rsa==4.7.2
 s2sphere==0.2.5
