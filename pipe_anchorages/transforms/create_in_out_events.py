@@ -100,7 +100,11 @@ class CreateInOutEvents(beam.PTransform):
 
     def parse_datetime(self, text):
         # TODO: should check that %Z is what we think it is....
-        naive = datetime.datetime.strptime(text, '%Y-%m-%d %H:%M:%S.%f %Z')
+        naive = None
+        try:
+            naive = datetime.datetime.strptime(text, '%Y-%m-%d %H:%M:%S.%f %Z')
+        except ValueError:
+            naive = datetime.datetime.strptime(text, '%Y-%m-%d %H:%M:%S %Z')
         return naive.replace(tzinfo=pytz.utc)
 
     def parse_date(self, text):

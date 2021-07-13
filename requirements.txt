@@ -1,1 +1,0 @@
-https://codeload.github.com/GlobalFishingWatch/pipe-tools/tar.gz/v3.2.0#egg=pipe-tools

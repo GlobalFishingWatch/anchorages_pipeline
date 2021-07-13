@@ -20,11 +20,11 @@ from apache_beam.runners import PipelineState
 
 def create_queries(args):
     template = """
-    WITH 
+    WITH
 
     destinations AS (
       SELECT seg_id, _TABLE_SUFFIX AS table_suffix,
-          CASE 
+          CASE
             WHEN ARRAY_LENGTH(destinations) = 0 THEN NULL
             ELSE (SELECT MAX(value)
                   OVER (ORDER BY count DESC)
@@ -36,9 +36,9 @@ def create_queries(args):
     ),
 
     positions AS (
-      SELECT ssvid, seg_id, lat, lon, timestamp, speed, 
+      SELECT ssvid, seg_id, lat, lon, timestamp, speed,
              _TABLE_SUFFIX as table_suffix
-        FROM `{position_table}*` 
+        FROM `{position_table}*`
        WHERE _TABLE_SUFFIX BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}'
          AND seg_id IS NOT NULL
          AND lat IS NOT NULL
@@ -108,7 +108,7 @@ def run(options):
                               fishing_vessel_list)
         )
 
-    (anchorage_points | AnchorageSink(table=known_args.output_table, 
+    (anchorage_points | AnchorageSink(table=known_args.output_table,
                                       write_disposition="WRITE_TRUNCATE")
     )
 

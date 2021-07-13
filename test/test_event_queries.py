@@ -17,24 +17,24 @@ def test_create_queries_1():
     SELECT seg_id AS ident, ssvid, lat, lon, speed,
             CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
     FROM `SOURCE_TABLE*`
-    WHERE _table_suffix BETWEEN '20160101' AND '20160101' 
+    WHERE _table_suffix BETWEEN '20160101' AND '20160101'
       
     """]
     
 def test_create_queries_2():
-    args = DummyOptions("2012-5-01", "2017-05-15")
+    args = DummyOptions("2012-05-01", "2017-05-15")
     assert list(create_queries(args, date(2012, 5, 1), date(2017, 5, 15))) == ["""
     SELECT seg_id AS ident, ssvid, lat, lon, speed,
             CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
     FROM `SOURCE_TABLE*`
-    WHERE _table_suffix BETWEEN '20120501' AND '20150126' 
+    WHERE _table_suffix BETWEEN '20120501' AND '20150126'
       
-    """, 
+    """,
     """
     SELECT seg_id AS ident, ssvid, lat, lon, speed,
             CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
     FROM `SOURCE_TABLE*`
-    WHERE _table_suffix BETWEEN '20150127' AND '20170515' 
+    WHERE _table_suffix BETWEEN '20150127' AND '20170515'
       
     """
         ]

@@ -3,11 +3,14 @@
 THIS_SCRIPT_DIR="$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )"
 
 display_usage() {
-	echo "Available Commands"
-	echo "  port_events             run port events dataflow"
-	echo "  port_visits             run port visits dataflow"
-	echo "  anchorages              run anchorages dataflow"
-	echo "  name_anchorages         run name anchorages dataflow"
+  echo "Available Commands"
+  echo "  port_events                 run port events dataflow"
+  echo "  port_visits                 run port visits dataflow"
+  echo "  anchorages                  run anchorages dataflow"
+  echo "  name_anchorages             run name anchorages dataflow"
+  echo "  generate_confidence_voyages generate confidence voyages"
+  echo "  generate_voyages            generate voyages"
+  echo "  replaces_table              replaces tables"
 }
 
 
@@ -35,9 +38,17 @@ case $1 in
   name_anchorages)
     python -m pipe_anchorages.name_anchorages "${@:2}"
     ;;
-		
+
+  generate_confidence_voyages)
+    ${THIS_SCRIPT_DIR}/generate_confidence_voyages.sh "${@:2}"
+    ;;
+
   generate_voyages)
     ${THIS_SCRIPT_DIR}/generate_voyages.sh "${@:2}"
+    ;;
+
+  replaces_table)
+    python -m pipe_anchorages.replaces_table "${@:2}"
     ;;
 
   *)

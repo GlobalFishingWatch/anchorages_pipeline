@@ -39,7 +39,7 @@ anchorage overrides is edited. This is accomplished by running the following com
                  --max_num_workers 100 \
                  --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
                  --project world-fishing-827 \
-                 --requirements_file requirements.txt \
+                 --requirements_file requirements-worker-frozen.txt \
                  --project world-fishing-827 \
                  --staging_location gs://machine-learning-dev-ttl-120d/anchorages/anchorages/output/staging \
                  --temp_location gs://machine-learning-dev-ttl-120d/anchorages/temp \
@@ -67,7 +67,7 @@ Run:
                          --max_num_workers MAX_WORKER \
                          --fishing_ssvid_list GCS_LOCATION_OF_FISHING_SSVID_LIST \
                          --project PROJECT-NAME \
-                         --requirements_file requirements.txt \
+                         --requirements_file requirements-worker-frozen.txt \
                          --staging_location GCS_STAGING_LOCATION \
                          --temp_location GCS_TEMPLOCATION \
                          --setup_file ./setup.py \
@@ -90,7 +90,7 @@ For example, to run all years:
                          --max_num_workers 300 \
                          --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
                          --project world-fishing-827 \
-                         --requirements_file requirements.txt \
+                         --requirements_file requirements-worker-frozen.txt \
                          --project world-fishing-827 \
                          --staging_location gs://machine-learning-dev-ttl-120d/anchorages/anchorages/output/staging \
                          --temp_location gs://machine-learning-dev-ttl-120d/anchorages/temp \
@@ -111,7 +111,7 @@ Or to run a minimal testing run:
                          --max_num_workers 200 \
                          --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
                          --project world-fishing-827 \
-                         --requirements_file requirements.txt \
+                         --requirements_file requirements-worker-frozen.txt \
                          --project world-fishing-827 \
                          --staging_location gs://machine-learning-dev-ttl-120d/anchorages/anchorages/output/staging \
                          --temp_location gs://machine-learning-dev-ttl-120d/anchorages/temp \
@@ -137,7 +137,7 @@ For example:
                  --max_num_workers 200 \
                  --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
                  --project world-fishing-827 \
-                 --requirements_file requirements.txt \
+                 --requirements_file requirements-worker-frozen.txt \
                  --project world-fishing-827 \
                  --staging_location gs://machine-learning-dev-ttl-120d/anchorages/anchorages/output/staging \
                  --temp_location gs://machine-learning-dev-ttl-120d/anchorages/temp \
@@ -155,7 +155,7 @@ or
                  --max_num_workers 100 \
                  --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
                  --project world-fishing-827 \
-                 --requirements_file requirements.txt \
+                 --requirements_file requirements-worker-frozen.txt \
                  --project world-fishing-827 \
                  --staging_location gs://machine-learning-dev-ttl-120d/anchorages/anchorages/output/staging \
                  --temp_location gs://machine-learning-dev-ttl-120d/anchorages/temp \
@@ -182,7 +182,7 @@ To update a day of events, run, for example:
         --state_table machine_learning_dev_ttl_120d.port_port_state_v20210506_ \
         --project world-fishing-827 \
         --max_num_workers 100 \
-        --requirements_file requirements.txt \
+        --requirements_file requirements-worker-frozen.txt \
         --project world-fishing-827 \
         --staging_location gs://machine-learning-dev-ttl-30d/anchorages/portevents/output/staging \
         --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp \
@@ -202,7 +202,7 @@ To update a day of events, run, for example:
             --state_table machine_learning_dev_ttl_120d.port_event__test_v20210506_batch_state_ \
             --project world-fishing-827 \
             --max_num_workers 100 \
-            --requirements_file requirements.txt \
+            --requirements_file requirements-worker-frozen.txt \
             --project world-fishing-827 \
             --staging_location gs://machine-learning-dev-ttl-30d/anchorages/portevents/output/staging \
             --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp \
@@ -228,7 +228,7 @@ To create a corresponding day of visits do:
         --output_table machine_learning_dev_ttl_120d.port_visit_test_v20210506_stableid \
         --project world-fishing-827 \
         --max_num_workers 50 \
-        --requirements_file requirements.txt \
+        --requirements_file requirements-worker-frozen.txt \
         --project world-fishing-827 \
         --staging_location gs://machine-learning-dev-ttl-30d/anchorages/portevents/output/staging \
         --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp \
@@ -249,7 +249,7 @@ To create a corresponding day of visits do:
             --output_table machine_learning_dev_ttl_120d.port_visit_test_v20210506_stableid \
             --project world-fishing-827 \
             --max_num_workers 50 \
-            --requirements_file requirements.txt \
+            --requirements_file requirements-worker-frozen.txt \
             --project world-fishing-827 \
             --staging_location gs://machine-learning-dev-ttl-30d/anchorages/portevents/output/staging \
             --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp \

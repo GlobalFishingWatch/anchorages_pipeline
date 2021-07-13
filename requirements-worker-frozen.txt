@@ -1,0 +1,7 @@
+jinja2-cli==0.7.0
+pipe-tools @ https://codeload.github.com/GlobalFishingWatch/pipe-tools/tar.gz/v3.2.0
+s2sphere==0.2.5
+statistics==1.0.3.5
+tzlocal==1.5.1
+ujson==1.35
+unidecode==1.2.0

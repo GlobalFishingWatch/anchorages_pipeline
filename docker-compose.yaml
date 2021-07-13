@@ -42,18 +42,6 @@ services:
       - ".:/opt/project"
       - "gcp:/root/.config/"
 
-  bash:
-    entrypoint: "/bin/bash"
-    image: gfw/pipe-anchorages
-    build: .
-    volumes:
-      - ".:/opt/project"
-      - "gcp:/root/.config/"
-
 volumes:
   gcp:
     external: True
-
-
-
-
