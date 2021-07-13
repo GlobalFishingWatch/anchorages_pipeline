@@ -179,7 +179,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                     # Required
                     events_table='{pipeline_dataset}.{port_events_table}'.format(**config),
                     vessel_id_table='{source_dataset}.{segment_info_table}'.format(**config),
-                    output_table='{temp_dataset}.{pipeline_dataset}_port_visit_{ds_nodash}'.format(**config),
+                    output_table='{temp_dataset}.{pipeline_dataset}_port_visits_{ds_nodash}'.format(**config),
                     start_date=self.default_args['start_date'].strftime("%Y-%m-%d"),
                     end_date=f'{config["ds"]}',
 
@@ -214,7 +214,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                              '--project_id',
                              f'{config["project_id"]}',
                              '--from_table',
-                             '{temp_dataset}.{pipeline_dataset}_port_visit_{ds_nodash}'.format(**config),
+                             '{temp_dataset}.{pipeline_dataset}_port_visits_{ds_nodash}'.format(**config),
                              '--to_table',
                              '{pipeline_dataset}.{port_visits_table}'.format(**config)]
             })
