@@ -87,7 +87,7 @@ class CreatePortVisits(beam.PTransform):
         dlon = evt2.lon - evt1.lon
         # Ensure dlon is in range [-180, 180] 
         # so that we don't have trouble near the dateline
-        dlon = (x + 180) % 360 - 180
+        dlon = (dlon + 180) % 360 - 180
         dist_nm = math.hypot(dlat, scale * dlon) * 60 
         return dist_nm > self.max_interseg_dist_nm
 
