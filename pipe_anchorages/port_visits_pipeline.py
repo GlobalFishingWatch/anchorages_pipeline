@@ -92,7 +92,7 @@ def run(options):
     sink = io.WriteToBigQuery(
         visit_args.output_table,
         schema=build_visit_schema(),
-        write_disposition=io.BigQueryDisposition.WRITE_APPEND,
+        write_disposition=io.BigQueryDisposition.WRITE_TRUNCATE,
         create_disposition=io.BigQueryDisposition.CREATE_IF_NEEDED,
         additional_bq_parameters={
             'timePartitioning': {

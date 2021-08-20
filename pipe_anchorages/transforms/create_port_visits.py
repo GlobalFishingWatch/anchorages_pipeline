@@ -24,6 +24,8 @@ class CreatePortVisits(beam.PTransform):
 
     TYPE_ORDER = {x : i for (i, x) in enumerate(EVENT_TYPES)}
 
+    MAX_EMITTED_EVENTS = 200
+
     def __init__(self, max_interseg_dist_nm):
         self.max_interseg_dist_nm = max_interseg_dist_nm
 
@@ -43,7 +45,11 @@ class CreatePortVisits(beam.PTransform):
             return 1
         raise ValueError(f'`events` missing expected event types. Has {set(event_types)}')
 
-
+    def prune_events(self, events):
+        if len(events) > self.MAX_EMITTED_EVENTS:
+            n = self.MAX_EMITTED_EVENTS // 2
+            events = events[:n] + events[-n:]
+        return events
 
     def create_visit(self, id_, visit_events):
         ssvid, vessel_id = id_
@@ -65,20 +71,23 @@ class CreatePortVisits(beam.PTransform):
                          end_anchorage_id=visit_events[-1].anchorage_id,
                          duration_hrs=duration_hrs,
                          confidence=self.compute_confidence(visit_events),
-                         events=visit_events)
+                         events=self.prune_events(visit_events))
 
 
     def possibly_yield_visit(self, id_, events):
         if events:
             yield self.create_visit(id_, events)
 
-    def has_long_interseg_gap(self, evt1, evt2):
+    def has_large_interseg_dist(self, evt1, evt2):
         if evt1.seg_id == evt2.seg_id:
             return False
         dlat = evt2.lat - evt1.lat
         lat = 0.5 * (evt1.lat + evt2.lat)
         scale = math.cos(math.radians(lat))
         dlon = evt2.lon - evt1.lon
+        # Ensure dlon is in range [-180, 180] 
+        # so that we don't have trouble near the dateline
+        dlon = (x + 180) % 360 - 180
         dist_nm = math.hypot(dlat, scale * dlon) * 60 
         return dist_nm > self.max_interseg_dist_nm
 
@@ -93,8 +102,8 @@ class CreatePortVisits(beam.PTransform):
 
         visit_events = []
         for i, evt in enumerate(ordered_events):
-            has_long_gap = self.has_long_interseg_gap(visit_events[-1], evt) if visit_events else False
-            if evt.event_type in 'PORT_ENTRY' or has_long_gap:
+            has_large_gap = self.has_large_interseg_dist(visit_events[-1], evt) if visit_events else False
+            if evt.event_type in 'PORT_ENTRY' or has_large_gap:
                 yield from self.possibly_yield_visit(id_, visit_events)
                 visit_events = []
             if evt.event_type not in self.EVENT_TYPES:
