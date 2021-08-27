@@ -10,7 +10,6 @@ display_usage() {
   echo "  name_anchorages             run name anchorages dataflow"
   echo "  generate_confidence_voyages generate confidence voyages"
   echo "  generate_voyages            generate voyages"
-  echo "  replaces_table              replaces tables"
 }
 
 
@@ -45,10 +44,6 @@ case $1 in
 
   generate_voyages)
     ${THIS_SCRIPT_DIR}/generate_voyages.sh "${@:2}"
-    ;;
-
-  replaces_table)
-    python -m pipe_anchorages.replaces_table "${@:2}"
     ;;
 
   *)
