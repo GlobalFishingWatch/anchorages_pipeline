@@ -255,8 +255,14 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                              '{project_id}:{pipeline_dataset}.{voyages_table}_c4'.format(**config)]
             })
 
-            dag >> [source_exists, segment_info_exists, overlappingandshort_segments_exists] >> port_visits >> voyage_generation >> [
-                voyage_c2_generation, voyage_c3_generation, voyage_c4_generation]
+            source_tasks = [source_exists, segment_info_exists, overlappingandshort_segments_exists]
+            voyages_tasks = [voyage_generation, voyage_c2_generation, voyage_c3_generation, voyage_c4_generation]
+
+            for source_task in source_tasks:
+                dag >> source_task >> port_visits
+
+            for voyage_task in voyages_tasks:
+                port_visits >> voyage_task
 
             return dag
 
