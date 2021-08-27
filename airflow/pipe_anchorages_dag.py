@@ -179,7 +179,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                     # Required
                     events_table='{pipeline_dataset}.{port_events_table}'.format(**config),
                     vessel_id_table='{source_dataset}.{segment_info_table}'.format(**config),
-                    output_table='{temp_dataset}.{pipeline_dataset}_port_visits_{ds_nodash}'.format(**config),
+                    output_table='{pipeline_dataset}.{port_visits_table}'.format(**config),
                     start_date=self.default_args['start_date'].strftime("%Y-%m-%d"),
                     end_date=f'{config["ds"]}',
 
@@ -202,22 +202,6 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                     setup_file='./setup.py'
                 )
             )
-
-            replaces_raw_port_visits = self.build_docker_task({
-                'task_id':'replaces_raw_port_visits',
-                'pool':'k8operators_limit',
-                'docker_run':'{docker_run}'.format(**config),
-                'image':'{docker_image}'.format(**config),
-                'name':'replaces-raw-port-visits',
-                'dag':dag,
-                'arguments':['replaces_table',
-                             '--project_id',
-                             f'{config["project_id"]}',
-                             '--from_table',
-                             '{temp_dataset}.{pipeline_dataset}_port_visits_{ds_nodash}'.format(**config),
-                             '--to_table',
-                             '{pipeline_dataset}.{port_visits_table}'.format(**config)]
-            })
 
             voyage_generation = self.build_docker_task({
                 'task_id':'voyage_compat_generation',
@@ -271,17 +255,8 @@ class PortVisitsDagFactory(AnchorageDagFactory):
                              '{project_id}:{pipeline_dataset}.{voyages_table}_c4'.format(**config)]
             })
 
-            dag >> source_exists >> port_visits
-            dag >> segment_info_exists >> port_visits
-            dag >> overlappingandshort_segments_exists >> port_visits
-
-            port_visits >> voyage_generation
-
-            port_visits >> replaces_raw_port_visits
-
-            replaces_raw_port_visits >> voyage_c2_generation
-            replaces_raw_port_visits >> voyage_c3_generation
-            replaces_raw_port_visits >> voyage_c4_generation
+            dag >> [source_exists, segment_info_exists, overlappingandshort_segments_exists] >> port_visits >> voyage_generation >> [
+                voyage_c2_generation, voyage_c3_generation, voyage_c4_generation]
 
             return dag
 
