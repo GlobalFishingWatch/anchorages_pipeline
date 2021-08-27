@@ -166,7 +166,7 @@ class PortVisitsDagFactory(AnchorageDagFactory):
             # Note: task_id must use '-' instead of '_' because it gets used to create the dataflow job name, and
             # only '-' is allowed
             port_visits = DataFlowDirectRunnerOperator(
-                task_id='port-compat-visits',
+                task_id='port-visits',
                 pool='dataflow',
                 py_file=self.python_target,
                 options=dict(
