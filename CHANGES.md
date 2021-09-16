@@ -8,6 +8,13 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ## [Unreleased]
 
+## v3.2.4 - 2021-09-16
+
+### Added
+
+* [PIPELINE-536](https://globalfishingwatch.atlassian.net/browse/PIPELINE-536): Adds
+  Wait for Dataflow job option parameter in port_events and port_visits, to sync when the job is completed.
+
 ## v3.2.1 - 2021-06-14
 
 ### Changed

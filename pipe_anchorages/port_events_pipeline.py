@@ -7,6 +7,7 @@ import pytz
 import apache_beam as beam
 from apache_beam import Filter
 from apache_beam.options.pipeline_options import GoogleCloudOptions
+from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.runners import PipelineState
 
 from google.cloud import bigquery
@@ -133,6 +134,9 @@ def run(options):
     result = p.run()
 
     success_states = set([PipelineState.DONE, PipelineState.RUNNING, PipelineState.UNKNOWN, PipelineState.PENDING])
+
+    if known_args.wait_for_job or options.view_as(StandardOptions).runner == 'DirectRunner':
+        result.wait_until_finish()
 
     logging.info('returning with result.state=%s' % result.state)
     return 0 if result.state in success_states else 1

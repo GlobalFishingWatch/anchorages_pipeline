@@ -9,6 +9,7 @@ from apache_beam import io
 from apache_beam import Map
 from apache_beam import Filter
 from apache_beam.options.pipeline_options import GoogleCloudOptions
+from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.runners import PipelineState
 from apache_beam.transforms.window import TimestampedValue
 
@@ -115,11 +116,11 @@ def run(options):
         | CreatePortVisits(visit_args.max_inter_seg_dist_nm)
         | Map(visit_to_msg)
     )
-     
-    (tagged_records 
+
+    (tagged_records
         | sink
     )
-    
+
     if visit_args.compat_output_table:
         dataset, table = visit_args.compat_output_table.split('.') 
         compat_sink = WriteToBigQueryDatePartitioned(
@@ -139,6 +140,9 @@ def run(options):
     result = p.run()
 
     success_states = set([PipelineState.DONE, PipelineState.RUNNING, PipelineState.UNKNOWN, PipelineState.PENDING])
+
+    if visit_args.wait_for_job or options.view_as(StandardOptions).runner == 'DirectRunner':
+        result.wait_until_finish()
 
     logging.info('returning with result.state=%s' % result.state)
     return 0 if result.state in success_states else 1
