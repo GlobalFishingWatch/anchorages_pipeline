@@ -2,11 +2,6 @@
 import sys
 import logging
 
-from pipe_anchorages.port_events import run as run_port_events
-from pipe_anchorages.port_visits import run as run_port_visits
-from pipe_anchorages.anchorages import run as run_anchorages
-from pipe_anchorages.name_anchorages import run as run_name_anchorages
-
 logging.basicConfig(level=logging.INFO)
 
 def run_script(bash_script_command):
@@ -20,6 +15,23 @@ def run_generate_confidence_voyages(args):
 
 def run_generate_voyages(args):
     run_script(f'./scripts/generate_voyages.sh {" ".join(args)}')
+
+def run_port_events(args):
+    from pipe_anchorages.port_events import run as run_port_events
+    run_port_events(args)
+
+def run_port_visits(args):
+    from pipe_anchorages.port_visits import run as run_port_visits
+    run_port_visits(args)
+
+def run_anchorages(args):
+    from pipe_anchorages.anchorages import run as run_anchorages
+    run_anchorages(args)
+
+def run_name_anchorages(args):
+    from pipe_anchorages.name_anchorages import run as run_name_anchorages
+    run_name_anchorages(args)
+
 
 SUBCOMMANDS = {
     "port_events": run_port_events,
