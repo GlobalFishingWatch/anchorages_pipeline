@@ -1,0 +1,5 @@
+pipe-tools @ https://codeload.github.com/globalfishingwatch/pipe-tools/tar.gz/v4.0.0
+Fiona==1.8.20
+Shapely==1.7.1
+s2sphere==0.2.5
+Unidecode==1.2.0

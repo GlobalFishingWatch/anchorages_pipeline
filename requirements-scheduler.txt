@@ -1,0 +1,4 @@
+apache-beam==2.35.0
+pytest==6.2.5
+jinja2-cli==0.7.0
+PyYAML==5.4.1

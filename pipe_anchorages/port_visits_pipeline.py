@@ -13,7 +13,7 @@ from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.runners import PipelineState
 from apache_beam.transforms.window import TimestampedValue
 
-from pipe_tools.io import WriteToBigQueryDatePartitioned
+from pipe_tools.io import WriteToBigQueryDateSharded
 
 from . import common as cmn
 from .transforms.source import QuerySource
@@ -123,7 +123,7 @@ def run(options):
 
     if visit_args.compat_output_table:
         dataset, table = visit_args.compat_output_table.split('.') 
-        compat_sink = WriteToBigQueryDatePartitioned(
+        compat_sink = WriteToBigQueryDateSharded(
                         temp_gcs_location=cloud_args.temp_location,
                         dataset=dataset,
                         table=table,

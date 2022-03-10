@@ -5,7 +5,7 @@ from apache_beam import PTransform
 from apache_beam import Map
 from apache_beam import io
 from apache_beam.transforms.window import TimestampedValue
-from pipe_tools.io import WriteToBigQueryDatePartitioned
+from pipe_tools.io import WriteToBigQueryDateSharded
 from ..objects.namedtuples import epoch
 from ..schema.port_event import build as build_event_schema, build_event_state_schema
 from ..schema.named_anchorage import build as build_named_anchorage_schema
@@ -37,7 +37,7 @@ class EventSink(PTransform):
         dataset, table = self.table.split('.')
 
 
-        sink = WriteToBigQueryDatePartitioned(
+        sink = WriteToBigQueryDateSharded(
             temp_gcs_location=self.temp_location,
             dataset=dataset,
             table=table,
@@ -90,7 +90,7 @@ class EventStateSink(PTransform):
         dataset, table = self.table.split('.')
 
 
-        sink = WriteToBigQueryDatePartitioned(
+        sink = WriteToBigQueryDateSharded(
             temp_gcs_location=self.temp_location,
             dataset=dataset,
             table=table,
