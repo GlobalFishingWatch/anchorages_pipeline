@@ -75,10 +75,8 @@ def visit_to_msg(x):
     return x
 
 def drop_new_fields(x):
-    x.pop('ssvid')
-    x.pop('duration_hrs')
-    x.pop('confidence')
-    return x
+    excluded_fields = { 'ssvid', 'duration_hrs', 'confidence' }
+    return {key: value for key, value in x.items() if key not in excluded_fields}
 
 def run(options):
 
