@@ -6,15 +6,16 @@ logging.basicConfig(level=logging.INFO)
 
 def run_script(bash_script_command):
     import subprocess
-    resp = subprocess.call(bash_script_command)
-    if (resp != 0):
-        raise Exception(f'The script returns non zero result <{" ".join(bash_script_command)}> is {resp}')
+    resp = subprocess.run(bash_script_command, check=True, stdout=sys.stdout, stderr=sys.stderr, universal_newlines=True)
+    print(resp.stdout, resp.stderr)
+    if (resp.returncode != 0):
+        raise Exception(f'The script returns non zero result <{bash_script_command}> is {resp}')
 
 def run_generate_confidence_voyages(args):
-    run_script(f'./scripts/generate_confidence_voyages.sh {" ".join(args)}')
+    run_script(['./scripts/generate_confidence_voyages.sh']+args)
 
 def run_generate_voyages(args):
-    run_script(f'./scripts/generate_voyages.sh {" ".join(args)}')
+    run_script(['./scripts/generate_voyages.sh']+args)
 
 def run_port_events(args):
     from pipe_anchorages.port_events import run as run_port_events

@@ -1,4 +1,4 @@
-FROM gcr.io/world-fishing-827/github.com/globalfishingwatch/gfw-pipeline:latest-python3.7
+FROM gcr.io/world-fishing-827/github.com/globalfishingwatch/gfw-bash-pipeline:latest-python3.7
 
 # Setup scheduler-specific dependencies
 COPY ./requirements-scheduler.txt ./
