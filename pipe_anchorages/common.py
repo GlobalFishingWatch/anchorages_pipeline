@@ -117,7 +117,7 @@ class CreateTaggedRecords(beam.PTransform):
 
 def load_config(path):
     with open(path) as f:
-        config = yaml.load(f.read())
+        config = yaml.load(f.read(), Loader=yaml.FullLoader)
 
     anchorage_visit_max_distance = max(config['anchorage_entry_distance_km'],
                                        config['anchorage_exit_distance_km'])
