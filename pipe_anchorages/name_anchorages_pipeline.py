@@ -191,7 +191,7 @@ def run(options):
     source = p | QuerySource(create_query(known_args), use_standard_sql=True)
 
     with open(known_args.config) as f:
-        config = yaml.load(f)
+        config = yaml.load(f, Loader=yaml.FullLoader)
 
     existing_anchorages = (source
         | beam.Map(NamedAnchoragePoint.from_msg)

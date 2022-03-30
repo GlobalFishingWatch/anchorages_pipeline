@@ -13,7 +13,7 @@ from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.runners import PipelineState
 from apache_beam.transforms.window import TimestampedValue
 
-from pipe_tools.io import WriteToBigQueryDatePartitioned
+from pipe_tools.io import WriteToBigQueryDateSharded
 
 from . import common as cmn
 from .transforms.source import QuerySource
@@ -75,10 +75,8 @@ def visit_to_msg(x):
     return x
 
 def drop_new_fields(x):
-    x.pop('ssvid')
-    x.pop('duration_hrs')
-    x.pop('confidence')
-    return x
+    excluded_fields = { 'ssvid', 'duration_hrs', 'confidence' }
+    return {key: value for key, value in x.items() if key not in excluded_fields}
 
 def run(options):
 
@@ -123,7 +121,7 @@ def run(options):
 
     if visit_args.compat_output_table:
         dataset, table = visit_args.compat_output_table.split('.') 
-        compat_sink = WriteToBigQueryDatePartitioned(
+        compat_sink = WriteToBigQueryDateSharded(
                         temp_gcs_location=cloud_args.temp_location,
                         dataset=dataset,
                         table=table,

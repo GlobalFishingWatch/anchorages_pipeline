@@ -125,7 +125,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     with open(args.config_path) as f:
-        config = yaml.load(f)
+        config = yaml.load(f, Loader=yaml.FullLoader)
 
     finder = PortInfoFinder.from_config(config)
     isofinder = get_iso3_finder(mangled_path('EEZ_land_v2_201410.shp', 'EEZ'))
