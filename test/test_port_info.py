@@ -12,7 +12,7 @@ parent_dir = os.path.dirname(this_dir)
 
 default_config_path = os.path.join(dirnames.parent_dir, 'name_anchorages_cfg.yaml')
 with open(default_config_path) as f:
-    config = yaml.load(f)
+    config = yaml.load(f, Loader=yaml.SafeLoader)
 
 def test_instantiation():
     finder = PortInfoFinder.from_config(config)

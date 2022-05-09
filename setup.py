@@ -1,24 +1,11 @@
-import setuptools
+#!/usr/bin/env python
 
-package = __import__('pipe_anchorages')
+from setuptools import find_packages
+from setuptools import setup
 
-DEPENDENCIES = [
-    'fiona',
-    'shapely'
-]
-setuptools.setup(
-    name='pipe-anchorages',
-    author=package.__author__,
-    author_email=package.__email__,
-    description=package.__doc__.strip(),
-    url=package.__source__,
-    version=package.__version__,
-    license="Apache 2.0",
-    include_package_data=True,
-    install_requires=DEPENDENCIES,
-    packages=setuptools.find_packages(),
-    zip_safe=True,
-    package_data={
-        '': ['data/*.pickle', 'data/port_lists/*.csv'],
-    }
-    )
+setup(
+    name='pipe_anchorages',
+    version='3.3.0',
+    packages=find_packages(exclude=['test*.*', 'tests'])
+)
+

@@ -1,0 +1,16 @@
+FROM gcr.io/world-fishing-827/github.com/globalfishingwatch/gfw-bash-pipeline:latest-python3.7
+
+# Setup scheduler-specific dependencies
+COPY ./requirements-scheduler.txt ./
+RUN pip install -r requirements-scheduler.txt
+
+# Setup worker-specific dependencies
+COPY ./requirements-worker.txt ./
+RUN pip install -r requirements-worker.txt
+
+# Setup local package
+COPY . /opt/project
+RUN pip install -e .
+
+# Setup the entrypoint for quickly executing the pipelines
+ENTRYPOINT ["./main.py"]

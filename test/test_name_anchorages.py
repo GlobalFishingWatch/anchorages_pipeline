@@ -12,7 +12,7 @@ override_path: anchorage_overrides.csv
 port_list_paths:
     - WPI_ports.csv
     - geonames_1000.csv
-    """)
+    """, Loader=yaml.SafeLoader)
 
 
 class TestNameAnchorages(object):
