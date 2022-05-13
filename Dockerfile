@@ -6,6 +6,7 @@ RUN  apt-get update && \
   apt-get -qy install gdal-bin libgdal-dev && \
   export GDAL_VERSION="$(gdal-config --version)" && \
   pip install -r requirements-scheduler.txt && \
+  pip install -r requirements-worker.txt && \
   pip install -e .
 
 # Setup the entrypoint for quickly executing the pipelines

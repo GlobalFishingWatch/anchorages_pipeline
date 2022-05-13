@@ -1,10 +1,4 @@
-apache-beam
-google-apitools
-pytest
-jinja2-cli
-Fiona
-pyyaml
-Shapely
-s2sphere
-Unidecode
-numpy
+apache-beam==2.35.0
+pytest==6.2.5
+jinja2-cli==0.7.0
+google-apitools==0.5.31

@@ -1,4 +1,4 @@
-pyyaml==3.13
+pyyaml==5.4.1
 Fiona==1.8.20
 Shapely==1.7.1
 s2sphere==0.2.5
