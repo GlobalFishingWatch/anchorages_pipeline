@@ -11,6 +11,7 @@ services:
       - "gcp:/root/.config/"
   port_visits:
     image: gfw/pipe-anchorages
+    build:
       context: .
       dockerfile: Dockerfile-scheduler
     entrypoint: ["python", "-m", "pipe_anchorages.port_visits"]

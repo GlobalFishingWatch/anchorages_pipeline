@@ -29,23 +29,32 @@ instructions there.
 ### Updating the Named Anchorages
 
 The most common manual task is updating the named anchorages, which needs to be done whenever
-anchorage overrides is edited. This is accomplished by running the following command:
+anchorage overrides is edited. If you need to build and upload a new docker container use the
+following container:
+
+    docker build -f Dockerfile-worker -t gcr.io/world-fishing-827/pipe-anchorage/worker:tim_test .
+
+    docker push gcr.io/world-fishing-827/pipe-anchorage/worker:tim_test
+
+The run:
 
     docker-compose run name_anchorages \
-                 --job_name name-anchorages \
-                 --input_table anchorages.CURRENT_UNNAMED_ANCHORAGES \
-                 --output_table TARGET_DATASET.TARGET_TABLE \
-                 --config ./name_anchorages_cfg.yaml \
-                 --max_num_workers 100 \
-                 --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
-                 --project world-fishing-827 \
-                 --requirements_file requirements-worker-frozen.txt \
-                 --project world-fishing-827 \
-                 --staging_location gs://machine-learning-dev-ttl-120d/anchorages/anchorages/output/staging \
-                 --temp_location gs://machine-learning-dev-ttl-120d/anchorages/temp \
-                 --setup_file ./setup.py \
-                 --runner DataflowRunner \
-                 --disk_size_gb 100
+        --job_name name-anchorages \
+        --input_table CURRENT_UNNAMED_ANCHORAGES \
+        --output_table TARGET_DATASET.TARGET_TABLE \
+        --config ./name_anchorages_cfg.yaml \
+        --max_num_workers 100 \
+        --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
+        --project world-fishing-827 \
+        --sdk_container_image gcr.io/world-fishing-827/pipe-anchorage/worker:tim_test \
+        --project world-fishing-827 \
+        --staging_location gs://machine-learning-dev-ttl-120d/anchorages/anchorages/output/staging \
+        --temp_location gs://machine-learning-dev-ttl-120d/anchorages/temp \
+        --setup_file ./setup.py \
+        --runner DataflowRunner \
+        --disk_size_gb 100 \
+        --region us-central1 \
+        --experiments=use_runner_v2
 
 where `CURRENT_UNNAMED_ANCHORAGES` is the current (typically most recent) unnamed anchorages
 table and `TARGET_DATASET.TARGET_TABLE` is where the unnamed anchorages are stored.  I often
