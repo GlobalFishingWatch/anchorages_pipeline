@@ -4,5 +4,5 @@ Shapely==1.7.1
 s2sphere==0.2.5
 Unidecode==1.2.0
 numpy==1.22.0
-google-cloud-bigquery==3.0.0
+google-cloud-bigquery==3.3.2
 
