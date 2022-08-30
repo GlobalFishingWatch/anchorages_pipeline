@@ -17,7 +17,7 @@ def test_create_queries_1():
     SELECT seg_id AS ident, ssvid, lat, lon, speed,
             CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
     FROM `SOURCE_TABLE*`
-    WHERE _table_suffix BETWEEN '20160101' AND '20160101'
+    WHERE date(timestamp) BETWEEN '2016-01-01' AND '2016-01-01'
       
     """]
     
@@ -27,14 +27,14 @@ def test_create_queries_2():
     SELECT seg_id AS ident, ssvid, lat, lon, speed,
             CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
     FROM `SOURCE_TABLE*`
-    WHERE _table_suffix BETWEEN '20120501' AND '20150126'
+    WHERE date(timestamp) BETWEEN '2012-05-01' AND '2015-01-26'
       
     """,
     """
     SELECT seg_id AS ident, ssvid, lat, lon, speed,
             CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
     FROM `SOURCE_TABLE*`
-    WHERE _table_suffix BETWEEN '20150127' AND '20170515'
+    WHERE date(timestamp) BETWEEN '2015-01-27' AND '2017-05-15'
       
     """
         ]
