@@ -26,7 +26,7 @@ def create_queries(args, start_date, end_date):
     SELECT seg_id AS ident, ssvid, lat, lon, speed,
             CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
     FROM `{table}*`
-    WHERE _table_suffix BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}'
+    WHERE date(timestamp) BETWEEN '{start:%Y-%m-%d}' AND '{end:%Y-%m-%d}'
       {filter_text}
     """
     start_window = start_date
