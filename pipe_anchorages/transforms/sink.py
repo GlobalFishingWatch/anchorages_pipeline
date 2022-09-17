@@ -17,7 +17,7 @@ class EventSink(PTransform):
         self.project = project
 
     def compute_table_for_event(self, event):
-        stamp = datetime.fromtimestamp(event["timestamp"])
+        stamp = datetime.date.fromtimestamp(event["timestamp"])
         return f"{self.project}:{self.table}{stamp:%Y%m%d}"
 
     def expand(self, xs):
@@ -61,8 +61,8 @@ class EventStateSink(PTransform):
         self.temp_location = temp_location
         self.project = project
 
-    def compute_table_for_event(self, event):
-        stamp = datetime.fromtimestamp(event["timestamp"])
+    def compute_table_for_event(self, event_state):
+        stamp = datetime.date.fromtimestamp(event_state["last_timestamp"])
         return f"{self.project}:{self.table}{stamp:%Y%m%d}"
 
     def expand(self, xs):

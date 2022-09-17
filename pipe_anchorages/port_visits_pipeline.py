@@ -137,7 +137,7 @@ def run(options):
         dataset, table = visit_args.compat_output_table.split(".")
 
         def compute_table_for_event(event):
-            stamp = datetime.fromtimestamp(event["timestamp"])
+            stamp = datetime.date.fromtimestamp(event["timestamp"])
             return (
                 f"{cloud_args.project}:{visit_args.compat_output_table}{stamp:%Y%m%d}"
             )
