@@ -145,7 +145,6 @@ def run(options):
         compat_sink = io.WriteToBigQuery(
             compute_table_for_event,
             schema=build_compatibility_port_visit_schema(),
-            temp_gcs_location=cloud_args.temp_location,
             write_disposition="WRITE_TRUNCATE",
         )
 

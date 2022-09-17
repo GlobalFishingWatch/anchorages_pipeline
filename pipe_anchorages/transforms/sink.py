@@ -36,12 +36,11 @@ class EventSink(PTransform):
         sink = io.WriteToBigQuery(
             self.compute_table_for_event,
             schema=build_event_schema(),
-            temp_gcs_location=self.temp_location,
             write_disposition="WRITE_TRUNCATE",
         )
 
         logging.info(
-            "sink params: \n\t%s\n\t%s\n\t%s\n\t%s",
+            "sink params: \n\t%s\n\t%s\n\t%s",
             self.temp_location,
             self.table,
             self.project,
@@ -96,12 +95,11 @@ class EventStateSink(PTransform):
         sink = io.WriteToBigQuery(
             self.compute_table_for_event,
             schema=build_event_state_schema(),
-            temp_gcs_location=self.temp_location,
             write_disposition="WRITE_TRUNCATE",
         )
 
         logging.info(
-            "sink params: \n\t%s\n\t%s\n\t%s\n\t%s",
+            "sink params: \n\t%s\n\t%s\n\t%s",
             self.temp_location,
             self.table,
             self.project,
