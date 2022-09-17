@@ -11,6 +11,7 @@ steps:
 
 - name: 'gcr.io/cloud-builders/docker'
   id: test
+  waitFor: ['build-scheduler']
   args: [
     'run',
     '--rm',
