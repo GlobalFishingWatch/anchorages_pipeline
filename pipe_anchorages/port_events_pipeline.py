@@ -25,7 +25,7 @@ def create_queries(args, start_date, end_date):
     template = """
     SELECT seg_id AS ident, ssvid, lat, lon, speed,
             CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
-    FROM `{table}*`
+    FROM `{table}`
     WHERE date(timestamp) BETWEEN '{start:%Y-%m-%d}' AND '{end:%Y-%m-%d}'
       {filter_text}
     """
