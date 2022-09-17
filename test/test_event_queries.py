@@ -16,7 +16,7 @@ def test_create_queries_1():
     assert list(create_queries(args, date(2016, 1, 1), date(2016, 1, 1))) == ["""
     SELECT seg_id AS ident, ssvid, lat, lon, speed,
             CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
-    FROM `SOURCE_TABLE*`
+    FROM `SOURCE_TABLE`
     WHERE date(timestamp) BETWEEN '2016-01-01' AND '2016-01-01'
       
     """]
@@ -26,14 +26,14 @@ def test_create_queries_2():
     assert list(create_queries(args, date(2012, 5, 1), date(2017, 5, 15))) == ["""
     SELECT seg_id AS ident, ssvid, lat, lon, speed,
             CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
-    FROM `SOURCE_TABLE*`
+    FROM `SOURCE_TABLE`
     WHERE date(timestamp) BETWEEN '2012-05-01' AND '2015-01-26'
       
     """,
     """
     SELECT seg_id AS ident, ssvid, lat, lon, speed,
             CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
-    FROM `SOURCE_TABLE*`
+    FROM `SOURCE_TABLE`
     WHERE date(timestamp) BETWEEN '2015-01-27' AND '2017-05-15'
       
     """
