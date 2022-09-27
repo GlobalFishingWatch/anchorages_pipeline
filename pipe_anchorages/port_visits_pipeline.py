@@ -19,12 +19,7 @@ from .transforms.create_port_visits import CreatePortVisits
 from .transforms.create_tagged_anchorages import CreateTaggedAnchorages
 from .transforms.source import QuerySource
 
-# TODO: move to transform and import to both port_events (smart thing) and port_visits
-# Maybe integrate into CreateTaggedAnchorages
 
-# TODO: records should just use seg_id and any track stuff should happen here
-# TODO: on the joining with vessel_id (becomes track_id?)
-# TODO: add in bad_segs table
 def create_queries(args, end_date):
     template = """
     SELECT vids.ssvid, vids.vessel_id, vids.seg_id, records.* except (timestamp, identifier),
@@ -45,20 +40,6 @@ def create_queries(args, end_date):
         condition=condition,
         end=end_date,
     )
-
-    # start_window = start_date
-    # shift = 1000
-    # while start_window <= end_date:
-    #     end_window = min(start_window + datetime.timedelta(days=shift), end_date)
-    #     query = template.format(
-    #         table=args.thinned_message_table,
-    #         vid_table=args.vessel_id_table,
-    #         condition=condition,
-    #         start=start_window,
-    #         end=end_window,
-    #     )
-    #     yield query
-    #     start_window = end_window + datetime.timedelta(days=1)
 
 
 anchorage_query = (
@@ -113,11 +94,8 @@ def run(options):
         .date()
     )
 
-    # TODO: update options, moving stuff to here
-
     anchorages = (
         p
-        # TODO: why not just use BigQuerySource?
         | "ReadAnchorages"
         >> QuerySource(
             anchorage_query.format(visit_args.anchorage_table), use_standard_sql=True

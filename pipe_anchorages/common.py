@@ -46,7 +46,6 @@ class CreateVesselRecords(beam.PTransform):
         )
 
 
-# TODO: anchorages should use more memory efficient CreateTaggedRecordsByDay
 class CreateTaggedRecords(beam.PTransform):
     def __init__(self, min_required_positions, thin=True):
         self.min_required_positions = min_required_positions
@@ -90,7 +89,6 @@ class CreateTaggedRecords(beam.PTransform):
         tagged = []
         for rcd in records:
             if isinstance(rcd, VesselInfoRecord):
-                # TODO: normalize here rather than later. And cache normalization in dictionary
                 dest = rcd.destination
             elif isinstance(rcd, VesselLocationRecord):
                 tagged.append(rcd._replace(destination=dest))
@@ -136,7 +134,6 @@ class CreateTaggedRecordsByDay(beam.PTransform):
         tagged = []
         for rcd in records:
             if isinstance(rcd, VesselInfoRecord):
-                # TODO: normalize here rather than later. And cache normalization in dictionary
                 dest = rcd.destination
             elif isinstance(rcd, VesselLocationRecord):
                 tagged.append(rcd._replace(destination=dest))

@@ -13,8 +13,7 @@ from pipe_anchorages.objects.visit_event import VisitEvent
 PseudoRcd = namedtuple("PseudoRcd", ["location", "timestamp"])
 
 
-class CreateInOutEvents(beam.PTransform):
-
+class InOutEventsBase:
     IN_PORT = "IN_PORT"
     AT_SEA = "AT_SEA"
     STOPPED = "STOPPED"
@@ -43,28 +42,6 @@ class CreateInOutEvents(beam.PTransform):
         (None, IN_PORT): [],
         (None, STOPPED): [],
     }
-
-    def __init__(
-        self,
-        anchorages,
-        anchorage_entry_dist,
-        anchorage_exit_dist,
-        stopped_begin_speed,
-        stopped_end_speed,
-        min_gap_minutes,
-        end_date,
-    ):
-        # TODO: use dates for start and end date
-        self.anchorages = anchorages
-        self.anchorage_entry_dist = anchorage_entry_dist
-        self.anchorage_exit_dist = anchorage_exit_dist
-        self.stopped_begin_speed = stopped_begin_speed
-        self.stopped_end_speed = stopped_end_speed
-        self.min_gap = timedelta(minutes=min_gap_minutes)
-        self.end_date = end_date
-        assert self.min_gap < timedelta(
-            days=1
-        ), "min gap must be under one day in current implementation"
 
     def _is_in_port(self, state, dist):
         if dist <= self.anchorage_entry_dist:
@@ -100,6 +77,29 @@ class CreateInOutEvents(beam.PTransform):
                 return self.IN_PORT
         else:
             return self.AT_SEA
+
+
+class CreateInOutEvents(beam.PTransform, InOutEventsBase):
+    def __init__(
+        self,
+        anchorages,
+        anchorage_entry_dist,
+        anchorage_exit_dist,
+        stopped_begin_speed,
+        stopped_end_speed,
+        min_gap_minutes,
+        end_date,
+    ):
+        self.anchorages = anchorages
+        self.anchorage_entry_dist = anchorage_entry_dist
+        self.anchorage_exit_dist = anchorage_exit_dist
+        self.stopped_begin_speed = stopped_begin_speed
+        self.stopped_end_speed = stopped_end_speed
+        self.min_gap = timedelta(minutes=min_gap_minutes)
+        self.end_date = end_date
+        assert self.min_gap < timedelta(
+            days=1
+        ), "min gap must be under one day in current implementation"
 
     def _build_event(self, active_port, rcd, identity, event_type, last_timestamp):
         ssvid, vessel_id, seg_id = identity

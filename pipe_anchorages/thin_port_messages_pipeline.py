@@ -9,7 +9,7 @@ from apache_beam.options.pipeline_options import (GoogleCloudOptions,
 from apache_beam.runners import PipelineState
 
 from . import common as cmn
-from .options.port_events_options import PortEventsOptions
+from .options.thin_port_messages_options import ThinPortMessagesOptions
 from .transforms.create_tagged_anchorages import CreateTaggedAnchorages
 from .transforms.sink import MessageSink
 from .transforms.smart_thin_records import SmartThinRecords
@@ -18,7 +18,7 @@ from .transforms.source import QuerySource
 
 def create_queries(args, start_date, end_date):
     template = """
-    SELECT seg_id AS ident, ssvid, lat, lon, speed,
+    SELECT seg_id as ident, ssvid, lat, lon, speed,
             CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
     FROM `{table}*`
     WHERE _table_suffix BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}'
@@ -54,7 +54,7 @@ anchorage_query = (
 
 def run(options):
 
-    known_args = options.view_as(PortEventsOptions)
+    known_args = options.view_as(ThinPortMessagesOptions)
     cloud_options = options.view_as(GoogleCloudOptions)
 
     start_date = datetime.datetime.strptime(known_args.start_date, "%Y-%m-%d").date()
@@ -86,7 +86,6 @@ def run(options):
 
     anchorages = (
         p
-        # TODO: why not just use BigQuerySource?
         | "ReadAnchorages"
         >> QuerySource(
             anchorage_query.format(known_args.anchorage_table), use_standard_sql=True

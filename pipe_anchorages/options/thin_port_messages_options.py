@@ -3,7 +3,7 @@ from __future__ import absolute_import
 from apache_beam.options.pipeline_options import PipelineOptions
 
 
-class PortEventsOptions(PipelineOptions):
+class ThinPortMessagesOptions(PipelineOptions):
     @classmethod
     def _add_argparse_args(cls, parser):
         # Use add_value_provider_argument for arguments to be templatable
