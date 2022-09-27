@@ -1,11 +1,8 @@
 from __future__ import absolute_import
+
 import sys
 
-# Suppress a spurious warning that happens when you import apache_beam
-from . import logging_monkeypatch
-from .options.logging_options import validate_options
-from .options.logging_options import LoggingOptions
-
+from .options.logging_options import LoggingOptions, validate_options
 from .options.port_events_options import PortEventsOptions
 
 
