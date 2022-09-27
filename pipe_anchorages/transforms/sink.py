@@ -1,16 +1,15 @@
 import datetime
 import logging
-import pytz
-from apache_beam import PTransform
-from apache_beam import Map
-from apache_beam import io
+
+from apache_beam import Map, PTransform, io
 from apache_beam.transforms.window import TimestampedValue
+
 from ..objects.namedtuples import epoch
-from ..schema.port_event import build as build_event_schema, build_event_state_schema
+from ..schema.message_schema import message_schema
 from ..schema.named_anchorage import build as build_named_anchorage_schema
 
 
-class EventSink(PTransform):
+class MessageSink(PTransform):
     def __init__(self, table, temp_location, project):
         self.table = table
         self.temp_location = temp_location
@@ -20,6 +19,13 @@ class EventSink(PTransform):
         stamp = datetime.date.fromtimestamp(event["timestamp"])
         return f"{self.project}:{self.table}{stamp:%Y%m%d}"
 
+    def extract_latlon(self, x):
+        x = x.copy()
+        lonlat = x.pop("location")
+        x["lon"] = lonlat.lon
+        x["lat"] = lonlat.lat
+        return x
+
     def expand(self, xs):
         def as_dict(x):
             d = x._asdict()
@@ -27,7 +33,7 @@ class EventSink(PTransform):
 
         def encode_datetimes_to_s(x):
 
-            for field in ["timestamp", "last_timestamp"]:
+            for field in ["timestamp"]:
                 if x[field] is not None:
                     x[field] = (x[field] - epoch).total_seconds()
 
@@ -35,7 +41,7 @@ class EventSink(PTransform):
 
         sink = io.WriteToBigQuery(
             self.compute_table_for_event,
-            schema=build_event_schema(),
+            schema=message_schema,
             write_disposition="WRITE_TRUNCATE",
         )
 
@@ -50,65 +56,8 @@ class EventSink(PTransform):
             xs
             | Map(as_dict)
             | Map(encode_datetimes_to_s)
+            | Map(self.extract_latlon)
             | Map(lambda x: TimestampedValue(x, x["timestamp"]))
-            | sink
-        )
-
-
-class EventStateSink(PTransform):
-    def __init__(self, table, temp_location, project):
-        self.table = table
-        self.temp_location = temp_location
-        self.project = project
-
-    def compute_table_for_event(self, event_state):
-        stamp = datetime.date.fromtimestamp(event_state["last_timestamp"])
-        return f"{self.project}:{self.table}{stamp:%Y%m%d}"
-
-    def expand(self, xs):
-        def encode_datetimes_to_s(x):
-
-            x = x.copy()
-
-            for field in ["last_timestamp"]:
-                x[field] = (x[field] - epoch).total_seconds()
-
-            dt = datetime.datetime.combine(
-                x["date"], datetime.time.min, tzinfo=pytz.utc
-            )
-            ts_field = (dt - epoch).total_seconds()
-
-            for field in ["date"]:
-                x[field] = "{:%Y-%m-%d}".format(x[field])
-
-            assert isinstance(x["seg_id"], str)
-            assert isinstance(x["date"], (str))
-            assert isinstance(x["state"], str)
-            assert isinstance(x["last_timestamp"], (int, float))
-            assert x["active_port"] is None or isinstance(x["active_port"], str), x[
-                "active_port"
-            ]
-            assert len(x) == 5
-
-            return ts_field, x
-
-        sink = io.WriteToBigQuery(
-            self.compute_table_for_event,
-            schema=build_event_state_schema(),
-            write_disposition="WRITE_TRUNCATE",
-        )
-
-        logging.info(
-            "sink params: \n\t%s\n\t%s\n\t%s",
-            self.temp_location,
-            self.table,
-            self.project,
-        )
-
-        return (
-            xs
-            | Map(encode_datetimes_to_s)
-            | Map(lambda x: TimestampedValue(x[1], x[0]))
             | sink
         )
 
