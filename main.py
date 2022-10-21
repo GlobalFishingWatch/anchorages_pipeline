@@ -17,9 +17,9 @@ def run_generate_confidence_voyages(args):
 def run_generate_voyages(args):
     run_script(['./scripts/generate_voyages.sh']+args)
 
-def run_port_events(args):
-    from pipe_anchorages.port_events import run as run_port_events
-    run_port_events(args)
+def run_thin_port_messages(args):
+    from pipe_anchorages.thin_port_messages import run as run_thin_port_messages
+    run_thin_port_messages(args)
 
 def run_port_visits(args):
     from pipe_anchorages.port_visits import run as run_port_visits
@@ -35,7 +35,7 @@ def run_name_anchorages(args):
 
 
 SUBCOMMANDS = {
-    "port_events": run_port_events,
+    "thin_port_messages": run_thin_port_messages,
     "port_visits": run_port_visits,
     "anchorages": run_anchorages,
     "name_anchorages": run_name_anchorages,
