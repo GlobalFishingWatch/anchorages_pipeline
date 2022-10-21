@@ -60,7 +60,7 @@ echo "${SQL}" \
     --max_rows=0 \
     --allow_large_results \
     --replace \
-    --time_partitioning_type=DAY \
+    --time_partitioning_type=MONTH \
     --time_partitioning_field="${PARTITION_BY_ID}" \
     --clustering_fields "${CLUSTER_BY}" \
     --destination_table ${DEST_TABLE}
