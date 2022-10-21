@@ -21,7 +21,7 @@ def create_queries(args, start_date, end_date):
     SELECT seg_id as ident, ssvid, lat, lon, speed,
             CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
     FROM `{table}*`
-    WHERE _table_suffix BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}'
+    WHERE date(timestamp) BETWEEN '{start:%Y-%m-%d}' AND '{end:%Y-%m-%d}'
       {filter_text}
     """
     start_window = start_date
@@ -69,10 +69,7 @@ def run(options):
     sources = [
         (
             p
-            | "Read_{}".format(i)
-            >> beam.io.Read(
-                beam.io.gcp.bigquery.BigQuerySource(query=x, use_standard_sql=True)
-            )
+            | "Read_{}".format(i) >> beam.io.ReadFromBigQuery(query=x, use_standard_sql=True)
         )
         for (i, x) in enumerate(queries)
     ]
