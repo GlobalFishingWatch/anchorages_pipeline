@@ -109,7 +109,7 @@ def run(options):
         write_disposition=io.BigQueryDisposition.WRITE_TRUNCATE,
         create_disposition=io.BigQueryDisposition.CREATE_IF_NEEDED,
         additional_bq_parameters={
-            "timePartitioning": {"type": "DAY", "field": "end_timestamp"},
+            "timePartitioning": {"type": "MONTH", "field": "end_timestamp"},
             "clustering": {
                 "fields": ["start_timestamp", "confidence", "ssvid", "vessel_id"]
             },
