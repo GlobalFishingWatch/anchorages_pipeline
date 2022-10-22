@@ -1,11 +1,11 @@
 version: '2'
 services:
-  port_events:
+  thin_port_messages:
     image: gfw/pipe-anchorages
     build:
       context: .
       dockerfile: Dockerfile-scheduler
-    entrypoint: ["python", "-m", "pipe_anchorages.port_events"]
+    entrypoint: ["python", "-m", "pipe_anchorages.thin_port_messages"]
     volumes:
       - ".:/opt/project"
       - "gcp:/root/.config/"

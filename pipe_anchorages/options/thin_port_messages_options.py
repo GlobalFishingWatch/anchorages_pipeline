@@ -3,7 +3,7 @@ from __future__ import absolute_import
 from apache_beam.options.pipeline_options import PipelineOptions
 
 
-class PortVisitsOptions(PipelineOptions):
+class ThinPortMessagesOptions(PipelineOptions):
     @classmethod
     def _add_argparse_args(cls, parser):
         # Use add_value_provider_argument for arguments to be templatable
@@ -13,41 +13,34 @@ class PortVisitsOptions(PipelineOptions):
         optional = parser.add_argument_group("Optional")
 
         required.add_argument(
-            "--thinned_message_table",
-            required=True,
-            help="Name of thinned events table (BQ)",
-        )
-        required.add_argument(
-            "--vessel_id_table",
-            required=True,
-            help="Name of table mapping vessel_id to seg_id (BQ). "
-            "Should have one vessel_id per seg_id, e.g. the `segment_info` table.",
-        )
-        required.add_argument(
             "--anchorage_table", help="Name of of anchorages table (BQ)"
         )
-        optional.add_argument(
-            "--config", default="anchorage_cfg.yaml", help="Path to configuration file"
+        required.add_argument(
+            "--input_table", required=True, help="Table to pull position messages from"
         )
         required.add_argument(
             "--output_table",
             required=True,
             help="Output table (BQ) to write results to.",
         )
-
         required.add_argument(
-            "--end_date", required=True, help="Last date (inclusive) to generate visits"
+            "--start_date",
+            required=True,
+            help="First date to look for entry/exit events.",
+        )
+        required.add_argument(
+            "--end_date",
+            required=True,
+            help="Last date (inclusive) to look for entry/exit events.",
         )
 
         optional.add_argument(
-            "--bad_segs", help="subquery producing segment ids of bad segments"
+            "--config", default="anchorage_cfg.yaml", help="Path to configuration file"
         )
         optional.add_argument(
-            "--max_inter_seg_dist_nm",
-            default=60,
-            type=float,
-            help="Segments more than this distance apart will"
-            " not be joined when creating visits",
+            "--ssvid_filter",
+            help="Subquery or list of ssvid to limit processing to.\n"
+            "If prefixed by @, load from given path",
         )
         optional.add_argument(
             "--wait_for_job",

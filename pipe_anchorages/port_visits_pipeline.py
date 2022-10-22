@@ -1,72 +1,69 @@
-from __future__ import absolute_import, print_function, division
+from __future__ import absolute_import, division, print_function
 
 import datetime
 import logging
-import pytz
 
 import apache_beam as beam
-from apache_beam import io
-from apache_beam import Map
-from apache_beam import Filter
-from apache_beam.options.pipeline_options import GoogleCloudOptions
+import pytz
+from apache_beam import Map, io
 from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.runners import PipelineState
-from apache_beam.transforms.window import TimestampedValue
 
-from .objects.visit_event import VisitEvent
+from . import common as cmn
 from .objects.namedtuples import _datetime_to_s
 from .options.port_visits_options import PortVisitsOptions
+from .records import VesselLocationRecord
 from .schema.port_visit import build as build_visit_schema
-from .schema.port_visit import (
-    build_compatibility as build_compatibility_port_visit_schema,
-)
+from .transforms.create_in_out_events import CreateInOutEvents
 from .transforms.create_port_visits import CreatePortVisits
+from .transforms.create_tagged_anchorages import CreateTaggedAnchorages
+from .transforms.source import QuerySource
 
 
-def create_queries(args, start_date, end_date):
+def create_queries(args, end_date):
     template = """
-    SELECT events.* except(timestamp, last_timestamp),
-            CAST(UNIX_MICROS(events.timestamp) AS FLOAT64) / 1000000 AS timestamp,
-            CAST(UNIX_MICROS(events.last_timestamp) AS FLOAT64) / 1000000 AS last_timestamp,
-            ssvid, vessel_id
-    FROM `{evt_table}*` events
+    SELECT vids.ssvid, vids.vessel_id, vids.seg_id, records.* except (timestamp, identifier),
+            CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
+    FROM `{table}*` records
     JOIN `{vid_table}` vids
-    USING (seg_id)
-    WHERE events._table_suffix BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}' 
-    {condition}
+    ON records.identifier = vids.seg_id
+    WHERE records._table_suffix <= '{end:%Y%m%d}'
+     {condition}
     """
-    if args.bad_segs_table is None:
+    if args.bad_segs is None:
         condition = ""
     else:
-        condition = f"  AND seg_id NOT IN (SELECT seg_id FROM {args.bad_segs_table})"
+        condition = f"  AND seg_id NOT IN (SELECT seg_id FROM {args.bad_segs})"
+    yield template.format(
+        table=args.thinned_message_table,
+        vid_table=args.vessel_id_table,
+        condition=condition,
+        end=end_date,
+    )
 
-    start_window = start_date
-    shift = 1000
-    while start_window <= end_date:
-        end_window = min(start_window + datetime.timedelta(days=shift), end_date)
-        query = template.format(
-            evt_table=args.events_table,
-            vid_table=args.vessel_id_table,
-            condition=condition,
-            start=start_window,
-            end=end_window,
-        )
-        yield query
-        start_window = end_window + datetime.timedelta(days=1)
+
+anchorage_query = (
+    "SELECT lat as anchor_lat, lon as anchor_lon, s2id as anchor_id, label FROM `{}`"
+)
 
 
 def from_msg(x):
+    x = x.copy()
     x["timestamp"] = datetime.datetime.utcfromtimestamp(x["timestamp"]).replace(
         tzinfo=pytz.utc
     )
     ssvid = x.pop("ssvid")
+    seg_id = x.pop("seg_id")
     vessel_id = x.pop("vessel_id")
-    return (ssvid, vessel_id), VisitEvent(**x)
+    ident = (ssvid, vessel_id, seg_id)
+    loc = cmn.LatLon(x.pop("lat"), x.pop("lon"))
+    return vessel_id, VesselLocationRecord(identifier=ident, location=loc, **x)
 
 
 def event_to_msg(x):
     x = x._asdict()
     x["timestamp"] = _datetime_to_s(x["timestamp"])
+    x.pop("vessel_id")
     return x
 
 
@@ -86,15 +83,24 @@ def drop_new_fields(x):
 def run(options):
 
     visit_args = options.view_as(PortVisitsOptions)
-    cloud_args = options.view_as(GoogleCloudOptions)
+
+    config = cmn.load_config(visit_args.config)
 
     p = beam.Pipeline(options=options)
 
-    start_date = datetime.datetime.strptime(visit_args.start_date, "%Y-%m-%d").replace(
-        tzinfo=pytz.utc
+    end_date = (
+        datetime.datetime.strptime(visit_args.end_date, "%Y-%m-%d")
+        .replace(tzinfo=pytz.utc)
+        .date()
     )
-    end_date = datetime.datetime.strptime(visit_args.end_date, "%Y-%m-%d").replace(
-        tzinfo=pytz.utc
+
+    anchorages = (
+        p
+        | "ReadAnchorages"
+        >> QuerySource(
+            anchorage_query.format(visit_args.anchorage_table), use_standard_sql=True
+        )
+        | CreateTaggedAnchorages()
     )
 
     sink = io.WriteToBigQuery(
@@ -103,14 +109,14 @@ def run(options):
         write_disposition=io.BigQueryDisposition.WRITE_TRUNCATE,
         create_disposition=io.BigQueryDisposition.CREATE_IF_NEEDED,
         additional_bq_parameters={
-            "timePartitioning": {"type": "DAY", "field": "end_timestamp"},
+            "timePartitioning": {"type": "MONTH", "field": "end_timestamp"},
             "clustering": {
                 "fields": ["start_timestamp", "confidence", "ssvid", "vessel_id"]
             },
         },
     )
 
-    queries = create_queries(visit_args, start_date, end_date)
+    queries = create_queries(visit_args, end_date)
 
     sources = [
         (
@@ -123,37 +129,24 @@ def run(options):
         for (i, x) in enumerate(queries)
     ]
 
-    tagged_records = (
+    (
         sources
         | beam.Flatten()
         | beam.Map(from_msg)
+        | beam.GroupByKey()
+        | CreateInOutEvents(
+            anchorages=anchorages,
+            anchorage_entry_dist=config["anchorage_entry_distance_km"],
+            anchorage_exit_dist=config["anchorage_exit_distance_km"],
+            stopped_begin_speed=config["stopped_begin_speed_knots"],
+            stopped_end_speed=config["stopped_end_speed_knots"],
+            min_gap_minutes=config["minimum_port_gap_duration_minutes"],
+            end_date=end_date,
+        )
         | CreatePortVisits(visit_args.max_inter_seg_dist_nm)
         | Map(visit_to_msg)
+        | sink
     )
-
-    (tagged_records | sink)
-
-    if visit_args.compat_output_table:
-        dataset, table = visit_args.compat_output_table.split(".")
-
-        def compute_table_for_event(event):
-            stamp = datetime.date.fromtimestamp(event["timestamp"])
-            return (
-                f"{cloud_args.project}:{visit_args.compat_output_table}{stamp:%Y%m%d}"
-            )
-
-        compat_sink = io.WriteToBigQuery(
-            compute_table_for_event,
-            schema=build_compatibility_port_visit_schema(),
-            write_disposition="WRITE_TRUNCATE",
-        )
-
-        (
-            tagged_records
-            | Filter(lambda x: x["confidence"] >= 4)
-            | Map(lambda x: TimestampedValue(drop_new_fields(x), x["end_timestamp"]))
-            | compat_sink
-        )
 
     result = p.run()
 
