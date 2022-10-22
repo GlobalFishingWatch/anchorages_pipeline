@@ -3,7 +3,8 @@ include CHANGES.md
 include MANIFEST.in
 include README.md
 include setup.py
-include requirements-scheduler-frozen.txt
-include requirements-worker-frozen.txt
-recursive-include  assets *
-recursive-include  pipe_anchorages/data *
+include requirements-scheduler.txt
+include requirements-worker.txt
+recursive-include assets *
+recursive-include pipe_anchorages/data *
+

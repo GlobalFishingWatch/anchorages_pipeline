@@ -3,5 +3,4 @@ Fiona==1.8.20
 Shapely==1.7.1
 s2sphere==0.2.5
 Unidecode==1.2.0
-numpy==1.22.0
 

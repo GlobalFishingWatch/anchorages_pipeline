@@ -37,9 +37,9 @@ def create_queries(args):
 
     positions AS (
       SELECT ssvid, seg_id, lat, lon, timestamp, speed,
-             _TABLE_SUFFIX as table_suffix
-        FROM `{position_table}*`
-       WHERE _TABLE_SUFFIX BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}'
+             date(timestamp) as table_suffix
+        FROM `{position_table}`
+       WHERE date(timestamp) BETWEEN '{start:%Y-%m-%d}' AND '{end:%Y-%m-%d}'
          AND seg_id IS NOT NULL
          AND lat IS NOT NULL
          AND lon IS NOT NULL
