@@ -4,18 +4,9 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
-def run_script(bash_script_command):
-    import subprocess
-    resp = subprocess.run(bash_script_command, check=True, stdout=sys.stdout, stderr=sys.stderr, universal_newlines=True)
-    print(resp.stdout, resp.stderr)
-    if (resp.returncode != 0):
-        raise Exception(f'The script returns non zero result <{bash_script_command}> is {resp}')
-
 def run_generate_confidence_voyages(args):
-    run_script(['./scripts/generate_confidence_voyages.sh']+args)
-
-def run_generate_voyages(args):
-    run_script(['./scripts/generate_voyages.sh']+args)
+    from pipe_anchorages.confidence_voyages import run as run_confidence_voyages
+    run_confidence_voyages(args)
 
 def run_thin_port_messages(args):
     from pipe_anchorages.thin_port_messages import run as run_thin_port_messages
@@ -40,7 +31,6 @@ SUBCOMMANDS = {
     "anchorages": run_anchorages,
     "name_anchorages": run_name_anchorages,
     "generate_confidence_voyages": run_generate_confidence_voyages,
-    "generate_voyages": run_generate_voyages
 }
 
 if __name__ == "__main__":

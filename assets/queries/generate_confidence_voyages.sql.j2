@@ -26,7 +26,8 @@ with
   FROM
     `{{ port_visits_table }}`
   WHERE
-    confidence >= {{ min_confidence }} ),
+    date(end_timestamp) <= '{{ date }}'
+    AND confidence >= {{ min_confidence }} ),
 
   dummy_initial_port_visits AS (
   SELECT

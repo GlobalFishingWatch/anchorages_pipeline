@@ -1,26 +1,23 @@
-from __future__ import absolute_import, division, print_function
-
-import datetime
-import logging
-
-import apache_beam as beam
-from apache_beam.options.pipeline_options import (GoogleCloudOptions,
-                                                  StandardOptions)
+from apache_beam.options.pipeline_options import (GoogleCloudOptions, StandardOptions)
 from apache_beam.runners import PipelineState
 
-from . import common as cmn
-from .options.thin_port_messages_options import ThinPortMessagesOptions
-from .transforms.create_tagged_anchorages import CreateTaggedAnchorages
-from .transforms.sink import MessageSink
-from .transforms.smart_thin_records import SmartThinRecords
-from .transforms.source import QuerySource
+from pipe_anchorages import common as cmn
+from pipe_anchorages.options.thin_port_messages_options import ThinPortMessagesOptions
+from pipe_anchorages.transforms.create_tagged_anchorages import CreateTaggedAnchorages
+from pipe_anchorages.transforms.sink import MessageSink
+from pipe_anchorages.transforms.smart_thin_records import SmartThinRecords
+from pipe_anchorages.transforms.source import QuerySource
+
+import apache_beam as beam
+import datetime
+import logging
 
 
 def create_queries(args, start_date, end_date):
     template = """
     SELECT seg_id as ident, ssvid, lat, lon, speed,
             CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
-    FROM `{table}*`
+    FROM `{table}`
     WHERE date(timestamp) BETWEEN '{start:%Y-%m-%d}' AND '{end:%Y-%m-%d}'
       {filter_text}
     """
@@ -47,9 +44,7 @@ def create_queries(args, start_date, end_date):
         start_window = end_window + datetime.timedelta(days=1)
 
 
-anchorage_query = (
-    "SELECT lat as anchor_lat, lon as anchor_lon, s2id as anchor_id, label FROM `{}`"
-)
+anchorage_query = lambda args: f"SELECT lat as anchor_lat, lon as anchor_lon, s2id as anchor_id, label FROM `{args.anchorage_table}`"
 
 
 def run(options):
@@ -67,11 +62,9 @@ def run(options):
     queries = create_queries(known_args, start_date, end_date)
 
     sources = [
-        (
-            p
-            | "Read_{}".format(i) >> beam.io.ReadFromBigQuery(query=x, use_standard_sql=True)
-        )
-        for (i, x) in enumerate(queries)
+        ( p
+        | f"Read_{i}" >> QuerySource(query, cloud_options)
+        ) for (i, query) in enumerate(queries)
     ]
 
     tagged_records = (
@@ -83,11 +76,14 @@ def run(options):
 
     anchorages = (
         p
-        | "ReadAnchorages"
-        >> QuerySource(
-            anchorage_query.format(known_args.anchorage_table), use_standard_sql=True
-        )
+        | "ReadAnchorages" >> QuerySource(anchorage_query(known_args), cloud_options)
         | CreateTaggedAnchorages()
+    )
+
+    sink = MessageSink(
+        known_args.output_table,
+        known_args,
+        cloud_options
     )
 
     (
@@ -103,12 +99,7 @@ def run(options):
             start_date=start_date,
             end_date=end_date,
         )
-        | "writeThinnedRecords"
-        >> MessageSink(
-            table=known_args.output_table,
-            temp_location=cloud_options.temp_location,
-            project=cloud_options.project,
-        )
+        | "writeThinnedRecords" >> sink
     )
 
     result = p.run()
@@ -127,6 +118,8 @@ def run(options):
         or options.view_as(StandardOptions).runner == "DirectRunner"
     ):
         result.wait_until_finish()
+        if result.state == PipelineState.DONE:
+            sink.update_labels()
 
     logging.info("returning with result.state=%s" % result.state)
     return 0 if result.state in success_states else 1

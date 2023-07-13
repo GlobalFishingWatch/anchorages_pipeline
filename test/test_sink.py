@@ -48,7 +48,7 @@ class TestAnchorageSink(object):
     def test_encoder(self):
         anchorage = self.AnchoragePoint_from_S2Token('0d1b968b', [37, 49, 2])
 
-        asink = sink.AnchorageSink(None, None)
+        asink = sink.AnchorageSink(None, None, None)
         encoded = asink.encode(anchorage)
 
         assert len(encoded) == len(asink.spec)
@@ -60,5 +60,6 @@ class TestAnchorageSink(object):
             float : 'float'}
 
         for k, v in encoded.items():
-            assert type_map[type(v)] == asink.spec[k], (k, type(v), asink.spec[k])
+            t, desc = asink.spec[k]
+            assert type_map[type(v)] == t, (k, type(v), t)
 
