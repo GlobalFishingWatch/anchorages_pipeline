@@ -1,12 +1,7 @@
-from __future__ import absolute_import
+from pipe_anchorages import anchorages_pipeline, logging_monkeypatch
+from pipe_anchorages.options.anchorage_options import AnchorageOptions
+from pipe_anchorages.options.logging_options import LoggingOptions, validate_options
 import sys
-
-# Suppress a spurious warning that happens when you import apache_beam
-from . import logging_monkeypatch
-from .options.logging_options import validate_options
-from .options.logging_options import LoggingOptions
-
-from .options.anchorage_options import AnchorageOptions
 
 
 def run(args=None):
@@ -15,8 +10,6 @@ def run(args=None):
     )
 
     options.view_as(LoggingOptions).configure_logging()
-
-    from pipe_anchorages import anchorages_pipeline
 
     return anchorages_pipeline.run(options)
 

@@ -181,10 +181,11 @@ def create_query(args):
 
 def run(options):
     known_args = options.view_as(NameAnchorageOptions)
+    cloud_args = options.view_as(GoogleCloudOptions)
 
     p = beam.Pipeline(options=options)
 
-    source = p | QuerySource(create_query(known_args), use_standard_sql=True)
+    source = p | QuerySource(create_query(known_args), cloud_args)
 
     with open(known_args.config) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
@@ -214,7 +215,7 @@ def run(options):
     (
         named_anchorages
         | NamedAnchorageSink(
-            table=known_args.output_table, write_disposition="WRITE_TRUNCATE"
+            known_args.output_table, known_args, cloud_args
         )
     )
 

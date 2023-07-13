@@ -1,4 +1,8 @@
-FROM gcr.io/world-fishing-827/github.com/globalfishingwatch/gfw-bash-pipeline:latest-python3.8
+FROM gcr.io/world-fishing-827/github.com/globalfishingwatch/gfw-pipeline:latest-python3.8
+
+RUN apt-get update && \
+    apt-get -qy install gdal-bin libgdal-dev && \
+    export GDAL_VERSION="$(gdal-config --version)"
 
 # Setup scheduler-specific dependencies
 COPY ./requirements-scheduler.txt ./
@@ -6,10 +10,7 @@ RUN pip install -r requirements-scheduler.txt
 
 # Setup worker-specific dependencies
 COPY ./requirements-worker.txt ./
-RUN apt-get update && \
-    apt-get -qy install gdal-bin libgdal-dev && \
-    export GDAL_VERSION="$(gdal-config --version)" && \
-    pip install -r requirements-worker.txt
+RUN pip install -r requirements-worker.txt
 
 # Setup local package
 COPY . /opt/project

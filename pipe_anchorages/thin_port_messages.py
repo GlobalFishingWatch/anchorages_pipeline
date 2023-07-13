@@ -1,9 +1,7 @@
-from __future__ import absolute_import
-
+from pipe_anchorages import thin_port_messages_pipeline
+from pipe_anchorages.options.logging_options import LoggingOptions, validate_options
+from pipe_anchorages.options.thin_port_messages_options import ThinPortMessagesOptions
 import sys
-
-from .options.logging_options import LoggingOptions, validate_options
-from .options.thin_port_messages_options import ThinPortMessagesOptions
 
 
 def run(args=None):
@@ -12,8 +10,6 @@ def run(args=None):
     )
 
     options.view_as(LoggingOptions).configure_logging()
-
-    from pipe_anchorages import thin_port_messages_pipeline
 
     return thin_port_messages_pipeline.run(options)
 
