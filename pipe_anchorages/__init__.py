@@ -2,12 +2,12 @@
 Pipe for processing anchorages and generating anchorages events. 
 """
 
-__version__ = '3.3.1'
+__version__ = '3.3.3'
 __author__ = 'Global Fishing Watch'
 __email__ = 'info@globalfishingwatch.org'
 __source__ = 'https://github.com/GlobalFishingWatch/anchorages_pipeline'
 __license__ = """
-Copyright 2021 Global Fishing Watch Inc.
+Copyright 2023 Global Fishing Watch Inc.
 Authors:
 
 Tim Hochberg <tim@globalfishingwatch.org>
