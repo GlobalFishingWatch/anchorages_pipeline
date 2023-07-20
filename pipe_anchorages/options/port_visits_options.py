@@ -36,6 +36,10 @@ class PortVisitsOptions(PipelineOptions):
         )
 
         required.add_argument(
+            "--start_date", required=True, help="First date (inclusive) to generate visits"
+        )
+
+        required.add_argument(
             "--end_date", required=True, help="Last date (inclusive) to generate visits"
         )
 
