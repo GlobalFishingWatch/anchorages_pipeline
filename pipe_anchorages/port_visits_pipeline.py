@@ -19,42 +19,49 @@ import logging
 import pytz
 
 
-def create_queries(args, end_date):
+def create_queries(args, start_date, end_date):
     template = """
     SELECT vids.ssvid, vids.vessel_id, vids.seg_id, records.* except (timestamp, identifier),
             CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
     FROM `{table}*` records
     JOIN `{vid_table}` vids
     ON records.identifier = vids.seg_id
-    WHERE records._table_suffix <= '{end:%Y%m%d}'
+    WHERE records._table_suffix BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}'
      {condition}
     """
     if args.bad_segs is None:
         condition = ""
     else:
         condition = f"  AND seg_id NOT IN (SELECT seg_id FROM {args.bad_segs})"
-    yield template.format(
-        table=args.thinned_message_table,
-        vid_table=args.vessel_id_table,
-        condition=condition,
-        end=end_date,
-    )
+
+    start_window = start_date
+    shift = 1000
+    while start_window <= end_date:
+        end_window = min(start_window + datetime.timedelta(days=shift), end_date)
+        yield template.format(
+            table=args.thinned_message_table,
+            vid_table=args.vessel_id_table,
+            condition=condition,
+            start=start_window,
+            end=end_window
+        )
+        start_window = end_window + datetime.timedelta(days=1)
 
 
 anchorage_query = lambda table: f"SELECT lat as anchor_lat, lon as anchor_lon, s2id as anchor_id, label FROM `{table}`"
 
 
 def from_msg(x):
-    x = x.copy()
-    x["timestamp"] = datetime.datetime.utcfromtimestamp(x["timestamp"]).replace(
+    x_new = x.copy()
+    x_new["timestamp"] = datetime.datetime.utcfromtimestamp(x_new["timestamp"]).replace(
         tzinfo=pytz.utc
     )
-    ssvid = x.pop("ssvid")
-    seg_id = x.pop("seg_id")
-    vessel_id = x.pop("vessel_id")
+    ssvid = x_new.pop("ssvid")
+    seg_id = x_new.pop("seg_id")
+    vessel_id = x_new.pop("vessel_id")
     ident = (ssvid, vessel_id, seg_id)
-    loc = cmn.LatLon(x.pop("lat"), x.pop("lon"))
-    return vessel_id, VesselLocationRecord(identifier=ident, location=loc, **x)
+    loc = cmn.LatLon(x_new.pop("lat"), x_new.pop("lon"))
+    return vessel_id, VesselLocationRecord(identifier=ident, location=loc, **x_new)
 
 
 def event_to_msg(x):
@@ -76,6 +83,7 @@ def drop_new_fields(x):
     excluded_fields = {"ssvid", "duration_hrs", "confidence"}
     return {key: value for key, value in x.items() if key not in excluded_fields}
 
+strdate_to_utcdate = lambda strdate: datetime.datetime.strptime(strdate, "%Y-%m-%d").replace(tzinfo=pytz.utc)
 
 def run(options):
 
@@ -86,11 +94,8 @@ def run(options):
 
     p = beam.Pipeline(options=options)
 
-    end_date = (
-        datetime.datetime.strptime(visit_args.end_date, "%Y-%m-%d")
-        .replace(tzinfo=pytz.utc)
-        .date()
-    )
+    start_date = strdate_to_utcdate(visit_args.start_date)
+    end_date = strdate_to_utcdate(visit_args.end_date)
 
     anchorages = (
         p
@@ -98,7 +103,7 @@ def run(options):
         | CreateTaggedAnchorages()
     )
 
-    queries = create_queries(visit_args, end_date)
+    queries = create_queries(visit_args, start_date, end_date)
 
     sources = [
         (
@@ -143,10 +148,7 @@ def run(options):
         ]
     )
 
-    if (
-        visit_args.wait_for_job
-        or options.view_as(StandardOptions).runner == "DirectRunner"
-    ):
+    if (visit_args.wait_for_job or options.view_as(StandardOptions).runner == "DirectRunner"):
         result.wait_until_finish()
         if result.state == PipelineState.DONE:
             sink.update_description()
