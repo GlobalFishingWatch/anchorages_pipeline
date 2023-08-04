@@ -8,6 +8,14 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ## [Unreleased]
 
+## v3.4.0 - 2023-08-02
+
+### Added
+
+* [PIPELINE-1319](https://globalfishingwatch.atlassian.net/browse/PIPELINE-1319): Adds
+  support for runnig the code with `python-3.8` and updated the google sdk from
+  `2.40.0` to [2.49.0](https://github.com/apache/beam/releases/tag/v2.49.0).
+
 ## v3.3.2 - 2023-07-18
 
 ### Added
