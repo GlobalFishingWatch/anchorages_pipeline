@@ -7,3 +7,6 @@ RUN apt-get update && \
     export GDAL_VERSION="$(gdal-config --version)"
 
 RUN pip install -r requirements-worker.txt
+
+# Set the entrypoint to the Apache Beam SDK launcher.
+ENTRYPOINT ["/opt/apache/beam/boot"]
