@@ -6,12 +6,10 @@ import math
 
 import apache_beam as beam
 import six
-from pipe_anchorages import common as cmn
 from pipe_anchorages.objects.port_visit import PortVisit
 
 
 class CreatePortVisits(beam.PTransform):
-
     EVENT_TYPES = [
         "PORT_ENTRY",
         # The order of PORT_GAP_XXX is somewhat arbitrary, but it
