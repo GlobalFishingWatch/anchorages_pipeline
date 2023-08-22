@@ -118,7 +118,7 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
         )
 
     def _possibly_yield_gap_beg(
-        self, seg_id, last_timestamp, last_state, next_timestamp, active_port
+        self, identity, last_timestamp, last_state, next_timestamp, active_port
     ):
         if next_timestamp - last_timestamp >= self.min_gap:
             if last_state in self.in_port_states:
@@ -128,19 +128,18 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
                     location=cmn.LatLon(None, None), timestamp=evt_timestamp
                 )
                 yield self._build_event(
-                    active_port, rcd, seg_id, self.EVT_GAP_BEG, last_timestamp
+                    active_port, rcd, identity, self.EVT_GAP_BEG, last_timestamp
                 )
 
     def _create_in_out_events(self, grouped_records, anchorage_map):
         seg_id, records = grouped_records
         records = sorted(records, key=lambda x: x.timestamp)
-        identity = records[0].identifier
         rcd = None
         last_state = None
         active_port = None
         last_timestamp = None
         for rcd in records:
-
+            identity = rcd.identifier
             s2id = rcd.location.S2CellId(cmn.VISITS_S2_SCALE).to_token()
             port, dist = self._anchorage_distance(
                 rcd.location, anchorage_map.get(s2id, [])
