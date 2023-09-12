@@ -1,4 +1,4 @@
-from apache_beam import Map, io
+from apache_beam import io
 from apache_beam.options.pipeline_options import StandardOptions, GoogleCloudOptions
 from apache_beam.runners import PipelineState
 
@@ -68,6 +68,8 @@ def event_to_msg(x):
     x = x._asdict()
     x["timestamp"] = _datetime_to_s(x["timestamp"])
     x.pop("vessel_id")
+    x.pop("last_timestamp")
+    x.pop("ssvid")
     return x
 
 
@@ -133,7 +135,7 @@ def run(options):
             end_date=end_date,
         )
         | CreatePortVisits(visit_args.max_inter_seg_dist_nm)
-        | Map(visit_to_msg)
+        | beam.Map(visit_to_msg)
         | sink
     )
 
