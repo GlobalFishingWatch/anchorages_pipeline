@@ -16,4 +16,7 @@ class VoyagesOptions(PipelineOptions):
         optional.add_argument("--wait_for_job", required=False,
             default=False, action="store_true",
             help="Wait until the job finishes before returning.")
+        optional.add_argument("--first_table_date", required=False,
+            default='2012-01-01',
+            help="The first table date to consider for voyages.")
 
