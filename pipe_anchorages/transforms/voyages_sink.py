@@ -145,7 +145,6 @@ Created by pipe-anchorages: {self.ver}
             write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE,
             create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
         )
-        # return beam.io.WriteToText(f'voyages_c{confidence}')
 
     def _get_table(self, bqclient:bigquery.Client, confidence:int):
         dataset_id, table_name = self.sink_table.split('.')
@@ -154,7 +153,6 @@ Created by pipe-anchorages: {self.ver}
         return bqclient.get_table(table_ref)  # API request
 
     def update_labels(self):
-        # return None
         bqclient = bigquery.Client(project=self.cloud.project)
         for c in [2,3,4]:
             table = self._get_table(bqclient,c)

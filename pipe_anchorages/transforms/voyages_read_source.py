@@ -40,10 +40,6 @@ class ReadSource(beam.PTransform):
             ]
             | beam.Flatten()
         )
-        # return (
-        #     pcoll
-        #     | self.read_source()
-        # )
 
     def read_source(self):
         start = self.first_table_date
@@ -58,10 +54,4 @@ class ReadSource(beam.PTransform):
                 end=min_end,
             )
             start = next_start
-    # def read_source(self):
-    #     return beam.io.ReadFromBigQuery(query=SOURCE_QUERY_TEMPLATE.format(
-    #         source_table=self.source_table,
-    #         start=dt.datetime(2012,1,1),
-    #         end=dt.datetime(2012,1,31),
-    #     ), use_standard_sql=True, bigquery_job_labels=self.labels)
 
