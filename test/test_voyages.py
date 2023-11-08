@@ -436,3 +436,123 @@ def test_create_voyage_2visits_with_c34():
         'trip_end_confidence': 4,
         'trip_id': "366773090-82db144c2-2d0c-5c16-6f47-2f384fc21efd"
     }]
+
+
+def test_create_voyage_should_have_duration_btw2visits():
+    visits = [
+        {
+            "visit_id": "ff7e721df08d8b4301e9675613b42f06",
+            "vessel_id": "03d263209-98dc-ad84-2f7a-2eba4539aa14",
+            "ssvid": "244670089",
+            "start_timestamp": parse("2012-12-10 05:18:50.000000"),
+            "start_lat": "51.444202554780254",
+            "start_lon": "4.0118910160172163",
+            "start_anchorage_id": "47c47b4d",
+            "end_timestamp": parse("2012-12-31 10:48:13.000000"),
+            "end_lat": "51.454323394619728",
+            "end_lon": "6.7865645557114567",
+            "duration_hrs": "509.48972222222221",
+            "end_anchorage_id": "47b8bf9b",
+            "confidence": 3,
+            "events": []
+        }, {
+            "visit_id": "77955dc2f46d7d4dd2dc7c754dbfede2",
+            "vessel_id": "03d263209-98dc-ad84-2f7a-2eba4539aa14",
+            "ssvid": "244670089",
+            "start_timestamp": parse("2012-12-31 10:48:13.000000"),
+            "start_lat": "51.903080156028977",
+            "start_lon": "4.18745721026542",
+            "start_anchorage_id": "47c44d9f",
+            "end_timestamp": parse("2013-01-03 12:11:21.000000"),
+            "end_lat": "51.32896919721874",
+            "end_lon": "6.6908749026664012",
+            "duration_hrs": "73.385555555555555",
+            "end_anchorage_id": "47b8b9e1",
+            "confidence": 3,
+            "events": []
+        }, {
+            "visit_id": "39d2e5e0b78eb65d3cf7f7a1ef7212c6",
+            "vessel_id": "03d263209-98dc-ad84-2f7a-2eba4539aa14",
+            "ssvid": "244670089",
+            "start_timestamp": parse("2013-01-03 12:24:45.000000"),
+            "start_lat": "51.256890312061159",
+            "start_lon": "6.721973551543039",
+            "start_anchorage_id": "47b8b669",
+            "end_timestamp": parse("2013-01-09 13:12:48.000000"),
+            "end_lat": "51.352089617662273",
+            "end_lon": "4.2513254967104954",
+            "duration_hrs": "144.80083333333334",
+            "end_anchorage_id": "47c4749d",
+            "confidence": 4,
+            "events": []
+        }
+    ]
+    # NOTICE that the end_timestamp of 1st and the start_timestamp of 2nd are same exact time
+
+    assert list(create_voyage(visits)) == [{
+        'trip_confidence': 2,
+        'ssvid': "244670089",
+        'vessel_id': "03d263209-98dc-ad84-2f7a-2eba4539aa14",
+        'trip_start': None,
+        'trip_end': parse("2012-12-10 05:18:50.000000"),
+        'trip_start_anchorage_id': None,
+        'trip_end_anchorage_id': "47c47b4d",
+        'trip_start_visit_id': None,
+        'trip_end_visit_id': "ff7e721df08d8b4301e9675613b42f06",
+        'trip_start_confidence': None,
+        'trip_end_confidence': 3,
+        'trip_id': "244670089-03d263209-98dc-ad84-2f7a-2eba4539aa14",
+    },{
+        'trip_confidence': 3,
+        'ssvid': "244670089",
+        'vessel_id': "03d263209-98dc-ad84-2f7a-2eba4539aa14",
+        'trip_start': None,
+        'trip_end': parse("2012-12-10 05:18:50.000000"),
+        'trip_start_anchorage_id': None,
+        'trip_end_anchorage_id': "47c47b4d",
+        'trip_start_visit_id': None,
+        'trip_end_visit_id': "ff7e721df08d8b4301e9675613b42f06",
+        'trip_start_confidence': None,
+        'trip_end_confidence': 3,
+        'trip_id': "244670089-03d263209-98dc-ad84-2f7a-2eba4539aa14",
+    },{
+        'trip_confidence': 2,
+        'ssvid': "244670089",
+        'vessel_id': "03d263209-98dc-ad84-2f7a-2eba4539aa14",
+        'trip_start': parse("2012-12-31 10:48:13.000000"),
+        'trip_end': parse("2013-01-03 12:24:45.000000"),
+        'trip_start_anchorage_id': "47b8bf9b",
+        'trip_end_anchorage_id': "47b8b669",
+        'trip_start_visit_id': "ff7e721df08d8b4301e9675613b42f06",
+        'trip_end_visit_id': "39d2e5e0b78eb65d3cf7f7a1ef7212c6",
+        'trip_start_confidence': 3,
+        'trip_end_confidence': 4,
+        'trip_id': "244670089-03d263209-98dc-ad84-2f7a-2eba4539aa14-013bf09371c8",
+    },{
+        'trip_confidence': 3,
+        'ssvid': "244670089",
+        'vessel_id': "03d263209-98dc-ad84-2f7a-2eba4539aa14",
+        'trip_start': parse("2012-12-31 10:48:13.000000"),
+        'trip_end': parse("2013-01-03 12:24:45.000000"),
+        'trip_start_anchorage_id': "47b8bf9b",
+        'trip_end_anchorage_id': "47b8b669",
+        'trip_start_visit_id': "ff7e721df08d8b4301e9675613b42f06",
+        'trip_end_visit_id': "39d2e5e0b78eb65d3cf7f7a1ef7212c6",
+        'trip_start_confidence': 3,
+        'trip_end_confidence': 4,
+        'trip_id': "244670089-03d263209-98dc-ad84-2f7a-2eba4539aa14-013bf09371c8",
+    },{
+        'trip_confidence': 4,
+        'ssvid': "244670089",
+        'vessel_id': "03d263209-98dc-ad84-2f7a-2eba4539aa14",
+        'trip_start': None,
+        'trip_end': parse("2013-01-03 12:24:45.000000"),
+        'trip_start_anchorage_id': None,
+        'trip_end_anchorage_id': "47b8b669",
+        'trip_start_visit_id': None,
+        'trip_end_visit_id': "39d2e5e0b78eb65d3cf7f7a1ef7212c6",
+        'trip_start_confidence': None,
+        'trip_end_confidence': 4,
+        'trip_id': "244670089-03d263209-98dc-ad84-2f7a-2eba4539aa14",
+    }]
+
