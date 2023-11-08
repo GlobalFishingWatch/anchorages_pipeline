@@ -1,8 +1,34 @@
 from pipe_anchorages.transforms.voyages_create import build_voyage, create_voyage
+from pipe_anchorages.transforms.voyages_read_source import SOURCE_QUERY_TEMPLATE
 import datetime as dt
 import pytz
 
 parse = lambda d:dt.datetime.strptime(d,'%Y-%m-%d %H:%M:%S.%f').replace(tzinfo=pytz.UTC)
+parse_date = lambda d:dt.datetime.strptime(d,'%Y-%m-%d')
+
+def test_query():
+    assert SOURCE_QUERY_TEMPLATE.format(
+        source_table='source',
+        start=parse_date('2012-01-01'),
+        end=parse_date('2012-01-02')
+    ) == """
+    SELECT
+        ssvid,
+        vessel_id,
+        visit_id,
+        start_anchorage_id,
+        start_timestamp,
+        end_anchorage_id,
+        end_timestamp,
+        confidence
+    FROM
+      `source`
+    WHERE
+        date(end_timestamp) >= "2012-01-01"
+        AND date(end_timestamp) <= "2012-01-02"
+        AND confidence >= 2
+
+"""
 
 def test_build_voyages():
     # builds the voyage in base of a previous visit and after visit
