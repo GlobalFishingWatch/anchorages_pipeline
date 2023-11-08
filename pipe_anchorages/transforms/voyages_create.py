@@ -9,9 +9,12 @@ def create_voyage(visits):
     def min_confidence(v, c:int)->bool:
         return v['confidence'] >= c
 
+    def has_duration(v1, v2):
+        return v1 == None or v1['end_timestamp'] != v2['start_timestamp']
+
     for visit in visits:
         for c in [2,3,4]:
-            if (visit and min_confidence(visit, c)) or (not visit and visit_before[c]):
+            if (visit and min_confidence(visit, c) and has_duration(visit_before[c],visit)) or (not visit and visit_before[c]):
                 yield build_voyage(c, visit_before[c], visit)
                 visit_before[c] = visit
 
