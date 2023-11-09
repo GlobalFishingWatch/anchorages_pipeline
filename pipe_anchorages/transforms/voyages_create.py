@@ -10,7 +10,7 @@ def create_voyage(visits):
         return v['confidence'] >= c
 
     def has_duration(v1, v2):
-        return v1 == None or v1['end_timestamp'] != v2['start_timestamp']
+        return v1 == None or v1['end_timestamp'] < v2['start_timestamp']
 
     for visit in visits:
         for c in [2,3,4]:
