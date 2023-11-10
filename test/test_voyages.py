@@ -1,5 +1,5 @@
-from pipe_anchorages.transforms.voyages_create import build_voyage, create_voyage
-from pipe_anchorages.transforms.voyages_read_source import SOURCE_QUERY_TEMPLATE
+from pipe_anchorages.voyages.transforms.create import build_voyage, create_voyage
+from pipe_anchorages.voyages.transforms.read_source import SOURCE_QUERY_TEMPLATE
 import datetime as dt
 import pytz
 

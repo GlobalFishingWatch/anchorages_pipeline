@@ -1,6 +1,6 @@
-from pipe_anchorages.voyages_pipeline import VoyagesPipeline
+from pipe_anchorages.voyages.pipeline import VoyagesPipeline
 from pipe_anchorages.options.logging_options import LoggingOptions, validate_options
-from pipe_anchorages.options.voyages_options import VoyagesOptions
+from pipe_anchorages.voyages.options import VoyagesOptions
 import sys
 
 
