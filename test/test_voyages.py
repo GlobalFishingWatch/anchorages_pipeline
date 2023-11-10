@@ -10,7 +10,6 @@ def test_query():
     assert SOURCE_QUERY_TEMPLATE.format(
         source_table='source',
         start=parse_date('2012-01-01'),
-        end=parse_date('2012-01-02')
     ) == """
     SELECT
         ssvid,
@@ -25,7 +24,6 @@ def test_query():
       `source`
     WHERE
         date(end_timestamp) >= "2012-01-01"
-        AND date(end_timestamp) <= "2012-01-02"
         AND confidence >= 2
 
 """
