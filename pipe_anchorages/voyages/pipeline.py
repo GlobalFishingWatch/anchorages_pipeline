@@ -1,18 +1,10 @@
-# TODO matias
-# Returns an array of trips.
-# Yields improves the way beam see things.
-# Document
-# Generic lambdas move it to def inside the code or as static class methods
-# Make tests.
-# Move the classes to separate files.
-
 from apache_beam.options.pipeline_options import (GoogleCloudOptions, StandardOptions)
 from apache_beam.runners import PipelineState
-from pipe_anchorages.options.voyages_options import VoyagesOptions
-from pipe_anchorages.transforms.voyages_read_source import ReadSource
-from pipe_anchorages.transforms.voyages_group import GroupByVessels
-from pipe_anchorages.transforms.voyages_create import CreateVoyages
-from pipe_anchorages.transforms.voyages_sink import WriteSink
+from pipe_anchorages.voyages.options import VoyagesOptions
+from pipe_anchorages.voyages.transforms.read_source import ReadSource
+from pipe_anchorages.voyages.transforms.group import GroupByVessels
+from pipe_anchorages.voyages.transforms.create import CreateVoyages
+from pipe_anchorages.voyages.transforms.sink import WriteSink
 
 import apache_beam as beam
 import datetime as dt

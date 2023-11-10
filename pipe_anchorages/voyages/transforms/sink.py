@@ -154,9 +154,12 @@ Created by pipe-anchorages: {self.ver}
 
     def update_labels(self):
         bqclient = bigquery.Client(project=self.cloud.project)
+
+        def cloud_to_labels(options):
+            return dict([x.split('=') for x in options.labels])
+
         for c in [2,3,4]:
             table = self._get_table(bqclient,c)
-            cloud_to_labels = lambda ll: {x.split('=')[0]:x.split('=')[1] for x in ll}
-            table.labels = cloud_to_labels(self.cloud.labels)
+            table.labels = cloud_to_labels(self.cloud)
             bqclient.update_table(table, ["labels"])  # API request
 

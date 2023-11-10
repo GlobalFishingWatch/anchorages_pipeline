@@ -25,7 +25,7 @@ def run_name_anchorages(args):
     run_name_anchorages(args)
 
 def run_voyages(args):
-    from pipe_anchorages.voyages import run as run_voyages
+    from pipe_anchorages.voyages.__main__ import run as run_voyages
     run_voyages(args)
 
 
