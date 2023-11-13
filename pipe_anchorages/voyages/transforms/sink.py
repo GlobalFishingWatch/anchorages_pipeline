@@ -138,9 +138,6 @@ Created by pipe-anchorages: {self.ver}
                 "clustering": {
                     "fields": ["trip_start", "ssvid", "vessel_id", "trip_id"]
                 },
-                "destinationTableProperties": {
-                    "description": self.get_description(confidence),
-                },
             },
             write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE,
             create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
@@ -151,6 +148,13 @@ Created by pipe-anchorages: {self.ver}
         dataset_ref = bigquery.DatasetReference(self.cloud.project, dataset_id)
         table_ref = dataset_ref.table(f'{table_name}{confidence}')
         return bqclient.get_table(table_ref)  # API request
+
+    def update_description(self):
+        bqclient = bigquery.Client(project=self.cloud.project)
+        for c in [2,3,4]:
+            table = self._get_table(bqclient, c)
+            table.description = self.get_description(c)
+            bqclient.update_table(table, ["description"])  # API request
 
     def update_labels(self):
         bqclient = bigquery.Client(project=self.cloud.project)
