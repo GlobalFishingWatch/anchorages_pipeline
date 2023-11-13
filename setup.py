@@ -4,7 +4,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="pipe_anchorages",
-    version="4.1.2",
+    version="4.2.0",
     packages=find_packages(exclude=["test*.*", "tests"]),
     package_data={
         "": ["data/port_lists/*.csv", "data/EEZ/*"],
