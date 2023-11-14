@@ -20,7 +20,7 @@ class WriteSink(beam.PTransform):
               "mode": "NULLABLE",
               "name": "vessel_id",
               "type": "STRING",
-              "description": "The unique vessel id. This table has one row per vessel_id."
+              "description": "The vessel id."
             },
             {
               "mode": "NULLABLE",
@@ -74,7 +74,7 @@ class WriteSink(beam.PTransform):
               "mode": "NULLABLE",
               "name": "trip_id",
               "type": "STRING",
-              "description": "The confidence of the visit where the trip ended."
+              "description": "The unique value for the table. There is a single record for each trip_id."
             },
         ]
     }
