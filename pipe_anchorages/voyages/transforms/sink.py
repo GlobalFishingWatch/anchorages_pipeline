@@ -86,7 +86,7 @@ class WriteSink(beam.PTransform):
     }
 
     def __init__(self, options, cloud_options):
-        self.sink_table = options.output_table
+        self.sink_table = {2:options.output_table_c2, 3:options.output_table_c3, 4:options.output_table_c4}
         self.options = options
         self.cloud = cloud_options
         self.ver = get_pipe_ver()
@@ -127,7 +127,7 @@ Created by pipe-anchorages: {self.ver}
 
     def write_sink(self, confidence):
         return beam.io.WriteToBigQuery(
-            f"{self.sink_table}{confidence}",
+            f"{self.sink_table[confidence]}",
             schema=WriteSink.TABLE_SCHEMA,
             additional_bq_parameters={
                 "timePartitioning": {
@@ -138,19 +138,23 @@ Created by pipe-anchorages: {self.ver}
                 "clustering": {
                     "fields": ["trip_start", "ssvid", "vessel_id", "trip_id"]
                 },
-                "destinationTableProperties": {
-                    "description": self.get_description(confidence),
-                },
             },
             write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE,
             create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
         )
 
     def _get_table(self, bqclient:bigquery.Client, confidence:int):
-        dataset_id, table_name = self.sink_table.split('.')
+        dataset_id, table_name = self.sink_table[confidence].split('.')
         dataset_ref = bigquery.DatasetReference(self.cloud.project, dataset_id)
-        table_ref = dataset_ref.table(f'{table_name}{confidence}')
+        table_ref = dataset_ref.table(table_name)
         return bqclient.get_table(table_ref)  # API request
+
+    def update_description(self):
+        bqclient = bigquery.Client(project=self.cloud.project)
+        for c in [2,3,4]:
+            table = self._get_table(bqclient, c)
+            table.description = self.get_description(c)
+            bqclient.update_table(table, ["description"])  # API request
 
     def update_labels(self):
         bqclient = bigquery.Client(project=self.cloud.project)

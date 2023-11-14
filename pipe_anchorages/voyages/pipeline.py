@@ -44,6 +44,7 @@ class VoyagesPipeline:
         ):
             result.wait_until_finish()
             if result.state == PipelineState.DONE:
+                self.sink.update_description()
                 self.sink.update_labels()
 
         logging.info("Returning with result.state=%s" % result.state)
