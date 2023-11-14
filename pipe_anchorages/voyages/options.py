@@ -9,7 +9,11 @@ class VoyagesOptions(PipelineOptions):
         required = parser.add_argument_group('Required')
         required.add_argument('--source_table', required=True,
             help='The port visits table to pull data from')
-        required.add_argument('--output_table', required=True,
+        required.add_argument('--output_table_c2', required=True,
+            help='Output table to write results to.')
+        required.add_argument('--output_table_c3', required=True,
+            help='Output table to write results to.')
+        required.add_argument('--output_table_c4', required=True,
             help='Output table to write results to.')
 
         optional = parser.add_argument_group('Optional')
