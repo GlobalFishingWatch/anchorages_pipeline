@@ -55,7 +55,6 @@ def run(arguments):
         A "voyage" is defined as the combination of a vessel's previous port_visit's end and next port_visit's start.
         Every vessel's first voyage has an unknown start, so the `trip_start_*` columns are NULL. Respectively, each vessel's last voyage has an undefined end, so the `trip_end_*` columns are NULL.
         If you want to include a vessel's first (or last) voyage you will have to adjust the trip_start (or trip_end) filter to also include NULL values, e.g:
-        Ex.
         ...
         WHERE (trip_start <= '2022-12-31' OR trip_start IS NULL)
     """
