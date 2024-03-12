@@ -1,16 +1,22 @@
 from __future__ import absolute_import, division, print_function
 
 import datetime
-from collections import namedtuple
 from datetime import timedelta
+from typing import NamedTuple
 
 import apache_beam as beam
 from pipe_anchorages import common as cmn
-from pipe_anchorages.distance import distance, inf
 
+from ..common import LatLon
 from .create_in_out_events import InOutEventsBase
 
-PseudoRcd = namedtuple("PseudoRcd", ["location", "timestamp"])
+
+class VisitLocationRecord:
+    identifier: str
+    timestamp: datetime
+    location: LatLon
+    speed: float
+    is_possible_gap_end: bool
 
 
 class SmartThinRecords(beam.PTransform, InOutEventsBase):
@@ -51,6 +57,13 @@ class SmartThinRecords(beam.PTransform, InOutEventsBase):
         last_state = None
         active_port = None
         for i, rcd in enumerate(records):
+            rcd = VisitLocationRecord(
+                identifier=rcd.identifier,
+                timestamp=rcd.timestamp,
+                location=rcd.location,
+                speed=rcd.speed,
+                is_possible_gap_end=False,
+            )
             s2id = rcd.location.S2CellId(cmn.VISITS_S2_SCALE).to_token()
             port, dist = self._anchorage_distance(
                 rcd.location, anchorage_map.get(s2id, [])
@@ -68,7 +81,7 @@ class SmartThinRecords(beam.PTransform, InOutEventsBase):
                 and rcd.timestamp - last_rcd.timestamp >= self.min_gap
             ):
                 active.add(last_rcd)
-                active.add(rcd)
+                active.add(rcd._replace(is_possible_gap_end=True))
 
             if self.transition_map[(last_state, state)]:
                 active.add(last_rcd)

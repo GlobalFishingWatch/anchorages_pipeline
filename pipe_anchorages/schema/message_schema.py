@@ -26,10 +26,10 @@ message_schema = {
             "type": "FLOAT",
         },
         {
-            "description": "The destination included in the message.",
+            "description": "Could this message could this message be a gap end.",
             "mode": "NULLABLE",
-            "name": "destination",
-            "type": "STRING",
+            "name": "is_possible_gap_end",
+            "type": "BOOL",
         },
     ]
 }
