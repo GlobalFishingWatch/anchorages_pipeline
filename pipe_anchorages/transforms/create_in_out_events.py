@@ -140,7 +140,6 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
         active_port = None
         last_timestamp = None
         for rcd in records:
-
             s2id = rcd.location.S2CellId(cmn.VISITS_S2_SCALE).to_token()
             port, dist = self._anchorage_distance(
                 rcd.location, anchorage_map.get(s2id, [])
@@ -153,6 +152,7 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
             if last_timestamp is not None:
                 if (
                     last_state in self.in_port_states
+                    and rcd.is_possible_gap_end
                     and rcd.timestamp - last_timestamp >= self.min_gap
                 ):
                     yield self._build_event(

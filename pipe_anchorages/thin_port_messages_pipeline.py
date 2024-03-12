@@ -1,16 +1,18 @@
-from apache_beam.options.pipeline_options import (GoogleCloudOptions, StandardOptions)
-from apache_beam.runners import PipelineState
+import datetime
+import logging
 
+import apache_beam as beam
+from apache_beam.options.pipeline_options import (GoogleCloudOptions,
+                                                  StandardOptions)
+from apache_beam.runners import PipelineState
 from pipe_anchorages import common as cmn
-from pipe_anchorages.options.thin_port_messages_options import ThinPortMessagesOptions
-from pipe_anchorages.transforms.create_tagged_anchorages import CreateTaggedAnchorages
+from pipe_anchorages.options.thin_port_messages_options import \
+    ThinPortMessagesOptions
+from pipe_anchorages.transforms.create_tagged_anchorages import \
+    CreateTaggedAnchorages
 from pipe_anchorages.transforms.sink import MessageSink
 from pipe_anchorages.transforms.smart_thin_records import SmartThinRecords
 from pipe_anchorages.transforms.source import QuerySource
-
-import apache_beam as beam
-import datetime
-import logging
 
 
 def create_queries(args, start_date, end_date):
@@ -44,11 +46,13 @@ def create_queries(args, start_date, end_date):
         start_window = end_window + datetime.timedelta(days=1)
 
 
-anchorage_query = lambda args: f"SELECT lat as anchor_lat, lon as anchor_lon, s2id as anchor_id, label FROM `{args.anchorage_table}`"
+anchorage_query = (
+    lambda args: f"SELECT lat as anchor_lat, lon as anchor_lon, "
+    f"s2id as anchor_id, label FROM `{args.anchorage_table}`"
+)
 
 
 def run(options):
-
     known_args = options.view_as(ThinPortMessagesOptions)
     cloud_options = options.view_as(GoogleCloudOptions)
 
@@ -62,9 +66,8 @@ def run(options):
     queries = create_queries(known_args, start_date, end_date)
 
     sources = [
-        ( p
-        | f"Read_{i}" >> QuerySource(query, cloud_options)
-        ) for (i, query) in enumerate(queries)
+        (p | f"Read_{i}" >> QuerySource(query, cloud_options))
+        for (i, query) in enumerate(queries)
     ]
 
     tagged_records = (
@@ -80,11 +83,7 @@ def run(options):
         | CreateTaggedAnchorages()
     )
 
-    sink = MessageSink(
-        known_args.output_table,
-        known_args,
-        cloud_options
-    )
+    sink = MessageSink(known_args.output_table, known_args, cloud_options)
 
     (
         tagged_records
