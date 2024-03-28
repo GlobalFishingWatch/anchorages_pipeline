@@ -11,9 +11,9 @@ from ..common import LatLon
 from .create_in_out_events import InOutEventsBase
 
 
-class VisitLocationRecord:
+class VisitLocationRecord(NamedTuple):
     identifier: str
-    timestamp: datetime
+    timestamp: datetime.datetime
     location: LatLon
     speed: float
     is_possible_gap_end: bool

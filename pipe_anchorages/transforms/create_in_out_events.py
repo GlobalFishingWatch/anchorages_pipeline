@@ -117,19 +117,15 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
             last_timestamp=last_timestamp,
         )
 
-    def _possibly_yield_gap_beg(
+    def _yield_gap_beg(
         self, seg_id, last_timestamp, last_state, next_timestamp, active_port
     ):
-        if next_timestamp - last_timestamp >= self.min_gap:
-            if last_state in self.in_port_states:
-                evt_timestamp = last_timestamp + self.min_gap
-                assert evt_timestamp <= next_timestamp
-                rcd = PseudoRcd(
-                    location=cmn.LatLon(None, None), timestamp=evt_timestamp
-                )
-                yield self._build_event(
-                    active_port, rcd, seg_id, self.EVT_GAP_BEG, last_timestamp
-                )
+        evt_timestamp = last_timestamp + self.min_gap
+        assert evt_timestamp <= next_timestamp
+        rcd = PseudoRcd(location=cmn.LatLon(None, None), timestamp=evt_timestamp)
+        yield self._build_event(
+            active_port, rcd, seg_id, self.EVT_GAP_BEG, last_timestamp
+        )
 
     def _create_in_out_events(self, grouped_records, anchorage_map):
         seg_id, records = grouped_records
@@ -158,9 +154,9 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
                     yield self._build_event(
                         active_port, rcd, identity, self.EVT_GAP_END, last_timestamp
                     )
-                yield from self._possibly_yield_gap_beg(
-                    identity, last_timestamp, last_state, rcd.timestamp, active_port
-                )
+                    yield from self._yield_gap_beg(
+                        identity, last_timestamp, last_state, rcd.timestamp, active_port
+                    )
 
             for event_type in self.transition_map[(last_state, state)]:
                 yield self._build_event(
@@ -169,13 +165,6 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
 
             last_timestamp = rcd.timestamp
             last_state = state
-
-        end_time = datetime.datetime.combine(
-            self.end_date, datetime.time.max, tzinfo=pytz.utc
-        )
-        yield from self._possibly_yield_gap_beg(
-            identity, last_timestamp, last_state, end_time, active_port
-        )
 
     def create_in_out_events(self, grouped_records, anchorage_map):
         identity, records = grouped_records
