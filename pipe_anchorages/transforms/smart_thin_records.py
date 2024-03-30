@@ -73,17 +73,31 @@ class SmartThinRecords(beam.PTransform, InOutEventsBase):
             is_stopped = self._is_stopped(last_state, rcd.speed)
             state = self._compute_state(is_in_port, is_stopped)
 
-            if i in (0, last_ndx):
-                active.add(rcd)
+            if i == 0:
+                # Always mark first record of day as possible gap end since
+                # could be arbitrarily long gap from previous days.
+                # We update the record here so that we don't store twice
+                # if this record is stored for other reasons
+                rcd = rcd._replace(is_possible_gap_end=True)
 
             if (
                 last_rcd is not None
                 and rcd.timestamp - last_rcd.timestamp >= self.min_gap
             ):
+                # This record looks like the end of a gap based on this segment.
+                # We again, update the record here so that we don't store twice
+                # if this record is stored for other reasons
+                rcd = rcd._replace(is_possible_gap_end=True)
                 active.add(last_rcd)
-                active.add(rcd._replace(is_possible_gap_end=True))
+                active.add(rcd)
+
+            if i in (0, last_ndx):
+                # Always store first and last record of day so we correctly deal
+                # with gaps across the day boundary.
+                active.add(rcd)
 
             if self.transition_map[(last_state, state)]:
+                # Store points surrounding any transition.
                 active.add(last_rcd)
                 active.add(rcd)
 
