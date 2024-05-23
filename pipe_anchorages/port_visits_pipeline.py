@@ -1,22 +1,24 @@
-from apache_beam import Map, io
-from apache_beam.options.pipeline_options import StandardOptions, GoogleCloudOptions
-from apache_beam.runners import PipelineState
+import datetime
+import logging
+import math
 
+import apache_beam as beam
+import pytz
+from apache_beam import Map
+from apache_beam.options.pipeline_options import (GoogleCloudOptions,
+                                                  StandardOptions)
+from apache_beam.runners import PipelineState
 from pipe_anchorages import common as cmn
 from pipe_anchorages.objects.namedtuples import _datetime_to_s
 from pipe_anchorages.options.port_visits_options import PortVisitsOptions
-from pipe_anchorages.records import VesselLocationRecord
 from pipe_anchorages.schema.port_visit import build as build_visit_schema
 from pipe_anchorages.transforms.create_in_out_events import CreateInOutEvents
 from pipe_anchorages.transforms.create_port_visits import CreatePortVisits
-from pipe_anchorages.transforms.create_tagged_anchorages import CreateTaggedAnchorages
+from pipe_anchorages.transforms.create_tagged_anchorages import \
+    CreateTaggedAnchorages
 from pipe_anchorages.transforms.sink import VisitsSink
+from pipe_anchorages.transforms.smart_thin_records import VisitLocationRecord
 from pipe_anchorages.transforms.source import QuerySource
-
-import apache_beam as beam
-import datetime
-import logging
-import pytz
 
 
 def create_queries(args, end_date):
@@ -41,7 +43,9 @@ def create_queries(args, end_date):
     )
 
 
-anchorage_query = lambda table: f"SELECT lat as anchor_lat, lon as anchor_lon, s2id as anchor_id, label FROM `{table}`"
+anchorage_query = (
+    lambda table: f"SELECT lat as anchor_lat, lon as anchor_lon, s2id as anchor_id, label FROM `{table}`"
+)
 
 
 def from_msg(x):
@@ -54,7 +58,12 @@ def from_msg(x):
     vessel_id = x.pop("vessel_id")
     ident = (ssvid, vessel_id, seg_id)
     loc = cmn.LatLon(x.pop("lat"), x.pop("lon"))
-    return vessel_id, VesselLocationRecord(identifier=ident, location=loc, **x)
+    port_dist = x.pop('port_dist')
+    if port_dist is None:
+        port_dist = math.inf
+    return vessel_id, VisitLocationRecord(
+        identifier=ident, location=loc, port_dist=port_dist, **x
+    )
 
 
 def event_to_msg(x):
@@ -78,7 +87,6 @@ def drop_new_fields(x):
 
 
 def run(options):
-
     visit_args = options.view_as(PortVisitsOptions)
     cloud_args = options.view_as(GoogleCloudOptions)
 
@@ -94,23 +102,20 @@ def run(options):
 
     anchorages = (
         p
-        | "ReadAnchorages" >> QuerySource(anchorage_query(visit_args.anchorage_table), cloud_args)
+        | "ReadAnchorages"
+        >> QuerySource(anchorage_query(visit_args.anchorage_table), cloud_args)
         | CreateTaggedAnchorages()
     )
 
     queries = create_queries(visit_args, end_date)
 
     sources = [
-        (
-            p | f"ReadThinnedMessagesJoinedVesselId_{i}" >> QuerySource(query, cloud_args)
-        ) for (i, query) in enumerate(queries)
+        (p | f"ReadThinnedMessagesJoinedVesselId_{i}" >> QuerySource(query, cloud_args))
+        for (i, query) in enumerate(queries)
     ]
 
     sink = VisitsSink(
-        visit_args.output_table,
-        build_visit_schema(),
-        visit_args,
-        cloud_args
+        visit_args.output_table, build_visit_schema(), visit_args, cloud_args
     )
 
     (
@@ -154,5 +159,3 @@ def run(options):
 
     logging.info("returning with result.state=%s" % result.state)
     return 0 if result.state in success_states else 1
-
-

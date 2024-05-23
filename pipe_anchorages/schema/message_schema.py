@@ -26,10 +26,34 @@ message_schema = {
             "type": "FLOAT",
         },
         {
-            "description": "The destination included in the message.",
+            "description": "Could this message could this message be a gap end.",
             "mode": "NULLABLE",
-            "name": "destination",
+            "name": "is_possible_gap_end",
+            "type": "BOOL",
+        },
+        {
+            "description": "If we are near an anchorage, what is it's S2 ID.",
+            "mode": "NULLABLE",
+            "name": "port_s2id",
             "type": "STRING",
+        },
+        {
+            "description": "If we are near an anchorage, how far away is it.",
+            "mode": "NULLABLE",
+            "name": "port_dist",
+            "type": "FLOAT",
+        },
+        {
+            "description": "If we are near an anchorage, what is its mean longitude.",
+            "mode": "NULLABLE",
+            "name": "port_lon",
+            "type": "FLOAT",
+        },
+        {
+            "description": "If we are near an anchorage, what is its mean latitude.",
+            "mode": "NULLABLE",
+            "name": "port_lat",
+            "type": "FLOAT",
         },
     ]
 }
