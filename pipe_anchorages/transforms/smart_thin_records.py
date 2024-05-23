@@ -1,8 +1,9 @@
 from __future__ import absolute_import, division, print_function
 
 import datetime
+import math
 from datetime import timedelta
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 
 import apache_beam as beam
 from pipe_anchorages import common as cmn
@@ -17,6 +18,10 @@ class VisitLocationRecord(NamedTuple):
     location: LatLon
     speed: float
     is_possible_gap_end: bool
+    port_s2id: Optional[str]
+    port_dist: Optional[float]
+    port_lon: Optional[float]
+    port_lat: Optional[float]
 
 
 class SmartThinRecords(beam.PTransform, InOutEventsBase):
@@ -57,17 +62,30 @@ class SmartThinRecords(beam.PTransform, InOutEventsBase):
         last_state = None
         active_port = None
         for i, rcd in enumerate(records):
+            # rcd = VisitLocationRecord(
+            #     identifier=rcd.identifier,
+            #     timestamp=rcd.timestamp,
+            #     location=rcd.location,
+            #     speed=rcd.speed,
+            #     is_possible_gap_end=False,
+            # )
+            s2id = rcd.location.S2CellId(cmn.VISITS_S2_SCALE).to_token()
+            port, dist = self._anchorage_distance(
+                rcd.location, anchorage_map.get(s2id, [])
+            )
+
             rcd = VisitLocationRecord(
                 identifier=rcd.identifier,
                 timestamp=rcd.timestamp,
                 location=rcd.location,
                 speed=rcd.speed,
                 is_possible_gap_end=False,
+                port_s2id=port.s2id if port else None,
+                port_dist=dist if not math.isinf(dist) else None,
+                port_lon=port.mean_location.lon if port else None,
+                port_lat=port.mean_location.lat if port else None,
             )
-            s2id = rcd.location.S2CellId(cmn.VISITS_S2_SCALE).to_token()
-            port, dist = self._anchorage_distance(
-                rcd.location, anchorage_map.get(s2id, [])
-            )
+
             is_in_port = self._is_in_port(last_state, dist)
             active_port = port if is_in_port else active_port
             is_stopped = self._is_stopped(last_state, rcd.speed)

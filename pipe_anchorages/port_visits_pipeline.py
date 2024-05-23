@@ -1,5 +1,6 @@
 import datetime
 import logging
+import math
 
 import apache_beam as beam
 import pytz
@@ -47,9 +48,6 @@ anchorage_query = (
 )
 
 
-# TODO:
-
-
 def from_msg(x):
     x = x.copy()
     x["timestamp"] = datetime.datetime.utcfromtimestamp(x["timestamp"]).replace(
@@ -60,7 +58,12 @@ def from_msg(x):
     vessel_id = x.pop("vessel_id")
     ident = (ssvid, vessel_id, seg_id)
     loc = cmn.LatLon(x.pop("lat"), x.pop("lon"))
-    return vessel_id, VisitLocationRecord(identifier=ident, location=loc, **x)
+    port_dist = x.pop('port_dist')
+    if port_dist is None:
+        port_dist = math.inf
+    return vessel_id, VisitLocationRecord(
+        identifier=ident, location=loc, port_dist=port_dist, **x
+    )
 
 
 def event_to_msg(x):
