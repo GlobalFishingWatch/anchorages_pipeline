@@ -130,17 +130,11 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
     def _create_in_out_events(self, records):
         records = sorted(records, key=lambda x: x.timestamp)
         ssvid, vessel_id, seg_id = records[0].identifier
-        # identity = (ssvid, vessel_id)
         rcd = None
         last_state = None
         active_port_rcd = None
         last_timestamp = None
         for rcd in records:
-            # s2id = rcd.location.S2CellId(cmn.VISITS_S2_SCALE).to_token()
-            # port, dist = self._anchorage_distance(
-            #     rcd.location, anchorage_map.get(s2id, [])
-            # )
-            # s2_id =
             is_in_port = self._is_in_port(last_state, rcd.port_dist)
             active_port_rcd = rcd if is_in_port else active_port_rcd
             is_stopped = self._is_stopped(last_state, rcd.speed)

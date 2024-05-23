@@ -62,13 +62,6 @@ class SmartThinRecords(beam.PTransform, InOutEventsBase):
         last_state = None
         active_port = None
         for i, rcd in enumerate(records):
-            # rcd = VisitLocationRecord(
-            #     identifier=rcd.identifier,
-            #     timestamp=rcd.timestamp,
-            #     location=rcd.location,
-            #     speed=rcd.speed,
-            #     is_possible_gap_end=False,
-            # )
             s2id = rcd.location.S2CellId(cmn.VISITS_S2_SCALE).to_token()
             port, dist = self._anchorage_distance(
                 rcd.location, anchorage_map.get(s2id, [])
