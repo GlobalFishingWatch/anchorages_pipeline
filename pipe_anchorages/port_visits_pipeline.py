@@ -2,6 +2,7 @@ from apache_beam.options.pipeline_options import StandardOptions, GoogleCloudOpt
 from apache_beam.runners import PipelineState
 import datetime
 import logging
+import math
 
 import apache_beam as beam
 import pytz
@@ -56,9 +57,6 @@ anchorage_query = (
 )
 
 
-# TODO:
-
-
 def from_msg(x):
     x_new = x.copy()
     x_new["timestamp"] = datetime.datetime.utcfromtimestamp(x_new["timestamp"]).replace(
@@ -69,7 +67,12 @@ def from_msg(x):
     vessel_id = x_new.pop("vessel_id")
     ident = (ssvid, vessel_id, seg_id)
     loc = cmn.LatLon(x_new.pop("lat"), x_new.pop("lon"))
-    return vessel_id, VisitLocationRecord(identifier=ident, location=loc, **x_new)
+    port_dist = x_new.pop('port_dist')
+    if port_dist is None:
+        port_dist = math.inf
+    return vessel_id, VisitLocationRecord(
+        identifier=ident, location=loc, port_dist=port_dist, **x_new
+    )
 
 
 def event_to_msg(x):

@@ -42,6 +42,8 @@ class InOutEventsBase:
     }
 
     def _is_in_port(self, state, dist):
+        if dist is None:
+            return False
         if dist <= self.anchorage_entry_dist:
             return True
         elif dist >= self.anchorage_exit_dist:
@@ -99,12 +101,12 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
             days=1
         ), "min gap must be under one day in current implementation"
 
-    def _build_event(self, active_port, rcd, event_type, last_timestamp):
+    def _build_event(self, active_port_rcd, rcd, event_type, last_timestamp):
         ssvid, vessel_id, seg_id = rcd.identifier
         return VisitEvent(
-            anchorage_id=active_port.s2id,
-            lat=active_port.mean_location.lat,
-            lon=active_port.mean_location.lon,
+            anchorage_id=active_port_rcd.port_s2id,
+            lat=active_port_rcd.port_lat,
+            lon=active_port_rcd.port_lon,
             vessel_lat=rcd.location.lat,
             vessel_lon=rcd.location.lon,
             ssvid=ssvid,
@@ -115,7 +117,7 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
             last_timestamp=last_timestamp,
         )
 
-    def _yield_gap_beg(self, gap_end_rcd, last_timestamp, active_port):
+    def _yield_gap_beg(self, gap_end_rcd, last_timestamp, active_port_rcd):
         evt_timestamp = last_timestamp + self.min_gap
         assert evt_timestamp <= gap_end_rcd.timestamp
         rcd = PseudoRcd(
@@ -123,21 +125,17 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
             timestamp=evt_timestamp,
             identifier=gap_end_rcd.identifier,
         )
-        yield self._build_event(active_port, rcd, self.EVT_GAP_BEG, last_timestamp)
+        yield self._build_event(active_port_rcd, rcd, self.EVT_GAP_BEG, last_timestamp)
 
-    def _create_in_out_events(self, records, anchorage_map):
+    def _create_in_out_events(self, records):
         records = sorted(records, key=lambda x: x.timestamp)
         rcd = None
         last_state = None
-        active_port = None
+        active_port_rcd = None
         last_timestamp = None
         for rcd in records:
-            s2id = rcd.location.S2CellId(cmn.VISITS_S2_SCALE).to_token()
-            port, dist = self._anchorage_distance(
-                rcd.location, anchorage_map.get(s2id, [])
-            )
-            is_in_port = self._is_in_port(last_state, dist)
-            active_port = port if is_in_port else active_port
+            is_in_port = self._is_in_port(last_state, rcd.port_dist)
+            active_port_rcd = rcd if is_in_port else active_port_rcd
             is_stopped = self._is_stopped(last_state, rcd.speed)
             state = self._compute_state(is_in_port, is_stopped)
 
@@ -148,24 +146,23 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
                     and rcd.timestamp - last_timestamp >= self.min_gap
                 ):
                     yield self._build_event(
-                        active_port, rcd, self.EVT_GAP_END, last_timestamp
+                        active_port_rcd, rcd, self.EVT_GAP_END, last_timestamp
                     )
                     yield from self._yield_gap_beg(
-                        rcd, last_timestamp, active_port
+                        rcd, last_timestamp, active_port_rcd
                     )
 
             for event_type in self.transition_map[(last_state, state)]:
-                yield self._build_event(active_port, rcd, event_type, last_timestamp)
+                yield self._build_event(
+                    active_port_rcd, rcd, event_type, last_timestamp
+                )
 
             last_timestamp = rcd.timestamp
             last_state = state
 
-    def create_in_out_events(self, grouped_records, anchorage_map):
+    def create_in_out_events(self, grouped_records):
         identity, records = grouped_records
-        return identity, list(self._create_in_out_events(records, anchorage_map))
+        return identity, list(self._create_in_out_events(records))
 
     def expand(self, grouped_records):
-        anchorage_map = beam.pvalue.AsDict(self.anchorages)
-        return grouped_records | beam.Map(
-            self.create_in_out_events, anchorage_map=anchorage_map
-        )
+        return grouped_records | beam.Map(self.create_in_out_events)
