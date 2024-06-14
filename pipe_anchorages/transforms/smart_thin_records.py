@@ -1,16 +1,22 @@
 from __future__ import absolute_import, division, print_function
 
 import datetime
-from collections import namedtuple
 from datetime import timedelta
+from typing import NamedTuple
 
 import apache_beam as beam
 from pipe_anchorages import common as cmn
-from pipe_anchorages.distance import distance, inf
 
+from ..common import LatLon
 from .create_in_out_events import InOutEventsBase
 
-PseudoRcd = namedtuple("PseudoRcd", ["location", "timestamp"])
+
+class VisitLocationRecord(NamedTuple):
+    identifier: str
+    timestamp: datetime.datetime
+    location: LatLon
+    speed: float
+    is_possible_gap_end: bool
 
 
 class SmartThinRecords(beam.PTransform, InOutEventsBase):
@@ -51,6 +57,13 @@ class SmartThinRecords(beam.PTransform, InOutEventsBase):
         last_state = None
         active_port = None
         for i, rcd in enumerate(records):
+            rcd = VisitLocationRecord(
+                identifier=rcd.identifier,
+                timestamp=rcd.timestamp,
+                location=rcd.location,
+                speed=rcd.speed,
+                is_possible_gap_end=False,
+            )
             s2id = rcd.location.S2CellId(cmn.VISITS_S2_SCALE).to_token()
             port, dist = self._anchorage_distance(
                 rcd.location, anchorage_map.get(s2id, [])
@@ -60,17 +73,31 @@ class SmartThinRecords(beam.PTransform, InOutEventsBase):
             is_stopped = self._is_stopped(last_state, rcd.speed)
             state = self._compute_state(is_in_port, is_stopped)
 
-            if i in (0, last_ndx):
-                active.add(rcd)
+            if i == 0:
+                # Always mark first record of day as possible gap end since
+                # could be arbitrarily long gap from previous days.
+                # We update the record here so that we don't store twice
+                # if this record is stored for other reasons
+                rcd = rcd._replace(is_possible_gap_end=True)
 
             if (
                 last_rcd is not None
                 and rcd.timestamp - last_rcd.timestamp >= self.min_gap
             ):
+                # This record looks like the end of a gap based on this segment.
+                # We again, update the record here so that we don't store twice
+                # if this record is stored for other reasons
+                rcd = rcd._replace(is_possible_gap_end=True)
                 active.add(last_rcd)
                 active.add(rcd)
 
+            if i in (0, last_ndx):
+                # Always store first and last record of day so we correctly deal
+                # with gaps across the day boundary.
+                active.add(rcd)
+
             if self.transition_map[(last_state, state)]:
+                # Store points surrounding any transition.
                 active.add(last_rcd)
                 active.add(rcd)
 
