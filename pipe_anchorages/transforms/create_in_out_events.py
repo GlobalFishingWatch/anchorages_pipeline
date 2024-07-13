@@ -115,7 +115,7 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
             last_timestamp=last_timestamp,
         )
 
-    def _yield_gap_beg(self, gap_end_rcd, last_timestamp, last_state, active_port):
+    def _yield_gap_beg(self, gap_end_rcd, last_timestamp, active_port):
         evt_timestamp = last_timestamp + self.min_gap
         assert evt_timestamp <= gap_end_rcd.timestamp
         rcd = PseudoRcd(
@@ -151,7 +151,7 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
                         active_port, rcd, self.EVT_GAP_END, last_timestamp
                     )
                     yield from self._yield_gap_beg(
-                        rcd, last_timestamp, last_state, active_port
+                        rcd, last_timestamp, active_port
                     )
 
             for event_type in self.transition_map[(last_state, state)]:
