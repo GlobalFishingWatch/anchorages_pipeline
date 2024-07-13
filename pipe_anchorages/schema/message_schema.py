@@ -26,7 +26,7 @@ message_schema = {
             "type": "FLOAT",
         },
         {
-            "description": "Could this message could this message be a gap end.",
+            "description": "Could this message be a gap end.",
             "mode": "NULLABLE",
             "name": "is_possible_gap_end",
             "type": "BOOL",
