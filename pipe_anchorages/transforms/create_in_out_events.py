@@ -165,7 +165,8 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
             and rcd.is_possible_gap_end
             and self.last_possible_timestamp - last_timestamp >= self.min_gap
         ):
-            yield from self._yield_gap_beg(rcd, last_timestamp, active_port_rcd)
+            psuedo_rcd = rcd._replace(timestamp=self.last_possible_timestamp)
+            yield from self._yield_gap_beg(psuedo_rcd, last_timestamp, active_port_rcd)
 
     def create_in_out_events(self, grouped_records):
         identity, records = grouped_records
