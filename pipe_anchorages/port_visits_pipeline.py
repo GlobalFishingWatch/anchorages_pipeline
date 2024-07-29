@@ -18,24 +18,37 @@ from pipe_anchorages.transforms.smart_thin_records import VisitLocationRecord
 from pipe_anchorages.transforms.source import QuerySource
 
 
-def create_query(args, start_date, end_date):
-    if args.bad_segs is None:
-        condition = ""
-    else:
-        condition = f"  AND seg_id NOT IN (SELECT seg_id FROM {args.bad_segs})"
-
-    return f'''
+def create_queries(args, start_date, end_date):
+    template = '''
     SELECT vids.ssvid,
            vids.vessel_id,
            vids.seg_id,
            records.* except (timestamp, identifier),
            CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
-    FROM `{args.thinned_message_table}*` records
-    JOIN `{args.vessel_id_table}` vids
+    FROM `{table}*` records
+    JOIN `{vid_table}` vids
     ON records.identifier = vids.seg_id
-    WHERE records._table_suffix BETWEEN '{start_date:%Y%m%d}' AND '{end_date:%Y%m%d}'
+    WHERE records._table_suffix BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}'
      {condition}
     '''
+
+    if args.bad_segs is None:
+        condition = ""
+    else:
+        condition = f"  AND seg_id NOT IN (SELECT seg_id FROM {args.bad_segs})"
+
+    start_window = start_date
+    shift = 1000
+    while start_window <= end_date:
+        end_window = min(start_window + datetime.timedelta(days=shift), end_date)
+        yield template.format(
+            table=args.thinned_message_table,
+            vid_table=args.vessel_id_table,
+            condition=condition,
+            start=start_window,
+            end=end_window
+        )
+        start_window = end_window + datetime.timedelta(days=1)
 
 
 def from_msg(x):
@@ -93,13 +106,20 @@ def run(options):
     start_date = strdate_to_utcdate(visit_args.start_date)
     end_date = strdate_to_utcdate(visit_args.end_date)
 
+    queries = create_queries(visit_args, start_date, end_date)
+
+    sources = [
+        (pipeline | f"ReadThinnedMessagesJoinedVesselId_{i}" >> QuerySource(query, cloud_args))
+        for (i, query) in enumerate(queries)
+    ]
+
     sink = VisitsSink(
         visit_args.output_table, build_visit_schema(), visit_args, cloud_args
     )
 
     (
-        pipeline
-        | QuerySource(create_query(visit_args, start_date, end_date), cloud_args)
+        sources
+        | beam.Flatten()
         | beam.Map(from_msg)
         | beam.GroupByKey()
         | CreateInOutEvents(
