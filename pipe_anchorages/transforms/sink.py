@@ -1,17 +1,15 @@
-from apache_beam import Map, PTransform, io
-from apache_beam.transforms.window import TimestampedValue
-
-from datetime import timedelta
-
-from google.cloud import bigquery
-
-from pipe_anchorages.schema.message_schema import message_schema
-from pipe_anchorages.schema.named_anchorage import build as build_named_anchorage_schema
-from pipe_anchorages.utils.ver import get_pipe_ver
-from pipe_anchorages.objects.namedtuples import epoch
-
 import datetime as dt
 import logging
+from datetime import timedelta
+
+from apache_beam import Map, PTransform, io
+from apache_beam.transforms.window import TimestampedValue
+from google.cloud import bigquery
+from pipe_anchorages.objects.namedtuples import epoch
+from pipe_anchorages.schema.message_schema import message_schema
+from pipe_anchorages.schema.named_anchorage import \
+    build as build_named_anchorage_schema
+from pipe_anchorages.utils.ver import get_pipe_ver
 
 cloud_to_labels = lambda ll: {x.split('=')[0]:x.split('=')[1] for x in ll}
 
@@ -278,7 +276,6 @@ Creates the visits to port table.
 * https://github.com/GlobalFishingWatch/anchorages_pipeline
 * Sources: {self.args.thinned_message_table}
 * Vessel id to join identification: {self.args.vessel_id_table}
-* Anchorage table: {self.args.anchorage_table}
 * Configuration file: {self.args.config}
 * Skip bad segments: {"Yes" if self.args.bad_segs else "No"}
 * Segments more than this distance apart will not be joined when creating visits: {self.args.max_inter_seg_dist_nm}
@@ -315,4 +312,3 @@ Creates the visits to port table.
                 },
             )
         )
-

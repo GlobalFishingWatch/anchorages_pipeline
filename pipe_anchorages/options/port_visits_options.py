@@ -23,9 +23,6 @@ class PortVisitsOptions(PipelineOptions):
             help="Name of table mapping vessel_id to seg_id (BQ). "
             "Should have one vessel_id per seg_id, e.g. the `segment_info` table.",
         )
-        required.add_argument(
-            "--anchorage_table", help="Name of of anchorages table (BQ)"
-        )
         optional.add_argument(
             "--config", default="anchorage_cfg.yaml", help="Path to configuration file"
         )
@@ -34,7 +31,6 @@ class PortVisitsOptions(PipelineOptions):
             required=True,
             help="Output table (BQ) to write results to.",
         )
-
         required.add_argument(
             "--start_date", required=True, help="First date (inclusive) to generate visits"
         )
