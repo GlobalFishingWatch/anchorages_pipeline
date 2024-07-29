@@ -1,12 +1,9 @@
-from apache_beam.options.pipeline_options import StandardOptions, GoogleCloudOptions
-from apache_beam.runners import PipelineState
 import datetime
 import logging
 import math
 
 import apache_beam as beam
 import pytz
-from apache_beam import Map
 from apache_beam.options.pipeline_options import (GoogleCloudOptions,
                                                   StandardOptions)
 from apache_beam.runners import PipelineState
@@ -16,45 +13,29 @@ from pipe_anchorages.options.port_visits_options import PortVisitsOptions
 from pipe_anchorages.schema.port_visit import build as build_visit_schema
 from pipe_anchorages.transforms.create_in_out_events import CreateInOutEvents
 from pipe_anchorages.transforms.create_port_visits import CreatePortVisits
-from pipe_anchorages.transforms.create_tagged_anchorages import \
-    CreateTaggedAnchorages
 from pipe_anchorages.transforms.sink import VisitsSink
 from pipe_anchorages.transforms.smart_thin_records import VisitLocationRecord
 from pipe_anchorages.transforms.source import QuerySource
 
 
-def create_queries(args, start_date, end_date):
-    template = """
-    SELECT vids.ssvid, vids.vessel_id, vids.seg_id, records.* except (timestamp, identifier),
-            CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
-    FROM `{table}*` records
-    JOIN `{vid_table}` vids
-    ON records.identifier = vids.seg_id
-    WHERE records._table_suffix BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}'
-     {condition}
-    """
+def create_query(args, start_date, end_date):
     if args.bad_segs is None:
         condition = ""
     else:
         condition = f"  AND seg_id NOT IN (SELECT seg_id FROM {args.bad_segs})"
 
-    start_window = start_date
-    shift = 1000
-    while start_window <= end_date:
-        end_window = min(start_window + datetime.timedelta(days=shift), end_date)
-        yield template.format(
-            table=args.thinned_message_table,
-            vid_table=args.vessel_id_table,
-            condition=condition,
-            start=start_window,
-            end=end_window
-        )
-        start_window = end_window + datetime.timedelta(days=1)
-
-
-anchorage_query = (
-    lambda table: f"SELECT lat as anchor_lat, lon as anchor_lon, s2id as anchor_id, label FROM `{table}`"
-)
+    return f'''
+    SELECT vids.ssvid,
+           vids.vessel_id,
+           vids.seg_id,
+           records.* except (timestamp, identifier),
+           CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
+    FROM `{args.thinned_message_table}*` records
+    JOIN `{args.vessel_id_table}` vids
+    ON records.identifier = vids.seg_id
+    WHERE records._table_suffix BETWEEN '{start_date:%Y%m%d}' AND '{end_date:%Y%m%d}'
+     {condition}
+    '''
 
 
 def from_msg(x):
@@ -96,7 +77,10 @@ def drop_new_fields(x):
     excluded_fields = {"ssvid", "duration_hrs", "confidence"}
     return {key: value for key, value in x.items() if key not in excluded_fields}
 
-strdate_to_utcdate = lambda strdate: datetime.datetime.strptime(strdate, "%Y-%m-%d").replace(tzinfo=pytz.utc)
+
+def strdate_to_utcdate(strdate):
+    return datetime.datetime.strptime(strdate, "%Y-%m-%d").replace(tzinfo=pytz.utc)
+
 
 def run(options):
     visit_args = options.view_as(PortVisitsOptions)
@@ -104,36 +88,21 @@ def run(options):
 
     config = cmn.load_config(visit_args.config)
 
-    p = beam.Pipeline(options=options)
+    pipeline = beam.Pipeline(options=options)
 
     start_date = strdate_to_utcdate(visit_args.start_date)
     end_date = strdate_to_utcdate(visit_args.end_date)
-
-    anchorages = (
-        p
-        | "ReadAnchorages"
-        >> QuerySource(anchorage_query(visit_args.anchorage_table), cloud_args)
-        | CreateTaggedAnchorages()
-    )
-
-    queries = create_queries(visit_args, start_date, end_date)
-
-    sources = [
-        (p | f"ReadThinnedMessagesJoinedVesselId_{i}" >> QuerySource(query, cloud_args))
-        for (i, query) in enumerate(queries)
-    ]
 
     sink = VisitsSink(
         visit_args.output_table, build_visit_schema(), visit_args, cloud_args
     )
 
     (
-        sources
-        | beam.Flatten()
+        pipeline
+        | QuerySource(create_query(visit_args, start_date, end_date), cloud_args)
         | beam.Map(from_msg)
         | beam.GroupByKey()
         | CreateInOutEvents(
-            anchorages=anchorages,
             anchorage_entry_dist=config["anchorage_entry_distance_km"],
             anchorage_exit_dist=config["anchorage_exit_distance_km"],
             stopped_begin_speed=config["stopped_begin_speed_knots"],
@@ -146,7 +115,7 @@ def run(options):
         | sink
     )
 
-    result = p.run()
+    result = pipeline.run()
 
     success_states = set(
         [
@@ -157,7 +126,10 @@ def run(options):
         ]
     )
 
-    if (visit_args.wait_for_job or options.view_as(StandardOptions).runner == "DirectRunner"):
+    if (
+        visit_args.wait_for_job
+        or options.view_as(StandardOptions).runner == "DirectRunner"
+    ):
         result.wait_until_finish()
         if result.state == PipelineState.DONE:
             sink.update_description()

@@ -82,7 +82,6 @@ class InOutEventsBase:
 class CreateInOutEvents(beam.PTransform, InOutEventsBase):
     def __init__(
         self,
-        anchorages,
         anchorage_entry_dist,
         anchorage_exit_dist,
         stopped_begin_speed,
@@ -90,13 +89,15 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
         min_gap_minutes,
         end_date,
     ):
-        self.anchorages = anchorages
         self.anchorage_entry_dist = anchorage_entry_dist
         self.anchorage_exit_dist = anchorage_exit_dist
         self.stopped_begin_speed = stopped_begin_speed
         self.stopped_end_speed = stopped_end_speed
         self.min_gap = timedelta(minutes=min_gap_minutes)
         self.end_date = end_date
+        self.last_possible_timestamp = (
+            end_date + timedelta(days=1) - timedelta(microseconds=1)
+        )
         assert self.min_gap < timedelta(
             days=1
         ), "min gap must be under one day in current implementation"
@@ -159,6 +160,13 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
 
             last_timestamp = rcd.timestamp
             last_state = state
+        if (
+            last_state in self.in_port_states
+            and rcd.is_possible_gap_end
+            and self.last_possible_timestamp - last_timestamp >= self.min_gap
+        ):
+            psuedo_rcd = rcd._replace(timestamp=self.last_possible_timestamp)
+            yield from self._yield_gap_beg(psuedo_rcd, last_timestamp, active_port_rcd)
 
     def create_in_out_events(self, grouped_records):
         identity, records = grouped_records
