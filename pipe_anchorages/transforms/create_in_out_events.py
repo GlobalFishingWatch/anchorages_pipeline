@@ -161,8 +161,8 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
             last_timestamp = rcd.timestamp
             last_state = state
         if (
+            # Trigger gap ends for gaps that started but we haven't reached their end
             last_state in self.in_port_states
-            and rcd.is_possible_gap_end
             and self.last_possible_timestamp - last_timestamp >= self.min_gap
         ):
             psuedo_rcd = rcd._replace(timestamp=self.last_possible_timestamp)
