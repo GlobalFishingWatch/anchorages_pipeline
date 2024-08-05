@@ -124,16 +124,16 @@ class CreatePortVisits(beam.PTransform):
 
             visit_events.append(evt)
 
-            if has_large_gap and evt.event_type not in {'PORT_EXIT'}:
+            if evt.event_type == "PORT_EXIT":
+                yield from self.possibly_yield_visit(id_, visit_events)
+                visit_events = []
+            elif has_large_gap:
                 yield from self.possibly_yield_visit(id_, visit_events[:-1])
                 visit_events = visit_events[-1:]
             elif evt.event_type == "PORT_ENTRY":
-                # We should no longer get PORT_ENTRY in the middle of things
+                # We should no longer be able to get a PORT_ENTRY in the midst of events
                 assert len(visit_events) == 1
-            elif evt.event_type == "PORT_EXIT":
-                yield from self.possibly_yield_visit(id_, visit_events)
-                visit_events = []
-
+        # Yield any open visits when we reach end of track
         yield from self.possibly_yield_visit(id_, visit_events)
 
     def expand(self, grouped_records):
