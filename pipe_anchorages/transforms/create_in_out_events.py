@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+import math
 from collections import namedtuple
 from datetime import timedelta
 
@@ -25,6 +26,7 @@ class InOutEventsBase:
     EVT_START = "PORT_STOP_END"
     EVT_GAP_BEG = "PORT_GAP_BEGIN"
     EVT_GAP_END = "PORT_GAP_END"
+    EVT_HAS_LARGE_DISTANCE = "HAS_LARGE_DISTANCE"
 
     transition_map = {
         (AT_SEA, AT_SEA): [],
@@ -86,6 +88,7 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
         anchorage_exit_dist,
         stopped_begin_speed,
         stopped_end_speed,
+        max_interseg_dist_nm,
         min_gap_minutes,
         end_date,
     ):
@@ -93,6 +96,7 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
         self.anchorage_exit_dist = anchorage_exit_dist
         self.stopped_begin_speed = stopped_begin_speed
         self.stopped_end_speed = stopped_end_speed
+        self.max_interseg_dist_nm = max_interseg_dist_nm
         self.min_gap = timedelta(minutes=min_gap_minutes)
         self.end_date = end_date
         self.last_possible_timestamp = (
@@ -101,6 +105,25 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
         assert self.min_gap < timedelta(
             days=1
         ), "min gap must be under one day in current implementation"
+
+    def has_large_interseg_dist(self, last_rcd, rcd, events):
+        if {'EVT_ENTER', 'EVT_EXIT'} & set(events):
+            # It's reasonable to have large distances before
+            # entry or exit events
+            return False
+        if last_rcd is None:
+            return False
+        if last_rcd.identifier == rcd.identifier:
+            return False
+        dlat = rcd.location.lat - last_rcd.location.lat
+        lat = 0.5 * (rcd.location.lat + last_rcd.location.lat)
+        scale = math.cos(math.radians(lat))
+        dlon = rcd.location.lon - last_rcd.location.lon
+        # Ensure dlon is in range [-180, 180]
+        # so that we don't have trouble near the dateline
+        dlon = (dlon + 180) % 360 - 180
+        dist_nm = math.hypot(dlat, scale * dlon) * 60
+        return dist_nm > self.max_interseg_dist_nm
 
     def _build_event(self, active_port_rcd, rcd, event_type, last_timestamp):
         ssvid, vessel_id, seg_id = rcd.identifier
@@ -131,6 +154,7 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
     def _create_in_out_events(self, records):
         records = sorted(records, key=lambda x: x.timestamp)
         rcd = None
+        last_rcd = None
         last_state = None
         active_port_rcd = None
         last_timestamp = None
@@ -139,25 +163,28 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
             active_port_rcd = rcd if is_in_port else active_port_rcd
             is_stopped = self._is_stopped(last_state, rcd.speed)
             state = self._compute_state(is_in_port, is_stopped)
+            events = self.transition_map[(last_state, state)].copy()
+            has_large_distance = self.has_large_interseg_dist(last_rcd, rcd, events)
 
-            if last_timestamp is not None:
-                if (
-                    last_state in self.in_port_states
-                    and rcd.is_possible_gap_end
-                    and rcd.timestamp - last_timestamp >= self.min_gap
-                ):
-                    yield self._build_event(
-                        active_port_rcd, rcd, self.EVT_GAP_END, last_timestamp
-                    )
-                    yield from self._yield_gap_beg(
-                        rcd, last_timestamp, active_port_rcd
-                    )
+            if has_large_distance:
+                assert self.EVT_ENTER not in events and self.EVT_EXIT not in events
+                events.append(self.EVT_HAS_LARGE_DISTANCE)
 
-            for event_type in self.transition_map[(last_state, state)]:
+            if (
+                last_timestamp is not None
+                and last_state in self.in_port_states
+                and rcd.is_possible_gap_end
+                and rcd.timestamp - last_timestamp >= self.min_gap
+            ):
+                yield from self._yield_gap_beg(rcd, last_timestamp, active_port_rcd)
+                events.append(self.EVT_GAP_END)
+
+            for event_type in events:
                 yield self._build_event(
                     active_port_rcd, rcd, event_type, last_timestamp
                 )
 
+            last_rcd = rcd
             last_timestamp = rcd.timestamp
             last_state = state
         if (

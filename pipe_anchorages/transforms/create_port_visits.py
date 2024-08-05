@@ -2,7 +2,6 @@ from __future__ import absolute_import, division, print_function
 
 import hashlib
 import logging
-import math
 
 import apache_beam as beam
 import six
@@ -11,6 +10,10 @@ from pipe_anchorages.objects.port_visit import PortVisit
 
 class CreatePortVisits(beam.PTransform):
     EVENT_TYPES = [
+        # This shouldn't occur with other events, so sorting shouldn't matter
+        # but put it first anyway. Except maybe for duplicate timestamps and
+        # then ¯\_(ツ)_/¯
+        "HAS_LARGE_DISTANCE",
         "PORT_ENTRY",
         # The order of PORT_GAP_XXX is somewhat arbitrary, but it
         # Shouldn't matter as long as it occurs between ENTRY
@@ -25,9 +28,6 @@ class CreatePortVisits(beam.PTransform):
     TYPE_ORDER = {x: i for (i, x) in enumerate(EVENT_TYPES)}
 
     MAX_EMITTED_EVENTS = 200
-
-    def __init__(self, max_interseg_dist_nm):
-        self.max_interseg_dist_nm = max_interseg_dist_nm
 
     def compute_confidence(self, events):
         event_types = set(x.event_type for x in events)
@@ -87,19 +87,6 @@ class CreatePortVisits(beam.PTransform):
         if events:
             yield self.create_visit(id_, events)
 
-    def has_large_interseg_dist(self, evt1, evt2):
-        if evt1.seg_id == evt2.seg_id:
-            return False
-        dlat = evt2.lat - evt1.lat
-        lat = 0.5 * (evt1.lat + evt2.lat)
-        scale = math.cos(math.radians(lat))
-        dlon = evt2.lon - evt1.lon
-        # Ensure dlon is in range [-180, 180]
-        # so that we don't have trouble near the dateline
-        dlon = (dlon + 180) % 360 - 180
-        dist_nm = math.hypot(dlat, scale * dlon) * 60
-        return dist_nm > self.max_interseg_dist_nm
-
     def create_port_visits(self, tagged_events):
         grouping_id, events = tagged_events
         if not len(events):
@@ -113,17 +100,16 @@ class CreatePortVisits(beam.PTransform):
 
         visit_events = []
         for i, evt in enumerate(ordered_events):
-            has_large_gap = (
-                self.has_large_interseg_dist(visit_events[-1], evt)
-                if visit_events
-                else False
-            )
-            if evt.event_type in "PORT_ENTRY" or has_large_gap:
+            if evt.event_type == "HAS_LARGE_DISTANCE":
                 yield from self.possibly_yield_visit(id_, visit_events)
                 visit_events = []
+                continue
             if evt.event_type not in self.EVENT_TYPES:
                 logging.error(f'Unknown event type "{evt.event_type}", discarding.')
                 continue
+            if evt.event_type == "PORT_ENTRY":
+                yield from self.possibly_yield_visit(id_, visit_events)
+                visit_events = []
             visit_events.append(evt)
             is_last = i == len(ordered_events) - 1
             if (evt.event_type == "PORT_EXIT") or is_last:

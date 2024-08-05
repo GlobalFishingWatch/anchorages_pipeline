@@ -46,7 +46,7 @@ def create_queries(args, start_date, end_date):
             vid_table=args.vessel_id_table,
             condition=condition,
             start=start_window,
-            end=end_window
+            end=end_window,
         )
         start_window = end_window + datetime.timedelta(days=1)
 
@@ -109,7 +109,7 @@ def run(options):
     queries = create_queries(visit_args, start_date, end_date)
 
     sources = [
-        (pipeline | f"ReadThinnedMessagesJoinedVesselId_{i}" >> QuerySource(query, cloud_args))
+        (pipeline | f"ReadMessages_{i}" >> QuerySource(query, cloud_args))
         for (i, query) in enumerate(queries)
     ]
 
@@ -127,10 +127,11 @@ def run(options):
             anchorage_exit_dist=config["anchorage_exit_distance_km"],
             stopped_begin_speed=config["stopped_begin_speed_knots"],
             stopped_end_speed=config["stopped_end_speed_knots"],
+            max_interseg_distance=visit_args.max_inter_seg_dist_nm,
             min_gap_minutes=config["minimum_port_gap_duration_minutes"],
             end_date=end_date,
         )
-        | CreatePortVisits(visit_args.max_inter_seg_dist_nm)
+        | CreatePortVisits()
         | beam.Map(visit_to_msg)
         | sink
     )
