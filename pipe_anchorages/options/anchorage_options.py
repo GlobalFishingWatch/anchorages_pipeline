@@ -1,5 +1,7 @@
 from __future__ import absolute_import
+
 from apache_beam.options.pipeline_options import PipelineOptions
+
 
 class AnchorageOptions(PipelineOptions):
     @classmethod
@@ -10,7 +12,7 @@ class AnchorageOptions(PipelineOptions):
         required = parser.add_argument_group('Required')
         optional = parser.add_argument_group('Optional')
 
-        required.add_argument('--messages_table', required=True,
+        required.add_argument('--message_table', required=True,
                             help='Messages table to pull data from')
         required.add_argument('--segments_table', required=True,
                             help='Segments table to pull data from')

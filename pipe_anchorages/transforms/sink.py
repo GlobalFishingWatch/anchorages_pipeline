@@ -152,9 +152,8 @@ class AnchorageSink(PTransform):
 Created by the anchorages_pipeline: {self.ver}.
 Creates the anchorage table.
 * https://github.com/GlobalFishingWatch/anchorages_pipeline
-* Sources: {self.args.input_table}
+* Sources: {self.args.message_table}
 * Configuration: {self.args.config}
-* Shapefile used: {self.args.shapefile}
         """
 
     def update_labels(self):

@@ -2,6 +2,7 @@ from __future__ import absolute_import, division, print_function
 
 import datetime
 from collections import namedtuple
+from datetime import timezone
 
 import apache_beam as beam
 import s2sphere
@@ -75,7 +76,7 @@ class CreateTaggedRecords(beam.PTransform):
         if not self.thin:
             return item
         ident, records = item
-        last_timestamp = datetime.datetime(datetime.MINYEAR, 1, 1)
+        last_timestamp = datetime.datetime(datetime.MINYEAR, 1, 1, tzinfo=timezone.utc)
         thinned = []
         for rcd in records:
             if (rcd.timestamp - last_timestamp) >= self.FIVE_MINUTES:

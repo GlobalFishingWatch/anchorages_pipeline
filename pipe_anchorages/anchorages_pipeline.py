@@ -1,6 +1,9 @@
+import datetime
+import logging
+
+import apache_beam as beam
 from apache_beam.options.pipeline_options import GoogleCloudOptions
 from apache_beam.runners import PipelineState
-
 from pipe_anchorages import common as cmn
 from pipe_anchorages.find_anchorage_points import FindAnchoragePoints
 from pipe_anchorages.options.anchorage_options import AnchorageOptions
@@ -9,12 +12,6 @@ from pipe_anchorages.records import VesselLocationRecord
 from pipe_anchorages.transforms.sink import AnchorageSink
 from pipe_anchorages.transforms.source import QuerySource
 
-import apache_beam as beam
-import datetime
-import logging
-
-
-
 
 def create_queries(args):
     template = """
@@ -22,20 +19,23 @@ def create_queries(args):
 
     destinations AS (
       SELECT seg_id, _TABLE_SUFFIX AS table_suffix,
-          CASE
-            WHEN ARRAY_LENGTH(destinations) = 0 THEN NULL
-            ELSE (SELECT MAX(value)
-                  OVER (ORDER BY count DESC)
-                  FROM UNNEST(destinations)
-                  LIMIT 1)
-            END AS destination
+            NULL  AS destination
+          -- CASE
+          --   WHEN ARRAY_LENGTH(destinations) = 0 THEN NULL
+          --   ELSE (SELECT MAX(value)
+          --         OVER (ORDER BY count DESC)
+          --         FROM UNNEST(destinations)
+          --         LIMIT 1)
+          --   END AS destination
       FROM `{segment_table}*`
       WHERE _TABLE_SUFFIX BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}'
     ),
 
     positions AS (
-      SELECT ssvid, seg_id, lat, lon, timestamp, speed,
-             date(timestamp) as table_suffix
+      SELECT ssvid, seg_id, lat, lon, 
+             CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp,
+             speed,
+             format_date("%Y%m%d", date(timestamp)) as table_suffix
         FROM `{position_table}`
        WHERE date(timestamp) BETWEEN '{start:%Y-%m-%d}' AND '{end:%Y-%m-%d}'
          AND seg_id IS NOT NULL
@@ -62,7 +62,7 @@ def create_queries(args):
     while start < end_window:
         # Add 999 days so that we get 1000 total days
         end = min(start + datetime.timedelta(days=999), end_window)
-        queries.append(template.format(position_table=args.messages_table,
+        queries.append(template.format(position_table=args.message_table,
                                        segment_table=args.segments_table,
                                        start=start, end=end))
         # Add 1 day to end, so that we don't overlap.
@@ -119,4 +119,3 @@ def run(options):
 
     logging.info('returning with result.state=%s' % result.state)
     return 0 if result.state in success_states else 1
-
