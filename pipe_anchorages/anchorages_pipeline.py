@@ -12,7 +12,7 @@ from pipe_anchorages.transforms.sink import AnchorageSink
 from pipe_anchorages.transforms.source import QuerySource
 
 
-def create_queries(args):
+def create_queries(args, thin_to_m=1):
     template = """
     WITH
 
@@ -29,17 +29,31 @@ def create_queries(args):
       WHERE _TABLE_SUFFIX BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}'
     ),
 
-    positions AS (
-      SELECT ssvid, seg_id, lat, lon, 
-             CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp,
-             speed,
-             format_date("%Y%m%d", date(timestamp)) as table_suffix
-        FROM `{position_table}`
+    message_with_timestamps_in_seconds as (
+       select cast(UNIX_MILLIS(timestamp) as FLOAT64) / 1000  AS timestamp,
+            (60 * {thin_to_m}) as thin,
+            format_date("%Y%m%d", date(timestamp)) as table_suffix,
+             * except (timestamp)
+       from`{position_table}*`
        WHERE date(timestamp) BETWEEN '{start:%Y-%m-%d}' AND '{end:%Y-%m-%d}'
          AND seg_id IS NOT NULL
          AND lat IS NOT NULL
          AND lon IS NOT NULL
          AND speed IS NOT NULL
+         ),
+
+    position_messages AS (
+        SELECT ssvid, seg_id, lat, lon, timestamp, speed,  table_suffix
+          FROM (
+            SELECT *,
+                ROW_NUMBER() OVER (
+                    PARTITION BY ssvid, cast(floor(timestamp / thin) AS INT64)
+                    ORDER BY ABS(timestamp / thin - FLOOR(timestamp / thin) - 0.5) ASC,
+                    timestamp, ssvid, lat, lon, speed, course
+                    ) ndx,
+            from message_with_timestamps_in_seconds
+        )
+        WHERE ndx = 1
     )
 
     SELECT ssvid as ident,
@@ -48,7 +62,7 @@ def create_queries(args):
            timestamp,
            destination,
            speed
-    FROM positions
+    FROM position_messages
     JOIN destinations
     USING (seg_id, table_suffix)
     """
@@ -62,7 +76,8 @@ def create_queries(args):
         end = min(start + datetime.timedelta(days=999), end_window)
         queries.append(template.format(position_table=args.message_table,
                                        segment_table=args.segments_table,
-                                       start=start, end=end))
+                                       start=start, end=end,
+                                       thin_to_m=thin_to_m))
         # Add 1 day to end, so that we don't overlap.
         start = end + datetime.timedelta(days=1)
 
