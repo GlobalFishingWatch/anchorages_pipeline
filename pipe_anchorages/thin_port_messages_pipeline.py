@@ -1,16 +1,19 @@
-from apache_beam.options.pipeline_options import (GoogleCloudOptions, StandardOptions)
+import datetime
+import logging
+
+import apache_beam as beam
+from apache_beam.options.pipeline_options import (GoogleCloudOptions,
+                                                  StandardOptions)
 from apache_beam.runners import PipelineState
 
 from pipe_anchorages import common as cmn
-from pipe_anchorages.options.thin_port_messages_options import ThinPortMessagesOptions
-from pipe_anchorages.transforms.create_tagged_anchorages import CreateTaggedAnchorages
+from pipe_anchorages.options.thin_port_messages_options import \
+    ThinPortMessagesOptions
+from pipe_anchorages.transforms.create_tagged_anchorages import \
+    CreateTaggedAnchorages
 from pipe_anchorages.transforms.sink import MessageSink
 from pipe_anchorages.transforms.smart_thin_records import SmartThinRecords
 from pipe_anchorages.transforms.source import QuerySource
-
-import apache_beam as beam
-import datetime
-import logging
 
 
 def create_queries(args, start_date, end_date):
@@ -119,6 +122,7 @@ def run(options):
     ):
         result.wait_until_finish()
         if result.state == PipelineState.DONE:
+            sink.create_tables_if_not_exists()
             sink.update_labels()
 
     logging.info("returning with result.state=%s" % result.state)

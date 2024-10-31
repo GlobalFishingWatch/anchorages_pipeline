@@ -1,17 +1,18 @@
-from apache_beam import Map, PTransform, io
-from apache_beam.transforms.window import TimestampedValue
-
-from datetime import timedelta
-
-from google.cloud import bigquery
-
-from pipe_anchorages.schema.message_schema import message_schema
-from pipe_anchorages.schema.named_anchorage import build as build_named_anchorage_schema
-from pipe_anchorages.utils.ver import get_pipe_ver
-from pipe_anchorages.objects.namedtuples import epoch
-
 import datetime as dt
 import logging
+from datetime import timedelta
+
+from apache_beam import Map, PTransform, io
+from apache_beam.transforms.window import TimestampedValue
+from google.cloud import bigquery
+from google.cloud.exceptions import NotFound
+
+from pipe_anchorages.objects.namedtuples import epoch
+from pipe_anchorages.schema.message_schema import message_schema
+from pipe_anchorages.schema.named_anchorage import \
+    build as build_named_anchorage_schema
+from pipe_anchorages.utils.bqtools import BQTools
+from pipe_anchorages.utils.ver import get_pipe_ver
 
 cloud_to_labels = lambda ll: {x.split('=')[0]:x.split('=')[1] for x in ll}
 
@@ -28,6 +29,20 @@ def load_labels(project: str, tablename: str, labels: dict):
     bqclient.update_table(table, ["labels"])  # API request
     logging.info(f"Update labels to output table <{table}>")
 
+def create_table_if_not_exists(project: str, tablename: str, labels: dict, table_desc:str, schema:list):
+    bqclient = bigquery.Client(project=project)
+    try:
+        get_table(bqclient, project, tablename)
+        logging.info(f"Table <{tablename}> already exists")
+    except NotFound:
+        bqtools = BQTools(project=project)
+        bqtools.create_table(destination_table=tablename,
+                             labels=labels,
+                             table_desc=table_desc,
+                             schema=schema['fields'],
+                             )
+        logging.info(f"Table <{tablename}> created")
+    
 str2date = lambda datestr: dt.datetime.strptime(datestr, "%Y-%m-%d").date()
 
 def daterange(start_date, end_date):
@@ -53,6 +68,14 @@ Created by the anchorages_pipeline: {self.ver}.
 * Date: {self.args.start_date}, {self.args.end_date}
         """
 
+    def create_tables_if_not_exists(self):
+        for day in daterange(str2date(self.args.start_date),str2date(self.args.end_date)):
+            create_table_if_not_exists(project=self.project,
+                                       tablename=f"{self.table}{day:%Y%m%d}",
+                                       labels=self.labels,
+                                       table_desc=self.get_description(),
+                                       schema=message_schema)
+            
     def update_labels(self):
         for day in daterange(str2date(self.args.start_date),str2date(self.args.end_date)):
             logging.info(f"Setting labels to {self.table}{day:%Y%m%d}")
