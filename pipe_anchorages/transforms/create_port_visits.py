@@ -6,12 +6,10 @@ import math
 
 import apache_beam as beam
 import six
-from pipe_anchorages import common as cmn
 from pipe_anchorages.objects.port_visit import PortVisit
 
 
 class CreatePortVisits(beam.PTransform):
-
     EVENT_TYPES = [
         "PORT_ENTRY",
         # The order of PORT_GAP_XXX is somewhat arbitrary, but it
@@ -58,7 +56,7 @@ class CreatePortVisits(beam.PTransform):
         return events
 
     def create_visit(self, id_, visit_events):
-        ssvid, vessel_id, seg_id = id_
+        ssvid, vessel_id = id_
         raw_visit_id = "{}-{}-{}-{}".format(
             vessel_id,
             visit_events[0].timestamp.isoformat(),
@@ -106,7 +104,7 @@ class CreatePortVisits(beam.PTransform):
         grouping_id, events = tagged_events
         if not len(events):
             return
-        id_ = events[0].ssvid, events[0].vessel_id, events[0].seg_id
+        id_ = events[0].ssvid, events[0].vessel_id
         # Sort events by timestamp, and also so that enter, stop, start,
         # exit are in the correct order.
         tagged = [(x.timestamp, self.TYPE_ORDER[x.event_type], x) for x in events]

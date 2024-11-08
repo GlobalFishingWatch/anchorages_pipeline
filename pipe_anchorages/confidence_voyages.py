@@ -7,7 +7,6 @@ This script will do:
 3- Run the query and save results in destination table.
 """
 
-from datetime import datetime, timedelta
 from jinja2 import Environment, FileSystemLoader
 from pipe_anchorages.utils.bqtools import BQTools
 from pipe_anchorages.utils.ver import get_pipe_ver
@@ -23,17 +22,11 @@ confidence_meaning = {
     '4': "port entry and exit with stop and/or gap",
 }
 
-def daterange(start_date, end_date):
-    for n in range(int((end_date - start_date).days)+1):
-        yield start_date + timedelta(n)
-
 def run(arguments):
     parser = argparse.ArgumentParser(description='Generates the confidence voyages tables.')
-    parser.add_argument('-dt','--date', help='The date range to process (Format str:YYYY-MM-DD,YYYY-MM-DD).', required=True)
-                        # required=False, default='2020-01-01')
     parser.add_argument('-i','--source', help='The BQ source table (Format str, ex: dataset.table).', required=True)
                         # required=False, default='pipe_ais_v3_alpha_internal.raw_port_event_')
-    parser.add_argument('-c','--min_confidence', help='The minimal confidence to detect the voyages (Format str, ex: 3).', required=True, choices=list(map(str,[2,3,4])))
+    parser.add_argument('-c','--min_confidence', help='The minimal confidence to detect the voyages (Format str, ex: 3).', required=True, choices=list(map(str,[2,3,4])), type=str)
                         # required=False, default='3')
     parser.add_argument('-o','--output', help='The BQ destination table (Format str, ex: project:datset.table).', required=True)
                         # required=False, default='pipe_static.sunrise')
@@ -43,7 +36,6 @@ def run(arguments):
 
     start_time = time.time()
 
-    date = datetime.strptime(args.date, '%Y-%m-%d')
     source = args.source
     project, output = args.output.split(":")
     min_confidence = args.min_confidence
@@ -59,10 +51,15 @@ def run(arguments):
         * https://github.com/GlobalFishingWatch/pipe-research
         * Source: {source}
         * Minimal confidence: {min_confidence} meaning: {confidence_meaning[min_confidence]}.
-        * Date from start to {date:%Y-%m-%d}
+
+        A "voyage" is defined as the combination of a vessel's previous port_visit's end and next port_visit's start.
+        Every vessel's first voyage has an unknown start, so the `trip_start_*` columns are NULL. Respectively, each vessel's last voyage has an undefined end, so the `trip_end_*` columns are NULL.
+        If you want to include a vessel's first (or last) voyage you will have to adjust the trip_start (or trip_end) filter to also include NULL values, e.g:
+        ...
+        WHERE (trip_start <= '2022-12-31' OR trip_start IS NULL)
     """
     schema = bq_tools.schema_json2builder('./assets/schemas/generate_confidence_voyages.schema.json')
-    bq_tools.create_tables_if_not_exists(output, date, date, labels, description, schema, ['ssvid', 'vessel_id', 'trip_id'], date_field='trip_end')
+    bq_tools.create_tables_if_not_exists(output, labels, description, schema, ['ssvid', 'vessel_id', 'trip_id'], date_field='trip_start')
 
     try:
         # Apply template
@@ -70,7 +67,6 @@ def run(arguments):
         query = template.render({
             'port_visits_table': f'{project}.{source}',
             'min_confidence': min_confidence,
-            'date': date.strftime('%Y-%m-%d'),
         })
         print(query)
         # Run query to calc how much bytes will spend

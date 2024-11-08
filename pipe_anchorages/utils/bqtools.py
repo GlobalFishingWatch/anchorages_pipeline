@@ -28,16 +28,12 @@ class BQTools:
         return schema
 
 
-    def create_tables_if_not_exists(self, destination_table:str, date_from: datetime, date_to: datetime, labels, table_desc:str, schema:list, clustering_fields:list=[], date_field:str='timestamp'):
+    def create_tables_if_not_exists(self, destination_table:str, labels, table_desc:str, schema:list, clustering_fields:list=[], date_field:str='timestamp'):
         """Creates tables if they do not exists.
         If it doesn't exist, create it. And if exists, deletes the data of date range.
 
         :param destination_table: dataset.table of BQ.
         :type destination_table: str.
-        :param date_from: the date from.
-        :type date_from: datetime.
-        :param date_to: the date to.
-        :type date_to: datetime.
         :param labels: the label of the dataset. Default None.
         :type labels: dict.
         :param table_desc: the main description of the table.
@@ -57,8 +53,8 @@ class BQTools:
             logger.info(f'Ensures the table [{table}] exists.')
             query_job = self.bq_client.query(
                 f"""
-                   DELETE FROM `{self.project}.{ destination_table }`
-                   WHERE date({date_field}) <= '{date_to:%Y-%m-%d}'
+                   DELETE FROM `{self.project}.{destination_table}`
+                   WHERE date({date_field}) >= '1970-01-01' or {date_field} is null
                 """,
                 # f"""DROP TABLE `{self.project}.{ destination_table }`""",
                 bigquery.QueryJobConfig(

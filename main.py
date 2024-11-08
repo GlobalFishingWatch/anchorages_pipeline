@@ -24,6 +24,10 @@ def run_name_anchorages(args):
     from pipe_anchorages.name_anchorages import run as run_name_anchorages
     run_name_anchorages(args)
 
+def run_voyages(args):
+    from pipe_anchorages.voyages.__main__ import run as run_voyages
+    run_voyages(args)
+
 
 SUBCOMMANDS = {
     "thin_port_messages": run_thin_port_messages,
@@ -31,6 +35,7 @@ SUBCOMMANDS = {
     "anchorages": run_anchorages,
     "name_anchorages": run_name_anchorages,
     "generate_confidence_voyages": run_generate_confidence_voyages,
+    "voyages": run_voyages,
 }
 
 if __name__ == "__main__":
