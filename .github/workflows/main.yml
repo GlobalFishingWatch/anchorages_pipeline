@@ -34,11 +34,6 @@ jobs:
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: 'pip'
-          # cache option make the step fail if you don´t have requirements.txt or pyproject.toml on root.
-          # https://github.com/actions/setup-python/issues/807.
 
       - name: Install dependencies
         run: |
