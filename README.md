@@ -29,23 +29,32 @@ instructions there.
 ### Updating the Named Anchorages
 
 The most common manual task is updating the named anchorages, which needs to be done whenever
-anchorage overrides is edited. This is accomplished by running the following command:
+anchorage overrides is edited. If you need to build and upload a new docker container use the
+following container:
+
+    docker build -f Dockerfile-worker -t gcr.io/world-fishing-827/pipe-anchorage/worker:tim_test .
+
+    docker push gcr.io/world-fishing-827/pipe-anchorage/worker:tim_test
+
+The run:
 
     docker-compose run name_anchorages \
-                 --job_name name-anchorages \
-                 --input_table anchorages.CURRENT_UNNAMED_ANCHORAGES \
-                 --output_table TARGET_DATASET.TARGET_TABLE \
-                 --config ./name_anchorages_cfg.yaml \
-                 --max_num_workers 100 \
-                 --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
-                 --project world-fishing-827 \
-                 --requirements_file requirements-worker-frozen.txt \
-                 --project world-fishing-827 \
-                 --staging_location gs://machine-learning-dev-ttl-120d/anchorages/anchorages/output/staging \
-                 --temp_location gs://machine-learning-dev-ttl-120d/anchorages/temp \
-                 --setup_file ./setup.py \
-                 --runner DataflowRunner \
-                 --disk_size_gb 100
+        --job_name name-anchorages \
+        --input_table CURRENT_UNNAMED_ANCHORAGES \
+        --output_table TARGET_DATASET.TARGET_TABLE \
+        --config ./name_anchorages_cfg.yaml \
+        --max_num_workers 100 \
+        --fishing_ssvid_list gs://machine-learning-dev-ttl-120d/fishing_mmsi.txt \
+        --project world-fishing-827 \
+        --project world-fishing-827 \
+        --staging_location gs://machine-learning-dev-ttl-120d/anchorages/anchorages/output/staging \
+        --temp_location gs://machine-learning-dev-ttl-120d/anchorages/temp \
+        --setup_file ./setup.py \
+        --runner DataflowRunner \
+        --disk_size_gb 100 \
+        --region us-central1 \
+        --sdk_container_image gcr.io/world-fishing-827/pipe-anchorage/worker:tim_test \
+        --experiments=use_runner_v2
 
 where `CURRENT_UNNAMED_ANCHORAGES` is the current (typically most recent) unnamed anchorages
 table and `TARGET_DATASET.TARGET_TABLE` is where the unnamed anchorages are stored.  I often
@@ -171,6 +180,48 @@ or
 #### Manually
 
 To update a day of events, run, for example:
+
+
+   docker-compose run thin_port_messages \
+        --job_name porteventstest \
+        --input_table pipe_production_v20201001.position_messages_ \
+        --anchorage_table anchorages.named_anchorages_v20201104 \
+        --start_date 2018-01-01 \
+        --end_date 2018-01-07 \
+        --output_table machine_learning_dev_ttl_120d.port_visit_msgs_v20220927_ \
+        --project world-fishing-827 \
+        --max_num_workers 100 \
+        --project world-fishing-827 \
+        --staging_location gs://machine-learning-dev-ttl-30d/anchorages/portevents/output/staging \
+        --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp \
+        --setup_file ./setup.py \
+        --runner DataflowRunner \
+        --disk_size_gb 100 \
+        --region us-central1 \
+        --sdk_container_image gcr.io/world-fishing-827/pipe-anchorage/worker:tim_test \
+        --experiments=use_runner_v2
+
+docker-compose run port_visits \
+        --job_name portmessagestest \
+        --thinned_message_table machine_learning_dev_ttl_120d.port_visit_msgs_v20220927_ \
+        --end_date 2018-01-07 \
+        --vessel_id_table pipe_production_v20201001.segment_info \
+        --anchorage_table anchorages.named_anchorages_v20201104 \
+        --output_table machine_learning_dev_ttl_120d.port_visits_v20220927_ \
+        --project world-fishing-827 \
+        --max_num_workers 100 \
+        --project world-fishing-827 \
+        --staging_location gs://machine-learning-dev-ttl-30d/anchorages/portevents/output/staging \
+        --temp_location gs://machine-learning-dev-ttl-30d/anchorages/temp \
+        --setup_file ./setup.py \
+        --runner DataflowRunner \
+        --disk_size_gb 100 \
+        --region us-central1 \
+        --sdk_container_image gcr.io/world-fishing-827/pipe-anchorage/worker:tim_test \
+        --experiments=use_runner_v2 \
+        --bad_segs "(SELECT DISTINCT seg_id FROM world-fishing-827.gfw_research.pipe_v20201001_segs WHERE overlapping_and_short)"
+
+
 
    docker-compose run port_events \
         --job_name porteventstest \

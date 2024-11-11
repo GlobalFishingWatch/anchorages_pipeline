@@ -1,0 +1,50 @@
+#StandardSql
+# A "voyage" is defined as the combination of a vessel's previous port_visit's end and next port_visit's start.
+# Every vessel's first voyage has an unknown start, so the `trip_start_*` columns are NULL. Respectively, each vessel's last voyage has an undefined end, so the `trip_end_*` columns are NULL.
+
+WITH
+port_vist_rownumber AS (
+  SELECT
+    ssvid,
+    vessel_id,
+    start_anchorage_id,
+    visit_id,
+    start_timestamp,
+    end_anchorage_id,
+    end_timestamp,
+    confidence,
+    ROW_NUMBER() OVER(PARTITION BY vessel_id ORDER BY start_timestamp, end_timestamp) rn
+  FROM
+    `{{ port_visits_table }}`
+    WHERE confidence >= {{ min_confidence }}
+  AND end_timestamp != '1979-01-01'
+  ),
+bq_voyages AS (
+  SELECT
+    COALESCE(next_port_visit.ssvid, previous_port_visit.ssvid) ssvid,
+    COALESCE(next_port_visit.vessel_id, previous_port_visit.vessel_id) vessel_id,
+    previous_port_visit.end_timestamp AS trip_start,
+    next_port_visit.start_timestamp AS trip_end,
+    previous_port_visit.end_anchorage_id AS trip_start_anchorage_id,
+    next_port_visit.start_anchorage_id AS trip_end_anchorage_id,
+    previous_port_visit.visit_id AS trip_start_visit_id,
+    next_port_visit.visit_id AS trip_end_visit_id,
+    previous_port_visit.confidence AS trip_start_confidence,
+    next_port_visit.confidence AS trip_end_confidence,
+    IF(previous_port_visit.end_timestamp IS NULL,
+      CONCAT(
+        COALESCE(next_port_visit.ssvid, previous_port_visit.ssvid), '-',
+        COALESCE(next_port_visit.vessel_id, previous_port_visit.vessel_id)
+      ),
+      CONCAT(
+        COALESCE(next_port_visit.ssvid, previous_port_visit.ssvid), '-',
+        COALESCE(next_port_visit.vessel_id, previous_port_visit.vessel_id), '-',
+        FORMAT('%012x', TIMESTAMP_DIFF(previous_port_visit.end_timestamp, TIMESTAMP('1970-01-01'), MILLISECOND))
+      )
+    ) AS trip_id
+  FROM port_vist_rownumber next_port_visit
+  FULL JOIN port_vist_rownumber previous_port_visit
+  ON next_port_visit.vessel_id = previous_port_visit.vessel_id
+  AND next_port_visit.rn = previous_port_visit.rn + 1
+)
+select * from bq_voyages

@@ -1,217 +1,314 @@
-import datetime
+import datetime as dt
 import logging
-import pytz
-from apache_beam import PTransform
-from apache_beam import Map
-from apache_beam import io
+from datetime import timedelta
+
+from apache_beam import Map, PTransform, io
 from apache_beam.transforms.window import TimestampedValue
-from pipe_tools.io import WriteToBigQueryDateSharded
-from ..objects.namedtuples import epoch
-from ..schema.port_event import build as build_event_schema, build_event_state_schema
-from ..schema.named_anchorage import build as build_named_anchorage_schema
+from google.cloud import bigquery
+from pipe_anchorages.objects.namedtuples import epoch
+from pipe_anchorages.schema.message_schema import message_schema
+from pipe_anchorages.schema.named_anchorage import \
+    build as build_named_anchorage_schema
+from pipe_anchorages.utils.ver import get_pipe_ver
 
-epoch = datetime.datetime.utcfromtimestamp(0).replace(tzinfo=pytz.utc)
+cloud_to_labels = lambda ll: {x.split('=')[0]:x.split('=')[1] for x in ll}
 
+def get_table(bqclient, project: str, tablename: str):
+    dataset_id, table_name = tablename.split('.')
+    dataset_ref = bigquery.DatasetReference(project, dataset_id)
+    table_ref = dataset_ref.table(table_name)
+    return bqclient.get_table(table_ref)  # API request
 
-class EventSink(PTransform):
-    def __init__(self, table, temp_location, project):
+def load_labels(project: str, tablename: str, labels: dict):
+    bqclient = bigquery.Client(project=project)
+    table = get_table(bqclient, project, tablename)
+    table.labels = labels
+    bqclient.update_table(table, ["labels"])  # API request
+    logging.info(f"Update labels to output table <{table}>")
+
+str2date = lambda datestr: dt.datetime.strptime(datestr, "%Y-%m-%d").date()
+
+def daterange(start_date, end_date):
+    for n in range(int((end_date - start_date).days+1)):
+        yield start_date + timedelta(n)
+
+class MessageSink(PTransform):
+    def __init__(self, table, args, cloud_options, key = "timestamp"):
         self.table = table
-        self.temp_location = temp_location
-        self.project = project
+        self.project = cloud_options.project
+        self.args = args
+        self.key = key
+        self.ver = get_pipe_ver()
+        self.labels = cloud_to_labels(cloud_options.labels) if cloud_options else None
 
-    def expand(self, xs):
+    def get_description(self):
+        return f"""
+Created by the anchorages_pipeline: {self.ver}.
+* Creates raw thinned messages in out port events.
+* https://github.com/GlobalFishingWatch/anchorages_pipeline
+* Sources: {self.args.input_table}
+* Anchorage table: {self.args.anchorage_table}
+* Date: {self.args.start_date}, {self.args.end_date}
+        """
 
-        def as_dict(x):
-            d = x._asdict()
-            return d
+    def update_labels(self):
+        for day in daterange(str2date(self.args.start_date),str2date(self.args.end_date)):
+            logging.info(f"Setting labels to {self.table}{day:%Y%m%d}")
+            print(f"Setting labels to {self.table}{day:%Y%m%d}")
+            load_labels(self.project, f"{self.table}{day:%Y%m%d}", self.labels)
 
-        def encode_datetimes_to_s(x):
+    def compute_table_for_event(self, event):
+        stamp = dt.date.fromtimestamp(event[self.key])
+        return f"{self.project}:{self.table}{stamp:%Y%m%d}"
 
-            for field in ['timestamp', 'last_timestamp']:
-                if x[field] is not None:
-                    x[field] = (x[field] - epoch).total_seconds()
+    def extract_latlon(self, x):
+        x = x.copy()
+        lonlat = x.pop("location")
+        x["lon"] = lonlat.lon
+        x["lat"] = lonlat.lat
+        return x
 
-            return x
+    def as_dict(self, x):
+        return x._asdict()
 
-
-        dataset, table = self.table.split('.')
-
-
-        sink = WriteToBigQueryDateSharded(
-            temp_gcs_location=self.temp_location,
-            dataset=dataset,
-            table=table,
-            project=self.project,
-            write_disposition="WRITE_TRUNCATE",
-            schema=build_event_schema()
-            )
-
-        logging.info('sink params: \n\t%s\n\t%s\n\t%s\n\t%s', self.temp_location, dataset, table, self.project)
-
-        return (xs 
-            | Map(as_dict)
-            | Map(encode_datetimes_to_s)
-            | Map(lambda x: TimestampedValue(x, x['timestamp'])) 
-            | sink
-            )
-
-
-class EventStateSink(PTransform):
-    def __init__(self, table, temp_location, project):
-        self.table = table
-        self.temp_location = temp_location
-        self.project = project
-
-    def expand(self, xs):
-
-        def encode_datetimes_to_s(x):
-
-            x = x.copy()
-
-            for field in ['last_timestamp']:
+    def encode_datetimes_to_s(self, x):
+        for field in [self.key]:
+            if x[field] is not None:
                 x[field] = (x[field] - epoch).total_seconds()
+        return x
 
-            dt = datetime.datetime.combine(x['date'], datetime.time.min, tzinfo=pytz.utc)
-            ts_field = (dt - epoch).total_seconds()
+    def expand(self, xs):
+        sink = io.WriteToBigQuery(
+            self.compute_table_for_event,
+            schema=message_schema,
+            write_disposition=io.BigQueryDisposition.WRITE_TRUNCATE,
+            create_disposition=io.BigQueryDisposition.CREATE_IF_NEEDED,
+            additional_bq_parameters={
+                "destinationTableProperties": {
+                    "description": self.get_description(),
+                },
+            }
+        )
 
-            for field in ['date']:
-                x[field] = '{:%Y-%m-%d}'.format(x[field])
+        logging.info(
+            "sink params: \n\t%s\n\t%s",
+            self.project,
+            self.table,
+        )
 
-
-            assert isinstance(x['seg_id'], str)
-            assert isinstance(x['date'], (str))
-            assert isinstance(x['state'], str)
-            assert isinstance(x['last_timestamp'], (int, float))
-            assert x['active_port'] is None or isinstance(x['active_port'], str), x['active_port']
-            assert len(x) == 5
-
-            return ts_field, x
-
-        dataset, table = self.table.split('.')
-
-
-        sink = WriteToBigQueryDateSharded(
-            temp_gcs_location=self.temp_location,
-            dataset=dataset,
-            table=table,
-            project=self.project,
-            write_disposition="WRITE_TRUNCATE",
-            schema=build_event_state_schema()
-            )
-
-
-        logging.info('sink params: \n\t%s\n\t%s\n\t%s\n\t%s', self.temp_location, dataset, table, self.project)
-
-        return (xs 
-            | Map(encode_datetimes_to_s)
-            | Map(lambda x: TimestampedValue(x[1], x[0]))
+        return (
+            xs
+            | Map(self.as_dict)
+            | Map(self.encode_datetimes_to_s)
+            | Map(self.extract_latlon)
+            | Map(lambda x: TimestampedValue(x, x[self.key]))
             | sink
-            )
-
+        )
 
 
 class AnchorageSink(PTransform):
-    def __init__(self, table, write_disposition):
+    def __init__(self, table, args, cloud_options):
         self.table = table
-        self.write_disposition = write_disposition
+        self.args = args
+        self.write_disposition = io.BigQueryDisposition.WRITE_TRUNCATE
+        self.ver = get_pipe_ver()
+        self.labels = cloud_to_labels(cloud_options.labels) if cloud_options else None
 
     def encode(self, anchorage):
         return {
-            'lat' : anchorage.mean_location.lat, 
-            'lon': anchorage.mean_location.lon,
-            'total_visits' : anchorage.total_visits,
-            'drift_radius' : anchorage.rms_drift_radius,
-            'top_destination': anchorage.top_destination,
-            'unique_stationary_ssvid' : len(anchorage.vessels),
-            'unique_stationary_fishing_ssvid' : len(anchorage.fishing_vessels),
-            'unique_active_ssvid' : anchorage.active_ssvids,
-            'unique_total_ssvid' : anchorage.total_ssvids,
-            'active_ssvid_days': anchorage.active_ssvid_days,
-            'stationary_ssvid_days': anchorage.stationary_ssvid_days,
-            'stationary_fishing_ssvid_days': anchorage.stationary_fishing_ssvid_days,
-            's2id': anchorage.s2id,   
-            }
-
-
-    spec = {
-            "lat": "float",
-            "lon": "float",
-            "total_visits": "integer",
-            "drift_radius": "float",
-            "top_destination" : "string",
-            "unique_stationary_ssvid": "integer",
-            "unique_stationary_fishing_ssvid": "integer",
-            "unique_active_ssvid": "integer",
-            "unique_total_ssvid": "integer",
-            'active_ssvid_days': "float",
-            "stationary_ssvid_days": "float",
-            "stationary_fishing_ssvid_days": "float",
-            "s2id": "string",
+            "lat": anchorage.mean_location.lat,
+            "lon": anchorage.mean_location.lon,
+            "total_visits": anchorage.total_visits,
+            "drift_radius": anchorage.rms_drift_radius,
+            "top_destination": anchorage.top_destination,
+            "unique_stationary_ssvid": len(anchorage.vessels),
+            "unique_stationary_fishing_ssvid": len(anchorage.fishing_vessels),
+            "unique_active_ssvid": anchorage.active_ssvids,
+            "unique_total_ssvid": anchorage.total_ssvids,
+            "active_ssvid_days": anchorage.active_ssvid_days,
+            "stationary_ssvid_days": anchorage.stationary_ssvid_days,
+            "stationary_fishing_ssvid_days": anchorage.stationary_fishing_ssvid_days,
+            "s2id": anchorage.s2id,
         }
 
+    spec = {
+        "lat": ["float", "The mean latitude where the anchorage happened."],
+        "lon": ["float", "The mean longitude where the anchorage happened."],
+        "total_visits": ["integer", "The total visits to the anchorage."],
+        "drift_radius": ["float", "The rms drift radius."],
+        "top_destination": ["string", "The top destination."],
+        "unique_stationary_ssvid": ["integer", "The unique stationary ssvid."],
+        "unique_stationary_fishing_ssvid": ["integer", "The unique stationary fishing ssvid."],
+        "unique_active_ssvid": ["integer", "The unique active ssvid."],
+        "unique_total_ssvid": ["integer", "The unique total ssvid."],
+        "active_ssvid_days": ["float", "The active ssvid days."],
+        "stationary_ssvid_days": ["float", "The stationary ssvid days."],
+        "stationary_fishing_ssvid_days": ["float", "The stationary fishing ssvid days"],
+        "s2id": ["string", "The s2id."],
+    }
+
+    def get_description(self):
+        return f"""
+Created by the anchorages_pipeline: {self.ver}.
+Creates the anchorage table.
+* https://github.com/GlobalFishingWatch/anchorages_pipeline
+* Sources: {self.args.input_table}
+* Configuration: {self.args.config}
+* Shapefile used: {self.args.shapefile}
+        """
+
+    def update_labels(self):
+        load_labels(self.project, self.table, self.labels)
 
     @property
     def schema(self):
-
         def build_table_schema(spec):
             schema = io.gcp.internal.clients.bigquery.TableSchema()
 
-            for name, type in spec.items():
+            for name, fieldspec in spec.items():
+                type, description = fieldspec
                 field = io.gcp.internal.clients.bigquery.TableFieldSchema()
                 field.name = name
                 field.type = type
-                field.mode = 'nullable'
+                field.mode = "nullable"
+                field.description = description
                 schema.fields.append(field)
 
-            return schema   
+            return schema
 
         return build_table_schema(self.spec)
 
-    def expand(self, xs):        
-        return xs | Map(self.encode) | io.Write(io.gcp.bigquery.BigQuerySink(
-            table=self.table,
-            write_disposition=self.write_disposition,
-            schema=self.schema
-            ))
-
+    def expand(self, xs):
+        return (
+            xs
+            | Map(self.encode)
+            | io.WriteToBigQuery(
+                table=self.table,
+                write_disposition=self.write_disposition,
+                schema=self.schema,
+                additional_bq_parameters={
+                    "destinationTableProperties": {
+                        "description": self.get_description(),
+                    },
+                }
+            )
+        )
 
 
 class NamedAnchorageSink(PTransform):
-    def __init__(self, table, write_disposition):
+    def __init__(self, table, args, cloud_options):
         self.table = table
-        self.write_disposition = write_disposition
+        self.args = args
+        self.write_disposition = io.BigQueryDisposition.WRITE_TRUNCATE
+        self.ver = get_pipe_ver()
+        self.labels = cloud_to_labels(cloud_options.labels) if cloud_options else None
 
     def encode(self, anchorage):
         return {
-            'lat' : anchorage.mean_location.lat, 
-            'lon': anchorage.mean_location.lon,
-            'total_visits' : anchorage.total_visits,
-            'drift_radius' : anchorage.rms_drift_radius,
-            'top_destination': anchorage.top_destination,
-            'unique_stationary_ssvid' : len(anchorage.vessels),
-            'unique_stationary_fishing_ssvid' : len(anchorage.fishing_vessels),
-            'unique_active_ssvid' : anchorage.active_ssvids,
-            'unique_total_ssvid' : anchorage.total_ssvids,
-            'active_ssvid_days': anchorage.active_ssvid_days,
-            'stationary_ssvid_days': anchorage.stationary_ssvid_days,
-            'stationary_fishing_ssvid_days': anchorage.stationary_fishing_ssvid_days,
-            's2id' : anchorage.s2id,  
-            'label': anchorage.label,
-            'sublabel': anchorage.sublabel, 
-            'label_source': anchorage.label_source,
-            'iso3': anchorage.iso3,  
-            }
-
-
-
+            "lat": anchorage.mean_location.lat,
+            "lon": anchorage.mean_location.lon,
+            "total_visits": anchorage.total_visits,
+            "drift_radius": anchorage.rms_drift_radius,
+            "top_destination": anchorage.top_destination,
+            "unique_stationary_ssvid": len(anchorage.vessels),
+            "unique_stationary_fishing_ssvid": len(anchorage.fishing_vessels),
+            "unique_active_ssvid": anchorage.active_ssvids,
+            "unique_total_ssvid": anchorage.total_ssvids,
+            "active_ssvid_days": anchorage.active_ssvid_days,
+            "stationary_ssvid_days": anchorage.stationary_ssvid_days,
+            "stationary_fishing_ssvid_days": anchorage.stationary_fishing_ssvid_days,
+            "s2id": anchorage.s2id,
+            "label": anchorage.label,
+            "sublabel": anchorage.sublabel,
+            "label_source": anchorage.label_source,
+            "iso3": anchorage.iso3,
+        }
 
     @property
     def schema(self):
         return build_named_anchorage_schema()
 
-    def expand(self, xs):        
-        return xs | Map(self.encode) | io.Write(io.gcp.bigquery.BigQuerySink(
-            table=self.table,
-            write_disposition=self.write_disposition,
-            schema=self.schema
-            ))
+    def get_description(self):
+        return f"""
+Created by the anchorages_pipeline: {self.ver}.
+Creates the named anchorage table.
+* https://github.com/GlobalFishingWatch/anchorages_pipeline
+* Sources: {self.args.input_table}
+* Configuration: {self.args.config}
+* Shapefile used: {self.args.shapefile}
+        """
+
+    def update_labels(self):
+        load_labels(self.project, self.table, self.labels)
+
+    def expand(self, xs):
+        return (
+            xs
+            | Map(self.encode)
+            | io.WriteToBigQuery(
+                table=self.table,
+                write_disposition=self.write_disposition,
+                schema=self.schema,
+                additional_bq_parameters={
+                    "destinationTableProperties": {
+                        "description": self.get_description(),
+                    },
+                }
+            )
+        )
+
+class VisitsSink(PTransform):
+    def __init__(self, table, schema, args, cloud_options, key = 'end_timestamp'):
+        self.table = table
+        self.schema = schema
+        self.args = args
+        self.project = cloud_options.project
+        self.write_disposition = io.BigQueryDisposition.WRITE_TRUNCATE
+        self.create_disposition = io.BigQueryDisposition.CREATE_IF_NEEDED
+        self.labels = cloud_to_labels(cloud_options.labels) if cloud_options else None
+        self.key = key
+        self.ver = get_pipe_ver()
+
+    def get_description(self):
+        return f"""
+Created by the anchorages_pipeline: {self.ver}.
+Creates the visits to port table.
+* https://github.com/GlobalFishingWatch/anchorages_pipeline
+* Sources: {self.args.thinned_message_table}
+* Vessel id to join identification: {self.args.vessel_id_table}
+* Configuration file: {self.args.config}
+* Skip bad segments: {"Yes" if self.args.bad_segs else "No"}
+* Segments more than this distance apart will not be joined when creating visits: {self.args.max_inter_seg_dist_nm}
+* Date end: {self.args.end_date}
+        """
+
+    def update_description(self):
+        bqclient = bigquery.Client(project=self.project)
+        table = get_table(bqclient, self.project, self.table)
+        table.description = self.get_description()
+        bqclient.update_table(table, ["description"])  # API request
+        logging.info(f"Update description to output table <{table}>")
+
+
+    def update_labels(self):
+        load_labels(self.project, self.table, self.labels)
+
+    def expand(self, xs):
+        return (xs |
+            io.WriteToBigQuery(
+                table=self.table,
+                schema=self.schema,
+                write_disposition=self.write_disposition,
+                create_disposition=self.create_disposition,
+                additional_bq_parameters={
+                    "timePartitioning": {
+                        "type": "MONTH",
+                        "field": self.key,
+                        "requirePartitionFilter": True
+                    },
+                    "clustering": {
+                        "fields": [self.key, "confidence", "ssvid", "vessel_id"]
+                    },
+                },
+            )
+        )

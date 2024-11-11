@@ -1,19 +1,17 @@
-from __future__ import absolute_import, print_function, division
-
-import datetime
-import logging
-
-from . import common as cmn
-from .records import VesselLocationRecord
-from .transforms.source import QuerySource
-from .transforms.sink import AnchorageSink
-from .port_name_filter import normalized_valid_names
-from .find_anchorage_points import FindAnchoragePoints
-from .options.anchorage_options import AnchorageOptions
-
-import apache_beam as beam
 from apache_beam.options.pipeline_options import GoogleCloudOptions
 from apache_beam.runners import PipelineState
+
+from pipe_anchorages import common as cmn
+from pipe_anchorages.find_anchorage_points import FindAnchoragePoints
+from pipe_anchorages.options.anchorage_options import AnchorageOptions
+from pipe_anchorages.port_name_filter import normalized_valid_names
+from pipe_anchorages.records import VesselLocationRecord
+from pipe_anchorages.transforms.sink import AnchorageSink
+from pipe_anchorages.transforms.source import QuerySource
+
+import apache_beam as beam
+import datetime
+import logging
 
 
 
@@ -37,9 +35,9 @@ def create_queries(args):
 
     positions AS (
       SELECT ssvid, seg_id, lat, lon, timestamp, speed,
-             _TABLE_SUFFIX as table_suffix
-        FROM `{position_table}*`
-       WHERE _TABLE_SUFFIX BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}'
+             date(timestamp) as table_suffix
+        FROM `{position_table}`
+       WHERE date(timestamp) BETWEEN '{start:%Y-%m-%d}' AND '{end:%Y-%m-%d}'
          AND seg_id IS NOT NULL
          AND lat IS NOT NULL
          AND lon IS NOT NULL
@@ -92,8 +90,11 @@ def run(options):
     fishing_vessels = p | beam.io.ReadFromText(known_args.fishing_ssvid_list)
     fishing_vessel_list = beam.pvalue.AsList(fishing_vessels)
 
-    source = [(p | "Source_{}".format(i) >> QuerySource(query, use_standard_sql=True))
-                for (i, query) in enumerate(queries)] | beam.Flatten()
+    source = [
+        (p
+         | f"Source_{i}" >> QuerySource(query, cloud_options)
+        ) for (i, query) in enumerate(queries)
+    ] | beam.Flatten()
 
     tagged_records = (source
         | cmn.CreateVesselRecords()
@@ -108,8 +109,8 @@ def run(options):
                               fishing_vessel_list)
         )
 
-    (anchorage_points | AnchorageSink(table=known_args.output_table,
-                                      write_disposition="WRITE_TRUNCATE")
+    (anchorage_points
+     | AnchorageSink(known_args.output_table, known_args, cloud_options)
     )
 
     result = p.run()

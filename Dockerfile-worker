@@ -2,8 +2,11 @@ FROM apache/beam_python3.8_sdk:2.49.0
 
 # Setup local application dependencies
 COPY ./requirements-worker.txt ./
+RUN apt-get update && \
+    apt-get -qy install gdal-bin libgdal-dev && \
+    export GDAL_VERSION="$(gdal-config --version)"
+
 RUN pip install -r requirements-worker.txt
 
 # Set the entrypoint to the Apache Beam SDK launcher.
 ENTRYPOINT ["/opt/apache/beam/boot"]
-
