@@ -21,28 +21,24 @@ SOURCE_QUERY_TEMPLATE = """
 
 """
 
+
 def cloud_options_to_labels(options):
-    return dict([x.split('=') for x in options.labels])
+    return dict([x.split("=") for x in options.labels])
+
 
 class ReadSource(beam.PTransform):
     def __init__(self, source_table, first_table_date, cloud_options):
-        self.first_table_date = dt.datetime.strptime(first_table_date,'%Y-%m-%d')
+        self.first_table_date = dt.datetime.strptime(first_table_date, "%Y-%m-%d")
         self.source_table = source_table
         self.labels = cloud_options_to_labels(cloud_options)
 
     def expand(self, pcoll):
-        return (
-            pcoll
-            | self.read_source()
-        )
+        return pcoll | self.read_source()
 
     def read_source(self):
         query = SOURCE_QUERY_TEMPLATE.format(
-            source_table=self.source_table,
-            start=self.first_table_date
+            source_table=self.source_table, start=self.first_table_date
         )
         return beam.io.ReadFromBigQuery(
-            query=query,
-            use_standard_sql=True,
-            bigquery_job_labels=self.labels
+            query=query, use_standard_sql=True, bigquery_job_labels=self.labels
         )

@@ -7,17 +7,18 @@ from apache_beam.transforms.window import TimestampedValue
 from google.cloud import bigquery
 from pipe_anchorages.objects.namedtuples import epoch
 from pipe_anchorages.schema.message_schema import message_schema
-from pipe_anchorages.schema.named_anchorage import \
-    build as build_named_anchorage_schema
+from pipe_anchorages.schema.named_anchorage import build as build_named_anchorage_schema
 from pipe_anchorages.utils.ver import get_pipe_ver
 
-cloud_to_labels = lambda ll: {x.split('=')[0]:x.split('=')[1] for x in ll}
+cloud_to_labels = lambda ll: {x.split("=")[0]: x.split("=")[1] for x in ll}
+
 
 def get_table(bqclient, project: str, tablename: str):
-    dataset_id, table_name = tablename.split('.')
+    dataset_id, table_name = tablename.split(".")
     dataset_ref = bigquery.DatasetReference(project, dataset_id)
     table_ref = dataset_ref.table(table_name)
     return bqclient.get_table(table_ref)  # API request
+
 
 def load_labels(project: str, tablename: str, labels: dict):
     bqclient = bigquery.Client(project=project)
@@ -26,14 +27,17 @@ def load_labels(project: str, tablename: str, labels: dict):
     bqclient.update_table(table, ["labels"])  # API request
     logging.info(f"Update labels to output table <{table}>")
 
+
 str2date = lambda datestr: dt.datetime.strptime(datestr, "%Y-%m-%d").date()
 
+
 def daterange(start_date, end_date):
-    for n in range(int((end_date - start_date).days+1)):
+    for n in range(int((end_date - start_date).days + 1)):
         yield start_date + timedelta(n)
 
+
 class MessageSink(PTransform):
-    def __init__(self, table, args, cloud_options, key = "timestamp"):
+    def __init__(self, table, args, cloud_options, key="timestamp"):
         self.table = table
         self.project = cloud_options.project
         self.args = args
@@ -52,7 +56,7 @@ Created by the anchorages_pipeline: {self.ver}.
         """
 
     def update_labels(self):
-        for day in daterange(str2date(self.args.start_date),str2date(self.args.end_date)):
+        for day in daterange(str2date(self.args.start_date), str2date(self.args.end_date)):
             logging.info(f"Setting labels to {self.table}{day:%Y%m%d}")
             print(f"Setting labels to {self.table}{day:%Y%m%d}")
             load_labels(self.project, f"{self.table}{day:%Y%m%d}", self.labels)
@@ -87,7 +91,7 @@ Created by the anchorages_pipeline: {self.ver}.
                 "destinationTableProperties": {
                     "description": self.get_description(),
                 },
-            }
+            },
         )
 
         logging.info(
@@ -190,7 +194,7 @@ Creates the anchorage table.
                     "destinationTableProperties": {
                         "description": self.get_description(),
                     },
-                }
+                },
             )
         )
 
@@ -253,12 +257,13 @@ Creates the named anchorage table.
                     "destinationTableProperties": {
                         "description": self.get_description(),
                     },
-                }
+                },
             )
         )
 
+
 class VisitsSink(PTransform):
-    def __init__(self, table, schema, args, cloud_options, key = 'end_timestamp'):
+    def __init__(self, table, schema, args, cloud_options, key="end_timestamp"):
         self.table = table
         self.schema = schema
         self.args = args
@@ -289,26 +294,21 @@ Creates the visits to port table.
         bqclient.update_table(table, ["description"])  # API request
         logging.info(f"Update description to output table <{table}>")
 
-
     def update_labels(self):
         load_labels(self.project, self.table, self.labels)
 
     def expand(self, xs):
-        return (xs |
-            io.WriteToBigQuery(
-                table=self.table,
-                schema=self.schema,
-                write_disposition=self.write_disposition,
-                create_disposition=self.create_disposition,
-                additional_bq_parameters={
-                    "timePartitioning": {
-                        "type": "MONTH",
-                        "field": self.key,
-                        "requirePartitionFilter": True
-                    },
-                    "clustering": {
-                        "fields": [self.key, "confidence", "ssvid", "vessel_id"]
-                    },
+        return xs | io.WriteToBigQuery(
+            table=self.table,
+            schema=self.schema,
+            write_disposition=self.write_disposition,
+            create_disposition=self.create_disposition,
+            additional_bq_parameters={
+                "timePartitioning": {
+                    "type": "MONTH",
+                    "field": self.key,
+                    "requirePartitionFilter": True,
                 },
-            )
+                "clustering": {"fields": [self.key, "confidence", "ssvid", "vessel_id"]},
+            },
         )

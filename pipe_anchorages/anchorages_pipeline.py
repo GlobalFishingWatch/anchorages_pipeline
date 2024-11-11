@@ -14,8 +14,6 @@ import datetime
 import logging
 
 
-
-
 def create_queries(args):
     template = """
     WITH
@@ -54,17 +52,22 @@ def create_queries(args):
     JOIN destinations
     USING (seg_id, table_suffix)
     """
-    start_window = datetime.datetime.strptime(args.start_date, '%Y-%m-%d')
-    end_window = datetime.datetime.strptime(args.end_date, '%Y-%m-%d')
+    start_window = datetime.datetime.strptime(args.start_date, "%Y-%m-%d")
+    end_window = datetime.datetime.strptime(args.end_date, "%Y-%m-%d")
 
     queries = []
     start = start_window
     while start < end_window:
         # Add 999 days so that we get 1000 total days
         end = min(start + datetime.timedelta(days=999), end_window)
-        queries.append(template.format(position_table=args.messages_table,
-                                       segment_table=args.segments_table,
-                                       start=start, end=end))
+        queries.append(
+            template.format(
+                position_table=args.messages_table,
+                segment_table=args.segments_table,
+                start=start,
+                end=end,
+            )
+        )
         # Add 1 day to end, so that we don't overlap.
         start = end + datetime.timedelta(days=1)
 
@@ -84,39 +87,37 @@ def run(options):
 
     queries = create_queries(known_args)
 
-
     p = beam.Pipeline(options=options)
 
     fishing_vessels = p | beam.io.ReadFromText(known_args.fishing_ssvid_list)
     fishing_vessel_list = beam.pvalue.AsList(fishing_vessels)
 
     source = [
-        (p
-         | f"Source_{i}" >> QuerySource(query, cloud_options)
-        ) for (i, query) in enumerate(queries)
+        (p | f"Source_{i}" >> QuerySource(query, cloud_options))
+        for (i, query) in enumerate(queries)
     ] | beam.Flatten()
 
-    tagged_records = (source
+    tagged_records = (
+        source
         | cmn.CreateVesselRecords()
         | "FilterOutInfo" >> beam.Filter(has_location_record)
-        | cmn.CreateTaggedRecords(config['min_required_positions'])
-        )
-
-    anchorage_points = (tagged_records
-        | FindAnchoragePoints(datetime.timedelta(minutes=config['stationary_period_min_duration_minutes']),
-                              config['stationary_period_max_distance_km'],
-                              config['min_unique_vessels_for_anchorage'],
-                              fishing_vessel_list)
-        )
-
-    (anchorage_points
-     | AnchorageSink(known_args.output_table, known_args, cloud_options)
+        | cmn.CreateTaggedRecords(config["min_required_positions"])
     )
+
+    anchorage_points = tagged_records | FindAnchoragePoints(
+        datetime.timedelta(minutes=config["stationary_period_min_duration_minutes"]),
+        config["stationary_period_max_distance_km"],
+        config["min_unique_vessels_for_anchorage"],
+        fishing_vessel_list,
+    )
+
+    (anchorage_points | AnchorageSink(known_args.output_table, known_args, cloud_options))
 
     result = p.run()
 
-    success_states = set([PipelineState.DONE, PipelineState.RUNNING, PipelineState.UNKNOWN, PipelineState.PENDING])
+    success_states = set(
+        [PipelineState.DONE, PipelineState.RUNNING, PipelineState.UNKNOWN, PipelineState.PENDING]
+    )
 
-    logging.info('returning with result.state=%s' % result.state)
+    logging.info("returning with result.state=%s" % result.state)
     return 0 if result.state in success_states else 1
-

@@ -158,9 +158,7 @@ class CreateOverrideAnchorages(beam.PTransform):
                     active_ssvid_days=None,
                     label=normalize_label(row["label"]),
                     sublabel=normalize_label(row["sublabel"]),
-                    label_source=os.path.splitext(os.path.basename(self.override_path))[
-                        0
-                    ],
+                    label_source=os.path.splitext(os.path.basename(self.override_path))[0],
                     iso3=row["iso3"],
                 )
 
@@ -196,9 +194,7 @@ def run(options):
         | AddNamesToAnchorages(known_args.shapefile, config)
     )
 
-    used_s2ids = beam.pvalue.AsList(
-        existing_anchorages | FindUsedS2ids(config["override_path"])
-    )
+    used_s2ids = beam.pvalue.AsList(existing_anchorages | FindUsedS2ids(config["override_path"]))
 
     new_anchorages = p | CreateOverrideAnchorages(config["override_path"], used_s2ids)
 
@@ -206,18 +202,11 @@ def run(options):
         (existing_anchorages, new_anchorages)
         | beam.Flatten()
         | beam.Filter(
-            lambda x: not (
-                x.label == "REMOVE" and x.label_source == "anchorage_overrides"
-            )
+            lambda x: not (x.label == "REMOVE" and x.label_source == "anchorage_overrides")
         )
     )
 
-    (
-        named_anchorages
-        | NamedAnchorageSink(
-            known_args.output_table, known_args, cloud_args
-        )
-    )
+    (named_anchorages | NamedAnchorageSink(known_args.output_table, known_args, cloud_args))
 
     result = p.run()
 

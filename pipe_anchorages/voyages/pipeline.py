@@ -1,4 +1,4 @@
-from apache_beam.options.pipeline_options import (GoogleCloudOptions, StandardOptions)
+from apache_beam.options.pipeline_options import GoogleCloudOptions, StandardOptions
 from apache_beam.runners import PipelineState
 from pipe_anchorages.voyages.options import VoyagesOptions
 from pipe_anchorages.voyages.transforms.read_source import ReadSource
@@ -12,12 +12,14 @@ import logging
 import pytz
 
 
-success_states = set([
-    PipelineState.DONE,
-    PipelineState.RUNNING,
-    PipelineState.UNKNOWN,
-    PipelineState.PENDING,
-])
+success_states = set(
+    [
+        PipelineState.DONE,
+        PipelineState.RUNNING,
+        PipelineState.UNKNOWN,
+        PipelineState.PENDING,
+    ]
+)
 
 
 class VoyagesPipeline:
@@ -49,4 +51,3 @@ class VoyagesPipeline:
 
         logging.info("Returning with result.state=%s" % result.state)
         return 0 if result.state in success_states else 1
-

@@ -4,17 +4,11 @@ from .objects.namedtuples import s_to_datetime
 
 
 def is_location_message(msg):
-    return (
-        msg["lat"] is not None and msg["lon"] is not None and msg["speed"] is not None
-    )
+    return msg["lat"] is not None and msg["lon"] is not None and msg["speed"] is not None
 
 
 def has_valid_location(msg):
-    return (
-        -90 <= msg["lat"] <= 90
-        and -180 <= msg["lon"] <= 180
-        and 0 <= msg["speed"] <= 102.2
-    )
+    return -90 <= msg["lat"] <= 90 and -180 <= msg["lon"] <= 180 and 0 <= msg["speed"] <= 102.2
 
 
 def has_destination(msg):
@@ -36,9 +30,7 @@ class VesselRecord(object):
             return (ident, InvalidRecord.from_msg(msg))
 
 
-class InvalidRecord(
-    namedtuple("InvalidRecord", ["identifier", "timestamp"]), VesselRecord
-):
+class InvalidRecord(namedtuple("InvalidRecord", ["identifier", "timestamp"]), VesselRecord):
 
     __slots__ = ()
 

@@ -1,4 +1,4 @@
-from apache_beam.options.pipeline_options import (GoogleCloudOptions, StandardOptions)
+from apache_beam.options.pipeline_options import GoogleCloudOptions, StandardOptions
 from apache_beam.runners import PipelineState
 
 from pipe_anchorages import common as cmn
@@ -44,7 +44,9 @@ def create_queries(args, start_date, end_date):
         start_window = end_window + datetime.timedelta(days=1)
 
 
-anchorage_query = lambda args: f"SELECT lat as anchor_lat, lon as anchor_lon, s2id as anchor_id, label FROM `{args.anchorage_table}`"
+anchorage_query = (
+    lambda args: f"SELECT lat as anchor_lat, lon as anchor_lon, s2id as anchor_id, label FROM `{args.anchorage_table}`"
+)
 
 
 def run(options):
@@ -62,9 +64,7 @@ def run(options):
     queries = create_queries(known_args, start_date, end_date)
 
     sources = [
-        ( p
-        | f"Read_{i}" >> QuerySource(query, cloud_options)
-        ) for (i, query) in enumerate(queries)
+        (p | f"Read_{i}" >> QuerySource(query, cloud_options)) for (i, query) in enumerate(queries)
     ]
 
     tagged_records = (
@@ -80,11 +80,7 @@ def run(options):
         | CreateTaggedAnchorages()
     )
 
-    sink = MessageSink(
-        known_args.output_table,
-        known_args,
-        cloud_options
-    )
+    sink = MessageSink(known_args.output_table, known_args, cloud_options)
 
     (
         tagged_records
@@ -113,10 +109,7 @@ def run(options):
         ]
     )
 
-    if (
-        known_args.wait_for_job
-        or options.view_as(StandardOptions).runner == "DirectRunner"
-    ):
+    if known_args.wait_for_job or options.view_as(StandardOptions).runner == "DirectRunner":
         result.wait_until_finish()
         if result.state == PipelineState.DONE:
             sink.update_labels()

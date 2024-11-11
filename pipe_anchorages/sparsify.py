@@ -11,13 +11,12 @@ import bisect
 import array
 
 
-
-
 class Mask(object):
 
     @staticmethod
     def _load_mask(path, threshold, invert):
         import rasterio
+
         with rasterio.open(path) as src:
             [img] = src.read()
             height, width = img.shape
@@ -32,7 +31,7 @@ class Mask(object):
         min_y = min(first_y, last_y)
         max_y = max(first_y, last_y)
 
-        mask = (img > threshold)
+        mask = img > threshold
         if invert:
             mask = ~mask
 
@@ -41,28 +40,29 @@ class Mask(object):
     @classmethod
     def sparsify(cls, inpath, outpath, threshold=0.5, invert=False):
         import numpy as np
+
         (min_lon, max_lon, min_lat, max_lat), dense = cls._load_mask(inpath, threshold, invert)
         sparse = []
         indices = np.arange(dense.shape[1])
         assert dense.shape[1] <= 65535
         for i, row in enumerate(dense):
             # Ensure boolean and copy
-            mask = (row != 0) 
+            mask = row != 0
             # First element of mask is just row[0],
             # subsequent elements are true if that element
             # of row differs from the element previous.
             mask[1:] ^= row[:-1]
             # For each true element of mask store an index
             # as an unsigned short.
-            sparse.append(array.array('H', indices[mask]))
+            sparse.append(array.array("H", indices[mask]))
         mask_info = {
-            'min_lon': min_lon,
-            'max_lon': max_lon,
-            'min_lat': min_lat,
-            'max_lat': max_lat,
-            'n_lat': dense.shape[0],
-            'n_lon': dense.shape[1],
-            'data': tuple(sparse)
+            "min_lon": min_lon,
+            "max_lon": max_lon,
+            "min_lat": min_lat,
+            "max_lat": max_lat,
+            "n_lat": dense.shape[0],
+            "n_lon": dense.shape[1],
+            "data": tuple(sparse),
         }
         with open(outpath, "wb") as f:
             pickle.dump(mask_info, f)
@@ -72,6 +72,7 @@ class SimpleMask(Mask):
 
     def __init__(self, path, threshold, invert):
         import numpy as np
+
         bounds, self.mask = self._load_mask(path, threshold, invert)
         self.MIN_LON, self.MAX_LON, self.MIN_LAT, self.MAX_LAT = bounds
         self.nlat, self.nlon = self.mask.shape
@@ -85,19 +86,18 @@ class SimpleMask(Mask):
         return self.mask[i, j]
 
 
-
 class SparseMask(Mask):
 
     def __init__(self, path):
         with open(path) as f:
             mask_info = pickle.load(f)
-        self.mask_data = mask_info['data']
-        self.MAX_LAT = mask_info['max_lat']
-        self.MIN_LAT = mask_info['min_lat']
-        self.MAX_LON = mask_info['max_lon']
-        self.MIN_LON = mask_info['min_lon']
-        self._dlat = (self.MAX_LAT - self.MIN_LAT) / mask_info['n_lat']
-        self._dlon = (self.MAX_LON - self.MIN_LON) / mask_info['n_lon']
+        self.mask_data = mask_info["data"]
+        self.MAX_LAT = mask_info["max_lat"]
+        self.MIN_LAT = mask_info["min_lat"]
+        self.MAX_LON = mask_info["max_lon"]
+        self.MIN_LON = mask_info["min_lon"]
+        self._dlat = (self.MAX_LAT - self.MIN_LAT) / mask_info["n_lat"]
+        self._dlon = (self.MAX_LON - self.MIN_LON) / mask_info["n_lon"]
 
     def query(self, loc):
         lat, lon = loc
@@ -113,22 +113,15 @@ class SparseMask(Mask):
         return self.query(loc)
 
 
-
-
-
 class SparseInlandMask(SparseMask):
 
     def __init__(self):
         CompactMask.__init__(self, "sparse_inland.pickle")
 
 
-
-
-
-
-
 def test(sparse_path, dense_path, threshold=0.5, invert=False):
     import numpy as np
+
     dense_mask = SimpleMask(dense_path, threshold, invert)
     sparse_mask = SparseMask(sparse_path)
 
@@ -147,17 +140,18 @@ def test(sparse_path, dense_path, threshold=0.5, invert=False):
     print("Average amount of land (by degrees)", np.mean(results))
 
     t0 = time.clock()
-    for (lat, lon) in latlon:
+    for lat, lon in latlon:
         dense_result = dense_mask.query((lat, lon))
     d1 = time.clock() - t0
     print("Dense", d1, "seconds")
 
     t0 = time.clock()
-    for (lat, lon) in latlon:
+    for lat, lon in latlon:
         dense_result = sparse_mask.query((lat, lon))
     d2 = time.clock() - t0
     print("Sparse", d2, "seconds")
     print("Time Ratio", d2 / d1)
+
 
 if __name__ == "__main__":
     test("sparse_inland.pickle", "../inland.npy", 0.5)

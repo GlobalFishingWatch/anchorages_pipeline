@@ -113,7 +113,9 @@ LOCAL CRUISING
 CRUISING
 CLASSIFIED
 CANAL ESCORT 
-""".strip().split('\n')
+""".strip().split(
+    "\n"
+)
 
 good_examples = r"""
  >JP SHN
@@ -147,31 +149,67 @@ EMDEN
 BANYUWANGI
 CN MJS
 US RDB 
-""".strip().split('\n')
+""".strip().split(
+    "\n"
+)
 
 punctuation = re.compile(r"[\W +]+")
 
 number = re.compile(r"\d+")
 
-invalid_prefixes = set([
-"RESCUE", "FISHFARMS", "TLF ", "TEL ", "CALL ", "PHONE", "FISHING", "MOB ",
-"SAR ", "SEARCH AND RESCUE", "POLICE", "ON DUTY", "WORKING", "SURVEYING", "SEA TRIAL", 
-"CH ", "VHF CH", "PESCA ", "DREDGE "
-])
+invalid_prefixes = set(
+    [
+        "RESCUE",
+        "FISHFARMS",
+        "TLF ",
+        "TEL ",
+        "CALL ",
+        "PHONE",
+        "FISHING",
+        "MOB ",
+        "SAR ",
+        "SEARCH AND RESCUE",
+        "POLICE",
+        "ON DUTY",
+        "WORKING",
+        "SURVEYING",
+        "SEA TRIAL",
+        "CH ",
+        "VHF CH",
+        "PESCA ",
+        "DREDGE ",
+    ]
+)
 
-invalid_suffixes = set([
-"FOR ORDER", "TOWING", "CRUISING", "OIL FIELDS", "OIL FIELD", "DREDGE", "PARADE", "TRADE", "WORK", " TRIAL",
-"PESCA", "PECHE", "OIL FIELDS", "HARBOR DUTY", " ESCORT", "SAILING"
-    ])
-
+invalid_suffixes = set(
+    [
+        "FOR ORDER",
+        "TOWING",
+        "CRUISING",
+        "OIL FIELDS",
+        "OIL FIELD",
+        "DREDGE",
+        "PARADE",
+        "TRADE",
+        "WORK",
+        " TRIAL",
+        "PESCA",
+        "PECHE",
+        "OIL FIELDS",
+        "HARBOR DUTY",
+        " ESCORT",
+        "SAILING",
+    ]
+)
 
 
 def test_is_valid_name():
     assert list(port_name_filter.normalized_valid_names(bad_examples)) == []
-    assert list(port_name_filter.normalized_valid_names(good_examples)) == [port_name_filter.normalize(x) for x in good_examples]
-    assert list(port_name_filter.normalized_valid_names(['SHANG  HAI'])) == ['SHANG HAI']
+    assert list(port_name_filter.normalized_valid_names(good_examples)) == [
+        port_name_filter.normalize(x) for x in good_examples
+    ]
+    assert list(port_name_filter.normalized_valid_names(["SHANG  HAI"])) == ["SHANG HAI"]
 
 
 def test_normalize():
     assert port_name_filter.normalize("SHANG  HAI") == "SHANG HAI"
-

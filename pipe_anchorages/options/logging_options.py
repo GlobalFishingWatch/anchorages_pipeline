@@ -113,9 +113,7 @@ def validate_options(args=None, option_classes=None):
     StandardOptions._add_argparse_args(parser.add_argument_group("Dataflow Runner"))
 
     if help or not local:
-        GoogleCloudOptions._add_argparse_args(
-            parser.add_argument_group("Dataflow Runtime")
-        )
+        GoogleCloudOptions._add_argparse_args(parser.add_argument_group("Dataflow Runtime"))
         WorkerOptions._add_argparse_args(parser.add_argument_group("Dataflow Workers"))
         SetupOptions._add_argparse_args(parser.add_argument_group("Dataflow Setup"))
 

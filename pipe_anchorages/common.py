@@ -8,8 +8,7 @@ import s2sphere
 import six
 import yaml
 
-from .records import (InvalidRecord, VesselInfoRecord, VesselLocationRecord,
-                      VesselRecord)
+from .records import InvalidRecord, VesselInfoRecord, VesselLocationRecord, VesselRecord
 
 # Around (0.5 km)^2
 ANCHORAGES_S2_SCALE = 14
@@ -27,9 +26,7 @@ class CreateVesselRecords(beam.PTransform):
     def is_valid(self, item):
         ident, rcd = item
         assert isinstance(rcd, VesselRecord), type(rcd)
-        return not isinstance(rcd, InvalidRecord) and isinstance(
-            ident, six.string_types
-        )
+        return not isinstance(rcd, InvalidRecord) and isinstance(ident, six.string_types)
 
     def add_defaults(self, x):
         for k, v in self.defaults.items():
@@ -161,9 +158,7 @@ def load_config(path):
     )
 
     # Ensure that S2 Cell sizes are large enough that we don't miss ports
-    assert (
-        anchorage_visit_max_distance * VISIT_SAFETY_FACTOR < 2 * approx_visit_cell_size
-    )
+    assert anchorage_visit_max_distance * VISIT_SAFETY_FACTOR < 2 * approx_visit_cell_size
 
     return config
 
@@ -226,6 +221,4 @@ def check_that_pipeline_args_consumed(pipeline):
     if dash_flags:
         print(options)
         print(dash_flags)
-        raise ValueError(
-            "illegal options specified:\n    {}".format("\n    ".join(dash_flags))
-        )
+        raise ValueError("illegal options specified:\n    {}".format("\n    ".join(dash_flags)))

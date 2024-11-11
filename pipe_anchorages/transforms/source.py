@@ -1,4 +1,3 @@
-
 from apache_beam import PTransform
 from apache_beam import io
 from pipe_anchorages.transforms.sink import cloud_to_labels
@@ -12,11 +11,8 @@ class QuerySource(PTransform):
         self.labels = cloud_to_labels(cloud_options.labels)
 
     def expand(self, xs):
-        return (
-            xs
-            | io.ReadFromBigQuery(
-                query=self.query,
-                use_standard_sql=self.use_standard_sql,
-                bigquery_job_labels = self.labels
-            )
+        return xs | io.ReadFromBigQuery(
+            query=self.query,
+            use_standard_sql=self.use_standard_sql,
+            bigquery_job_labels=self.labels,
         )

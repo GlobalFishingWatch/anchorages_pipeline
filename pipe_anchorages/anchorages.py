@@ -5,9 +5,7 @@ import sys
 
 
 def run(args=None):
-    options = validate_options(
-        args=args, option_classes=[LoggingOptions, AnchorageOptions]
-    )
+    options = validate_options(args=args, option_classes=[LoggingOptions, AnchorageOptions])
 
     options.view_as(LoggingOptions).configure_logging()
 

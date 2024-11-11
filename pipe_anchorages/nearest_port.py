@@ -18,18 +18,21 @@ class PortFinder(object):
             reader = csv.DictReader(f)
             for row in reader:
                 try:
-                    self.ports.append(Port(iso3=row['iso3'],
-                                           label=row['label'],
-                                           sublabel=row['sublabel'],
-                                           lat=float(row['latitude']),
-                                           lon=float(row['longitude'])))
+                    self.ports.append(
+                        Port(
+                            iso3=row["iso3"],
+                            label=row["label"],
+                            sublabel=row["sublabel"],
+                            lat=float(row["latitude"]),
+                            lon=float(row["longitude"]),
+                        )
+                    )
                 except StandardError as err:
                     logging.fatal("Could not parse row: '{}'".format(row))
                     raise
 
     def __call__(self, loc):
         return self.find_nearest_port_and_distance(loc)[0]
-
 
     def find_nearest_port_and_distance(self, loc):
         min_p = None
@@ -42,12 +45,11 @@ class PortFinder(object):
             min_dist = dist
         return min_p, min_dist
 
-   
 
 _cache = {}
+
 
 def get_port_finder(path):
     if path not in _cache:
         _cache[path] = PortFinder(path)
     return _cache[path]
-
