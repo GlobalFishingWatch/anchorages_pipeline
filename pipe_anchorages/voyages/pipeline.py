@@ -7,9 +7,7 @@ from pipe_anchorages.voyages.transforms.create import CreateVoyages
 from pipe_anchorages.voyages.transforms.sink import WriteSink
 
 import apache_beam as beam
-import datetime as dt
 import logging
-import pytz
 
 
 success_states = set(

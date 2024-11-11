@@ -1,7 +1,5 @@
 import os
-from collections import namedtuple
 from pipe_anchorages.common import LatLon
-from pipe_anchorages.distance import distance
 from pipe_anchorages.nearest_port import PortFinder, Port
 
 this_dir = os.path.dirname(__file__)

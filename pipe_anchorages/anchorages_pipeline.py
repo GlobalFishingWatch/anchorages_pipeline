@@ -4,7 +4,6 @@ from apache_beam.runners import PipelineState
 from pipe_anchorages import common as cmn
 from pipe_anchorages.find_anchorage_points import FindAnchoragePoints
 from pipe_anchorages.options.anchorage_options import AnchorageOptions
-from pipe_anchorages.port_name_filter import normalized_valid_names
 from pipe_anchorages.records import VesselLocationRecord
 from pipe_anchorages.transforms.sink import AnchorageSink
 from pipe_anchorages.transforms.source import QuerySource

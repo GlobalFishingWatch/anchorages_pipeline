@@ -1,7 +1,6 @@
 import json as ujson
 import apache_beam as beam
 from apache_beam import typehints
-from apache_beam import PTransform
 import datetime
 import pytz
 
@@ -132,7 +131,7 @@ class NamedtupleCoder(beam.coders.Coder):
                 SELECT
                     {items}
                 FROM
-                  TABLE_DATE_RANGE([{table}], 
+                  TABLE_DATE_RANGE([{table}],
                                         TIMESTAMP('{start:%Y-%m-%d}'), TIMESTAMP('{end:%Y-%m-%d}'))
                 """.format(
                     items=items, table=table, start=start_date, end=end_date

@@ -1,10 +1,8 @@
 from __future__ import print_function, division
 import csv
-import os
 import logging
-import math
 from collections import namedtuple
-from .distance import distance, EARTH_RADIUS, inf
+from .distance import distance, inf
 
 Port = namedtuple("Port", ["iso3", "label", "sublabel", "lat", "lon"])
 

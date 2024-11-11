@@ -1,4 +1,3 @@
-from datetime import date
 from pipe_anchorages.anchorages_pipeline import create_queries
 
 

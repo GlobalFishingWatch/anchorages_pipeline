@@ -1,17 +1,8 @@
-import os
-import pytest
-import json
-import datetime
-import pickle
 import six
 import s2sphere
 
 from pipe_anchorages import find_anchorage_points
 from pipe_anchorages import common
-from pipe_anchorages import nearest_port
-from pipe_anchorages.records import is_location_message, has_valid_location
-from pipe_anchorages.records import VesselRecord
-from pipe_anchorages.records import VesselLocationRecord
 from pipe_anchorages.transforms import sink
 
 

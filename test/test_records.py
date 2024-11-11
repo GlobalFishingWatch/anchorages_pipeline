@@ -1,5 +1,4 @@
 import os
-import pytest
 import json
 import datetime
 import pickle

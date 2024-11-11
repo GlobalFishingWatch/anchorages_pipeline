@@ -10,7 +10,8 @@ from pipe_anchorages.schema.message_schema import message_schema
 from pipe_anchorages.schema.named_anchorage import build as build_named_anchorage_schema
 from pipe_anchorages.utils.ver import get_pipe_ver
 
-cloud_to_labels = lambda ll: {x.split("=")[0]: x.split("=")[1] for x in ll}
+
+def cloud_to_labels(ll): return {x.split("=")[0]: x.split("=")[1] for x in ll}
 
 
 def get_table(bqclient, project: str, tablename: str):
@@ -28,7 +29,7 @@ def load_labels(project: str, tablename: str, labels: dict):
     logging.info(f"Update labels to output table <{table}>")
 
 
-str2date = lambda datestr: dt.datetime.strptime(datestr, "%Y-%m-%d").date()
+def str2date(datestr): return dt.datetime.strptime(datestr, "%Y-%m-%d").date()
 
 
 def daterange(start_date, end_date):

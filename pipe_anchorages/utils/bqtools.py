@@ -1,9 +1,9 @@
-from datetime import datetime, timedelta
-from jinja2 import Environment, FileSystemLoader
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
 from google.api_core.exceptions import BadRequest, Conflict as AlreadyExistErr
-import json, logging, sys
+import json
+import logging
+import sys
 
 logger = logging.getLogger()
 

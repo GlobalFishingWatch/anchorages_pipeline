@@ -1,7 +1,6 @@
 from collections import OrderedDict
 import datetime
 import numpy as np
-import pytest
 import pytz
 
 from pipe_anchorages.objects.visit_event import VisitEvent

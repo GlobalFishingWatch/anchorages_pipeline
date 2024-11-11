@@ -1,9 +1,6 @@
 import os
-from collections import namedtuple
 import yaml
 
-from pipe_anchorages.common import LatLon
-from pipe_anchorages.distance import distance
 from pipe_anchorages.port_info_finder import PortInfoFinder, normalize_label
 from pipe_anchorages import dirnames
 

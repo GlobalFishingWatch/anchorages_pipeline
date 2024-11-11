@@ -3,8 +3,9 @@ from pipe_anchorages.voyages.transforms.read_source import SOURCE_QUERY_TEMPLATE
 import datetime as dt
 import pytz
 
-parse = lambda d: dt.datetime.strptime(d, "%Y-%m-%d %H:%M:%S.%f").replace(tzinfo=pytz.UTC)
-parse_date = lambda d: dt.datetime.strptime(d, "%Y-%m-%d")
+
+def parse(d): return dt.datetime.strptime(d, "%Y-%m-%d %H:%M:%S.%f").replace(tzinfo=pytz.UTC)
+def parse_date(d): return dt.datetime.strptime(d, "%Y-%m-%d")
 
 
 def test_query():
@@ -92,7 +93,8 @@ def test_create_voyage_empty_visits():
 
 
 def test_create_voyage_visit_with_c4():
-    # Creates voyages with a visit of confidence 4, should return init voyages in all trip_confidence
+    # Creates voyages with a visit of confidence 4, should return init voyages
+    # in all trip_confidence
     visits = [
         {
             "visit_id": "6f817d7c757b0299fd209cb0a40ab3ab",
@@ -159,7 +161,8 @@ def test_create_voyage_visit_with_c4():
 
 
 def test_create_voyage_visit_with_c3():
-    # Creates voyages with a visit of confidence 3, should return init voyages in trip_confidence 2,3
+    # Creates voyages with a visit of confidence 3, should return init voyages
+    # in trip_confidence 2,3
     visits = [
         {
             "visit_id": "6f817d7c757b0299fd209cb0a40ab3ab",
@@ -251,7 +254,8 @@ def test_create_voyage_visit_with_c2():
 
 
 def test_create_voyage_2visits_with_c2():
-    # Creates voyages with 2 visits of confidence 2, should return init and middle voyages in trip_confidence 2
+    # Creates voyages with 2 visits of confidence 2, should return init and
+    # middle voyages in trip_confidence 2
     visits = [
         {
             "visit_id": "5491c9672004f4fb48023b25f27e83bf",
@@ -320,7 +324,8 @@ def test_create_voyage_2visits_with_c2():
 
 
 def test_create_voyage_visit_with_c2_open():
-    # Creates voyages with visits and none at end of confidence 2, should return init and end voyages in trip_confidence 2
+    # Creates voyages with visits and none at end of confidence 2, should
+    # return init and end voyages in trip_confidence 2
     visits = [
         {
             "visit_id": "6f817d7c757b0299fd209cb0a40ab3ab",
@@ -374,7 +379,8 @@ def test_create_voyage_visit_with_c2_open():
 
 
 def test_create_voyage_2visits_with_c34():
-    # Creates voyages with visits of confidence 3,4, should return voyages in trip_confidence 2(init,middle),3(init,middle),4(init)
+    # Creates voyages with visits of confidence 3,4, should return voyages in
+    # trip_confidence 2(init,middle),3(init,middle),4(init)
     visits = [
         {
             "visit_id": "5491c9672004f4fb48023b25f27e83bf",

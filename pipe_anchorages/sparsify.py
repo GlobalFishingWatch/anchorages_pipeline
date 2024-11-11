@@ -71,7 +71,7 @@ class Mask(object):
 class SimpleMask(Mask):
 
     def __init__(self, path, threshold, invert):
-        import numpy as np
+        pass
 
         bounds, self.mask = self._load_mask(path, threshold, invert)
         self.MIN_LON, self.MAX_LON, self.MIN_LAT, self.MAX_LAT = bounds

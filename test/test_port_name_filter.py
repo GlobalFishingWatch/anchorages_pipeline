@@ -1,6 +1,4 @@
-import pytest
 import re
-import pipe_anchorages
 from pipe_anchorages import port_name_filter
 
 
@@ -112,7 +110,7 @@ COASTAL TOWING
 LOCAL CRUISING
 CRUISING
 CLASSIFIED
-CANAL ESCORT 
+CANAL ESCORT
 """.strip().split(
     "\n"
 )
@@ -148,7 +146,7 @@ PHUKET
 EMDEN
 BANYUWANGI
 CN MJS
-US RDB 
+US RDB
 """.strip().split(
     "\n"
 )
