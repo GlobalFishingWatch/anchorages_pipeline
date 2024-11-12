@@ -36,14 +36,15 @@ def build():
     builder.add("end_lon", "FLOAT", description="longitude of vessel at `end_timestamp`")
     builder.add("duration_hrs", "FLOAT", description="duration of visit in hours")
     builder.add("end_anchorage_id", "STRING", description="longitude of vessel at `end_timestamp`")
-    builder.add(
-        "confidence",
-        "INTEGER",
-        description="""How confident are we that this is a real visit based on components of the visits:
+    cdescr = """How confident are we that this is a real visit based on components of the visits:
     1 -> no stop or gap; only an entry and/or exit
     2 -> only stop and/or gap; no entry or exit
     3 -> port entry or exit with stop and/or gap
-    4 -> port entry and exit with stop and/or gap""",
+    4 -> port entry and exit with stop and/or gap"""
+    builder.add(
+        "confidence",
+        "INTEGER",
+        description=cdescr,
     )
     builder.add(
         "events",

@@ -116,7 +116,7 @@ class SparseMask(Mask):
 class SparseInlandMask(SparseMask):
 
     def __init__(self):
-        CompactMask.__init__(self, "sparse_inland.pickle")
+        SparseMask.__init__(self, "sparse_inland.pickle")
 
 
 def test(sparse_path, dense_path, threshold=0.5, invert=False):

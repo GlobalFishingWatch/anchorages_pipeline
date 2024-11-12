@@ -27,7 +27,8 @@ def build():
         "top_destination",
         "STRING",
         "NULLABLE",
-        description="top destination reported in AIS messages from vessels arriving at the anchorage",
+        description=("top destination reported in AIS messages from"
+                     " vessels arriving at the anchorage"),
     )
     builder.add(
         "unique_stationary_ssvid",

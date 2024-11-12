@@ -25,7 +25,7 @@ class PortFinder(object):
                             lon=float(row["longitude"]),
                         )
                     )
-                except StandardError as err:
+                except ValueError:
                     logging.fatal("Could not parse row: '{}'".format(row))
                     raise
 

@@ -10,7 +10,11 @@ This script will do:
 from jinja2 import Environment, FileSystemLoader
 from pipe_anchorages.utils.bqtools import BQTools
 from pipe_anchorages.utils.ver import get_pipe_ver
-import argparse, json, logging, time, sys
+import argparse
+import json
+import logging
+import time
+import sys
 
 logger = logging.getLogger()
 env_j2 = Environment(loader=FileSystemLoader("./assets/queries/"))
@@ -81,7 +85,7 @@ def run(arguments):
         If you want to include a vessel's first (or last) voyage you will have to adjust the trip_start (or trip_end) filter to also include NULL values, e.g:
         ...
         WHERE (trip_start <= '2022-12-31' OR trip_start IS NULL)
-    """
+    """  # noqa: E501
     schema = bq_tools.schema_json2builder(
         "./assets/schemas/generate_confidence_voyages.schema.json"
     )
@@ -114,6 +118,6 @@ def run(arguments):
 
     bq_tools.update_table_descr(output, description)
 
-    ### ALL DONE
+    # ALL DONE
     logger.info(f"All done, you can find the output: {output}")
     logger.info(f"Execution time {(time.time()-start_time)/60} minutes")

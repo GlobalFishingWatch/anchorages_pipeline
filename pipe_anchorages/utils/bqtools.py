@@ -96,13 +96,12 @@ class BQTools:
             )
             logger.info(f"Delete Job {query_job.job_id} is currently in state {query_job.state}")
             result = query_job.result()
-            # logger.info(f'Date range [{date_from:%Y-%m-%d},{date_to:%Y-%m-%d}] cleaned: {result}')
             logger.info(f"Table cleaned: {result}")
 
         except BadRequest as err:
             logger.error(f"Bad request received {err}.")
 
-        except NotFound as err:
+        except NotFound:
             table = bigquery.Table(destination_table_ref, schema=schema)
             table.time_partitioning = bigquery.TimePartitioning(
                 type_=bigquery.TimePartitioningType.MONTH,
@@ -142,7 +141,8 @@ class BQTools:
             table.labels = labels
             table = self.bq_client.create_table(table)
             logger.info(
-                f"Table {destination_table_ds}.{destination_table_tb} created with specific schema."
+                f"Table {destination_table_ds}.{destination_table_tb}"
+                " created with specific schema."
             )
         except BadRequest as err:
             logger.error(f"Bad request received {err}.")
@@ -174,7 +174,8 @@ class BQTools:
             table.description = description
             result = self.bq_client.update_table(table, ["description", "schema"])
             logger.info(
-                f"Update table schema from table {destination_table_ds}.{destination_table_tb}. Result: {result}"
+                f"Update table schema from table "
+                f"{destination_table_ds}.{destination_table_tb}. Result: {result}"
             )
         except BadRequest as err:
             logger.error(f"update_table - Bad request received {err}.")
@@ -201,7 +202,8 @@ class BQTools:
             table.description = description
             result = self.bq_client.update_table(table, ["description"])
             logger.info(
-                f"Update table description from table {destination_table_ds}.{destination_table_tb}. Result: {result}"
+                "Update table description from table "
+                f"{destination_table_ds}.{destination_table_tb}. Result: {result}"
             )
         except BadRequest as err:
             logger.error(f"update_table_descr - Bad request received {err}.")
@@ -237,7 +239,7 @@ class BQTools:
         )
 
         logger.info(
-            f'Execute {("estimate" if estimate else "real")} BATCH query, destination {destination}'
+            f'Execute {"estimate" if estimate else "real"} BATCH query, destination {destination}'
         )
         if not estimate:
             logger.info(f"=====QUERY STARTS======\n{query}\n====QUERY ENDS====")
@@ -246,7 +248,8 @@ class BQTools:
             logger.info(f"Job {query_job.job_id} is currently in state {query_job.state}")
             if estimate:
                 logger.info(
-                    f"Estimation: This query will process {query_job.total_bytes_processed} bytes ({query_job.total_bytes_processed/pow(1024,3)} GB)."
+                    f"Estimation: This query will process {query_job.total_bytes_processed} bytes"
+                    f" ({query_job.total_bytes_processed/pow(1024,3)} GB)."
                 )
             else:
                 query_job.result()  # Wait for the job to complete.

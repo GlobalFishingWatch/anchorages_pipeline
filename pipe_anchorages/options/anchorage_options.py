@@ -9,7 +9,6 @@ class AnchorageOptions(PipelineOptions):
         # Use add_argument as usual for non-templatable arguments
 
         required = parser.add_argument_group("Required")
-        optional = parser.add_argument_group("Optional")
 
         required.add_argument(
             "--messages_table", required=True, help="Messages table to pull data from"

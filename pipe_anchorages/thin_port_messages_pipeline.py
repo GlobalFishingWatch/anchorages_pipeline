@@ -45,7 +45,8 @@ def create_queries(args, start_date, end_date):
 
 
 anchorage_query = (
-    lambda args: f"SELECT lat as anchor_lat, lon as anchor_lon, s2id as anchor_id, label FROM `{args.anchorage_table}`"
+    lambda args: ("SELECT lat as anchor_lat, lon as anchor_lon, s2id as anchor_id, label "
+                  f"FROM `{args.anchorage_table}`")
 )
 
 

@@ -5,7 +5,6 @@ import pytz
 
 from pipe_anchorages.objects.visit_event import VisitEvent
 from pipe_anchorages.objects.namedtuples import _datetime_to_s
-from pipe_anchorages.port_visits_pipeline import visit_to_msg
 from pipe_anchorages.transforms.create_port_visits import CreatePortVisits
 
 

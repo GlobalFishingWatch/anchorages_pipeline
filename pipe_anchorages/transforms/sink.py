@@ -276,6 +276,7 @@ class VisitsSink(PTransform):
         self.ver = get_pipe_ver()
 
     def get_description(self):
+        misdnm = self.args.max_inter_seg_dist_nm
         return f"""
 Created by the anchorages_pipeline: {self.ver}.
 Creates the visits to port table.
@@ -284,7 +285,7 @@ Creates the visits to port table.
 * Vessel id to join identification: {self.args.vessel_id_table}
 * Configuration file: {self.args.config}
 * Skip bad segments: {"Yes" if self.args.bad_segs else "No"}
-* Segments more than this distance apart will not be joined when creating visits: {self.args.max_inter_seg_dist_nm}
+* Segments more than this distance apart will not be joined when creating visits: {misdnm}
 * Date end: {self.args.end_date}
         """
 

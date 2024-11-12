@@ -76,7 +76,8 @@ class WriteSink(beam.PTransform):
                 "mode": "NULLABLE",
                 "name": "trip_id",
                 "type": "STRING",
-                "description": "The unique value for the table. There is a single record for each trip_id.",
+                "description": ("The unique value for the table. "
+                                "There is a single record for each trip_id."),
             },
         ]
     }

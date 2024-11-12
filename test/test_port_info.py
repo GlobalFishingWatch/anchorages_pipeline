@@ -13,7 +13,7 @@ with open(default_config_path) as f:
 
 
 def test_instantiation():
-    finder = PortInfoFinder.from_config(config)
+    PortInfoFinder.from_config(config)
 
 
 def test_normalize():

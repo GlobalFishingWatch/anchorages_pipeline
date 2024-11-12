@@ -188,9 +188,8 @@ def add_pipeline_defaults(pipeline_args, name):
 
     defaults = {
         "--project": "world-fishing-827",
-        "--staging_location": "gs://machine-learning-dev-ttl-30d/anchorages/{}/output/staging".format(
-            name
-        ),
+        "--staging_location": "gs://machine-learning-dev-ttl-30d/anchorages/{}/output/staging"
+        .format(name),
         "--temp_location": "gs://machine-learning-dev-ttl-30d/anchorages/temp",
         "--setup_file": "./setup.py",
         "--runner": "DataflowRunner",
