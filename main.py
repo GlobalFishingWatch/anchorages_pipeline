@@ -50,7 +50,7 @@ SUBCOMMANDS = {
     "voyages": run_voyages,
 }
 
-if __name__ == "__main__":
+def main():
     logging.info("Running %s", sys.argv)
 
     if len(sys.argv) < 2:
@@ -64,3 +64,6 @@ if __name__ == "__main__":
     subcommand_args = sys.argv[2:]
 
     SUBCOMMANDS[subcommand](subcommand_args)
+
+if __name__ == "__main__":
+    main()
