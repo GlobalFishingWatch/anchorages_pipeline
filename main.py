@@ -50,6 +50,7 @@ SUBCOMMANDS = {
     "voyages": run_voyages,
 }
 
+
 def main():
     logging.info("Running %s", sys.argv)
 
@@ -64,6 +65,7 @@ def main():
     subcommand_args = sys.argv[2:]
 
     SUBCOMMANDS[subcommand](subcommand_args)
+
 
 if __name__ == "__main__":
     main()
