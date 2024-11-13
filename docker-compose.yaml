@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-scheduler
-    entrypoint: ["python", "-m", "pipe_anchorages.thin_port_messages"]
+    entrypoint: ["pipe", "thin_port_messages"]
     volumes:
       - ".:/opt/project"
       - "gcp:/root/.config/"
@@ -14,7 +14,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-scheduler
-    entrypoint: ["python", "-m", "pipe_anchorages.port_visits"]
+    entrypoint: ["pipe", "port_visits"]
     volumes:
       - ".:/opt/project"
       - "gcp:/root/.config/"
@@ -23,7 +23,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-scheduler
-    entrypoint: ["python", "-m", "pipe_anchorages.anchorages"]
+    entrypoint: ["pipe", "anchorages"]
     volumes:
       - ".:/opt/project"
       - "gcp:/root/.config/"
@@ -32,7 +32,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-scheduler
-    entrypoint: ["python", "-m", "pipe_anchorages.name_anchorages"]
+    entrypoint: ["pipe", "name_anchorages"]
     volumes:
       - ".:/opt/project"
       - "gcp:/root/.config/"
