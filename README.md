@@ -4,7 +4,7 @@
      <img alt="Coverage" src="https://codecov.io/gh/GlobalFishingWatch/anchorages_pipeline/graph/badge.svg?token=FSPWG081MD"/> 
   </a>
   <a>
-    <img alt="Python versions" src="https://img.shields.io/badge/python-3.8%20%7C%203.9">
+    <img alt="Python versions" src="https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue ">
   </a>
   <a>
     <img alt="Last release" src="https://img.shields.io/github/v/release/GlobalFishingWatch/anchorages_pipeline">
