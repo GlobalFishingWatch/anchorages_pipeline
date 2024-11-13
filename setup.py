@@ -30,7 +30,7 @@ setuptools.setup(
     ],
     entry_points={
         "console_scripts": [
-            "pipe = pipe_segment.cli.cli:main",
+            "pipe = main:main",
         ]
     },
 )
