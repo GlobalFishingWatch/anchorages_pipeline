@@ -129,7 +129,7 @@ if __name__ == "__main__":
         config = yaml.load(f, Loader=yaml.FullLoader)
 
     finder = PortInfoFinder.from_config(config)
-    isofinder = get_iso3_finder(mangled_path("EEZ_land_v2_201410.shp", "EEZ"))
+    isofinder = get_iso3_finder(mangled_path("EEZ_land_v3_202030.shp", "EEZ"))
 
     with open(args.anchorages_path) as infile, open(args.destination_path, "w") as outfile:
         reader = csv.DictReader(infile)
