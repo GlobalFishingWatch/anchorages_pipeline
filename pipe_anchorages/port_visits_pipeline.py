@@ -4,8 +4,7 @@ import math
 
 import apache_beam as beam
 import pytz
-from apache_beam.options.pipeline_options import (GoogleCloudOptions,
-                                                  StandardOptions)
+from apache_beam.options.pipeline_options import GoogleCloudOptions, StandardOptions
 from apache_beam.runners import PipelineState
 from pipe_anchorages import common as cmn
 from pipe_anchorages.objects.namedtuples import _datetime_to_s
@@ -19,7 +18,7 @@ from pipe_anchorages.transforms.source import QuerySource
 
 
 def create_queries(args, start_date, end_date):
-    template = '''
+    template = """
     SELECT vids.ssvid,
            vids.vessel_id,
            vids.seg_id,
@@ -30,7 +29,7 @@ def create_queries(args, start_date, end_date):
     ON records.identifier = vids.seg_id
     WHERE records._table_suffix BETWEEN '{start:%Y%m%d}' AND '{end:%Y%m%d}'
      {condition}
-    '''
+    """
 
     if args.bad_segs is None:
         condition = ""
@@ -46,7 +45,7 @@ def create_queries(args, start_date, end_date):
             vid_table=args.vessel_id_table,
             condition=condition,
             start=start_window,
-            end=end_window
+            end=end_window,
         )
         start_window = end_window + datetime.timedelta(days=1)
 
@@ -61,7 +60,7 @@ def from_msg(x):
     vessel_id = x_new.pop("vessel_id")
     ident = (ssvid, vessel_id, seg_id)
     loc = cmn.LatLon(x_new.pop("lat"), x_new.pop("lon"))
-    port_dist = x_new.pop('port_dist')
+    port_dist = x_new.pop("port_dist")
     if port_dist is None:
         port_dist = math.inf
     return vessel_id, VisitLocationRecord(
@@ -113,9 +112,7 @@ def run(options):
         for (i, query) in enumerate(queries)
     ]
 
-    sink = VisitsSink(
-        visit_args.output_table, build_visit_schema(), visit_args, cloud_args
-    )
+    sink = VisitsSink(visit_args.output_table, build_visit_schema(), visit_args, cloud_args)
 
     (
         sources
@@ -146,10 +143,7 @@ def run(options):
         ]
     )
 
-    if (
-        visit_args.wait_for_job
-        or options.view_as(StandardOptions).runner == "DirectRunner"
-    ):
+    if visit_args.wait_for_job or options.view_as(StandardOptions).runner == "DirectRunner":
         result.wait_until_finish()
         if result.state == PipelineState.DONE:
             sink.update_description()

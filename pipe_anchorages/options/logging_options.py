@@ -39,7 +39,8 @@ class LoggingOptions(PipelineOptions):
             "--log_args",
             default=False,
             action="store_true",
-            help="Output command line arguments to logging (useful for debugging then you cant get stdout",
+            help=("Output command line arguments to logging (useful for "
+                  "debugging then you cant get stdout"),
         )
 
     def configure_logging(self):
@@ -113,9 +114,7 @@ def validate_options(args=None, option_classes=None):
     StandardOptions._add_argparse_args(parser.add_argument_group("Dataflow Runner"))
 
     if help or not local:
-        GoogleCloudOptions._add_argparse_args(
-            parser.add_argument_group("Dataflow Runtime")
-        )
+        GoogleCloudOptions._add_argparse_args(parser.add_argument_group("Dataflow Runtime"))
         WorkerOptions._add_argparse_args(parser.add_argument_group("Dataflow Workers"))
         SetupOptions._add_argparse_args(parser.add_argument_group("Dataflow Setup"))
 

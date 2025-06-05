@@ -11,15 +11,11 @@ class NameAnchorageOptions(PipelineOptions):
         required = parser.add_argument_group("Required")
         optional = parser.add_argument_group("Optional")
 
-        required.add_argument(
-            "--input_table", required=True, help="Input table to pull data from"
-        )
+        required.add_argument("--input_table", required=True, help="Input table to pull data from")
         required.add_argument(
             "--output_table", required=True, help="Output table to write results to."
         )
-        required.add_argument(
-            "--config", required=True, help="path to configuration file"
-        )
+        required.add_argument("--config", required=True, help="path to configuration file")
 
         optional.add_argument(
             "--shapefile",
