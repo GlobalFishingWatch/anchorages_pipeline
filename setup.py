@@ -28,7 +28,7 @@ setuptools.setup(
         "jinja2<4",
         "pyyaml<7",
         "Fiona<2",
-        "Shapely<2",
+        "Shapely==1.7.1",
         "s2sphere<1",
         "Unidecode<2",
     ],
