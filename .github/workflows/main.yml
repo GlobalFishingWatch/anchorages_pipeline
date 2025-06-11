@@ -38,6 +38,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
+          apt-get install libgeos-dev
           pip install -r requirements/test.txt
           pip install -e .
 
