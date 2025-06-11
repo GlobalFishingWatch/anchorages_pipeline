@@ -24,7 +24,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=[
-        "apache-beam[gcp]~=2.49.0",
+        "apache-beam[gcp]~=2.59.0",
         "jinja2-cli~=0.8.0",
         "pyyaml~=6.0.0",
         "Fiona~=1.8.0",
