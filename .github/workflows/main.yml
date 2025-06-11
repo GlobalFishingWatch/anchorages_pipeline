@@ -25,6 +25,8 @@ jobs:
 
   tests:
     runs-on: ubuntu-latest
+    env:
+      GDAL_VERSION: "3.6.2"
     strategy:
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
@@ -38,6 +40,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
+          sudo apt-get install libgdal-dev
           pip install -r requirements/test.txt
           pip install -e .
 

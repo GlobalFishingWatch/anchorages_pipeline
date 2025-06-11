@@ -24,13 +24,13 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=[
-        "apache-beam[gcp]<3",
-        "jinja2<4",
-        "pyyaml<6",
+        "apache-beam[gcp]~=2.59.0",
+        "jinja2-cli~=0.8.0",
+        "pyyaml~=6.0.0",
         "Fiona<2",
-        "Shapely<2",
-        "s2sphere<1",
-        "Unidecode<2",
+        "Shapely~=1.7.0",
+        "s2sphere~=0.2.0",
+        "Unidecode~=1.2.0",
     ],
     entry_points={
         "console_scripts": [
