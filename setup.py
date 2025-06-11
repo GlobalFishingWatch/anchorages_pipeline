@@ -27,7 +27,7 @@ setuptools.setup(
         "apache-beam[gcp]~=2.59.0",
         "jinja2-cli~=0.8.0",
         "pyyaml~=6.0.0",
-        "Fiona~=1.8.0",
+        "Fiona<2",
         "Shapely~=1.7.0",
         "s2sphere~=0.2.0",
         "Unidecode~=1.2.0",
