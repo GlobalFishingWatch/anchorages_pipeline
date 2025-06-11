@@ -26,7 +26,7 @@ setuptools.setup(
     install_requires=[
         "apache-beam[gcp]<3",
         "jinja2<4",
-        "pyyaml<6",
+        "pyyaml<7",
         "Fiona<2",
         "Shapely<2",
         "s2sphere<1",
