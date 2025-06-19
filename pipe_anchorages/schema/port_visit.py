@@ -80,7 +80,7 @@ port_visit_schema = {
                 1 -> no stop or gap; only an entry and/or exit
                 2 -> only stop and/or gap; no entry or exit
                 3 -> port entry or exit with stop and/or gap
-                4 -> port entry and exit with stop and/or gap""",
+                4 -> port entry and exit with stop and/or gap""",  # noqa: E501
         },
         {
             "name": "events",

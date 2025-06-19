@@ -1,6 +1,5 @@
 import datetime as dt
 import logging
-from datetime import timedelta
 
 from apache_beam import Map, PTransform, io
 from apache_beam.transforms.window import TimestampedValue
@@ -234,6 +233,6 @@ class VisitsSink(PTransform):
         return xs | io.WriteToBigQuery(
             table=self.table,
             schema=port_visit_schema,
-            write_disposition= io.BigQueryDisposition.WRITE_TRUNCATE,
+            write_disposition=io.BigQueryDisposition.WRITE_TRUNCATE,
             create_disposition=io.BigQueryDisposition.CREATE_NEVER,
         )

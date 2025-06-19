@@ -111,7 +111,7 @@ Creates the visits to port table.
 * Skip bad segments: {"Yes" if pipe_options.bad_segs else "No"}
 * Segments more than this distance apart will not be joined when creating visits: {pipe_options.max_inter_seg_dist_nm}
 * Date end: {end_date}
-        """,
+        """,  # noqa: E501
         schema=port_visit_schema["fields"],
         partitioning_field="end_timestamp",
     )
@@ -120,7 +120,7 @@ Creates the visits to port table.
         bq_client=bigquery.Client(
             project=cloud_options.project,
         ),
-        labels=dict([entry.split("=") for entry in cloud_options.labels],
+        labels=dict([entry.split("=") for entry in cloud_options.labels]),
     )
 
     bq_helper.ensure_table_exists(output_table)

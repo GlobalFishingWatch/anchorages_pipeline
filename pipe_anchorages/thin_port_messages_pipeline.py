@@ -74,7 +74,7 @@ Created by the anchorages_pipeline: {get_pipe_ver()}.
         bq_client=bigquery.Client(
             project=cloud_options.project,
         ),
-        labels=dict([entry.split("=") for entry in cloud_options.labels],
+        labels=dict([entry.split("=") for entry in cloud_options.labels]),
     )
 
     # list_of_days doesn't include the end date. However, in daily mode,

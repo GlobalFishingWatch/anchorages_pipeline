@@ -1,7 +1,6 @@
 import argparse
 import json
 import logging
-import sys
 import time
 
 from google.cloud import bigquery

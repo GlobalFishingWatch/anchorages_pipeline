@@ -197,4 +197,3 @@ class BigQueryHelper:
             return self.client.get_table(table_id)
         except NotFound:
             return None
-

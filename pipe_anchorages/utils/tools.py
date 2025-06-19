@@ -36,4 +36,3 @@ def datetime_from_string(d: str, tzinfo: tz = tz.utc):
 def list_of_days(start_date, end_date):
     """Returns list of days between start_date and end_date, excluding end_date."""
     return (start_date + timedelta(days=x) for x in range((end_date - start_date).days))
-
