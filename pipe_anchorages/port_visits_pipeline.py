@@ -112,7 +112,7 @@ Creates the visits to port table.
 * Segments more than this distance apart will not be joined when creating visits: {pipe_options.max_inter_seg_dist_nm}
 * Date end: {end_date}
         """,
-        schema=build_visit_schema(),
+        schema=build_visit_schema().fields,
         partitioning_field="end_timestamp",
     )
 
