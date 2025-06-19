@@ -1,6 +1,5 @@
 import datetime as dt
 import logging
-from datetime import timedelta
 
 from apache_beam import Map, PTransform, io
 from apache_beam.transforms.window import TimestampedValue
@@ -9,6 +8,7 @@ from pipe_anchorages.objects.namedtuples import epoch
 from pipe_anchorages.schema.message_schema import message_schema
 from pipe_anchorages.schema.named_anchorage import build as build_named_anchorage_schema
 from pipe_anchorages.utils.ver import get_pipe_ver
+from pipe_anchorages.schema.port_visit import port_visit_schema
 
 
 def cloud_to_labels(ll): return {x.split("=")[0]: x.split("=")[1] for x in ll}
@@ -29,42 +29,14 @@ def load_labels(project: str, tablename: str, labels: dict):
     logging.info(f"Update labels to output table <{table}>")
 
 
-def str2date(datestr): return dt.datetime.strptime(datestr, "%Y-%m-%d").date()
-
-
-def daterange(start_date, end_date):
-    for n in range(int((end_date - start_date).days + 1)):
-        yield start_date + timedelta(n)
-
-
 class MessageSink(PTransform):
-    def __init__(self, table, args, cloud_options, key="timestamp"):
+    def __init__(self, table, key="timestamp"):
         self.table = table
-        self.project = cloud_options.project
-        self.args = args
         self.key = key
-        self.ver = get_pipe_ver()
-        self.labels = cloud_to_labels(cloud_options.labels) if cloud_options else None
-
-    def get_description(self):
-        return f"""
-Created by the anchorages_pipeline: {self.ver}.
-* Creates raw thinned messages in out port events.
-* https://github.com/GlobalFishingWatch/anchorages_pipeline
-* Sources: {self.args.input_table}
-* Anchorage table: {self.args.anchorage_table}
-* Date: {self.args.start_date}, {self.args.end_date}
-        """
-
-    def update_labels(self):
-        for day in daterange(str2date(self.args.start_date), str2date(self.args.end_date)):
-            logging.info(f"Setting labels to {self.table}{day:%Y%m%d}")
-            print(f"Setting labels to {self.table}{day:%Y%m%d}")
-            load_labels(self.project, f"{self.table}{day:%Y%m%d}", self.labels)
 
     def compute_table_for_event(self, event):
         stamp = dt.date.fromtimestamp(event[self.key])
-        return f"{self.project}:{self.table}{stamp:%Y%m%d}"
+        return f"{self.table}{stamp:%Y%m%d}"
 
     def extract_latlon(self, x):
         x = x.copy()
@@ -87,18 +59,7 @@ Created by the anchorages_pipeline: {self.ver}.
             self.compute_table_for_event,
             schema=message_schema,
             write_disposition=io.BigQueryDisposition.WRITE_TRUNCATE,
-            create_disposition=io.BigQueryDisposition.CREATE_IF_NEEDED,
-            additional_bq_parameters={
-                "destinationTableProperties": {
-                    "description": self.get_description(),
-                },
-            },
-        )
-
-        logging.info(
-            "sink params: \n\t%s\n\t%s",
-            self.project,
-            self.table,
+            create_disposition=io.BigQueryDisposition.CREATE_NEVER,
         )
 
         return (
@@ -264,53 +225,14 @@ Creates the named anchorage table.
 
 
 class VisitsSink(PTransform):
-    def __init__(self, table, schema, args, cloud_options, key="end_timestamp"):
+    def __init__(self, table, key="end_timestamp"):
         self.table = table
-        self.schema = schema
-        self.args = args
-        self.project = cloud_options.project
-        self.write_disposition = io.BigQueryDisposition.WRITE_TRUNCATE
-        self.create_disposition = io.BigQueryDisposition.CREATE_IF_NEEDED
-        self.labels = cloud_to_labels(cloud_options.labels) if cloud_options else None
         self.key = key
-        self.ver = get_pipe_ver()
-
-    def get_description(self):
-        misdnm = self.args.max_inter_seg_dist_nm
-        return f"""
-Created by the anchorages_pipeline: {self.ver}.
-Creates the visits to port table.
-* https://github.com/GlobalFishingWatch/anchorages_pipeline
-* Sources: {self.args.thinned_message_table}
-* Vessel id to join identification: {self.args.vessel_id_table}
-* Configuration file: {self.args.config}
-* Skip bad segments: {"Yes" if self.args.bad_segs else "No"}
-* Segments more than this distance apart will not be joined when creating visits: {misdnm}
-* Date end: {self.args.end_date}
-        """
-
-    def update_description(self):
-        bqclient = bigquery.Client(project=self.project)
-        table = get_table(bqclient, self.project, self.table)
-        table.description = self.get_description()
-        bqclient.update_table(table, ["description"])  # API request
-        logging.info(f"Update description to output table <{table}>")
-
-    def update_labels(self):
-        load_labels(self.project, self.table, self.labels)
 
     def expand(self, xs):
         return xs | io.WriteToBigQuery(
             table=self.table,
-            schema=self.schema,
-            write_disposition=self.write_disposition,
-            create_disposition=self.create_disposition,
-            additional_bq_parameters={
-                "timePartitioning": {
-                    "type": "MONTH",
-                    "field": self.key,
-                    "requirePartitionFilter": True,
-                },
-                "clustering": {"fields": [self.key, "confidence", "ssvid", "vessel_id"]},
-            },
+            schema=port_visit_schema,
+            write_disposition=io.BigQueryDisposition.WRITE_TRUNCATE,
+            create_disposition=io.BigQueryDisposition.CREATE_NEVER,
         )
