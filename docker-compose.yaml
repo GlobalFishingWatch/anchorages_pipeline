@@ -1,41 +1,14 @@
-version: '2'
 services:
-  thin_port_messages:
+  dev:
     image: gfw/pipe-anchorages
     build:
       context: .
       dockerfile: Dockerfile-scheduler
-    entrypoint: ["pipe", "thin_port_messages"]
+    entrypoint: ["pipe"]
     volumes:
       - ".:/opt/project"
       - "gcp:/root/.config/"
-  port_visits:
-    image: gfw/pipe-anchorages
-    build:
-      context: .
-      dockerfile: Dockerfile-scheduler
-    entrypoint: ["pipe", "port_visits"]
-    volumes:
-      - ".:/opt/project"
-      - "gcp:/root/.config/"
-  anchorages:
-    image: gfw/pipe-anchorages
-    build:
-      context: .
-      dockerfile: Dockerfile-scheduler
-    entrypoint: ["pipe", "anchorages"]
-    volumes:
-      - ".:/opt/project"
-      - "gcp:/root/.config/"
-  name_anchorages:
-    image: gfw/pipe-anchorages
-    build:
-      context: .
-      dockerfile: Dockerfile-scheduler
-    entrypoint: ["pipe", "name_anchorages"]
-    volumes:
-      - ".:/opt/project"
-      - "gcp:/root/.config/"
+
   gcloud:
     image: gfw/pipe-anchorages
     build:
@@ -43,15 +16,6 @@ services:
       dockerfile: Dockerfile-scheduler
     entrypoint: gcloud
     volumes:
-      - "gcp:/root/.config/"
-  test:
-    entrypoint: ["py.test",  "test"]
-    image: gfw/pipe-anchorages
-    build:
-      context: .
-      dockerfile: Dockerfile-scheduler
-    volumes:
-      - ".:/opt/project"
       - "gcp:/root/.config/"
 
 volumes:

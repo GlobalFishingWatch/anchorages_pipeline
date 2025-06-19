@@ -1,16 +1,21 @@
+import datetime
+import logging
+
+from google.cloud import bigquery
+
+import apache_beam as beam
 from apache_beam.options.pipeline_options import GoogleCloudOptions, StandardOptions
 from apache_beam.runners import PipelineState
-
 from pipe_anchorages import common as cmn
 from pipe_anchorages.options.thin_port_messages_options import ThinPortMessagesOptions
+from pipe_anchorages.schema.message_schema import message_schema
 from pipe_anchorages.transforms.create_tagged_anchorages import CreateTaggedAnchorages
 from pipe_anchorages.transforms.sink import MessageSink
 from pipe_anchorages.transforms.smart_thin_records import SmartThinRecords
 from pipe_anchorages.transforms.source import QuerySource
-
-import apache_beam as beam
-import datetime
-import logging
+from pipe_anchorages.utils.bqtools import BigQueryHelper, DateShardedTable
+from pipe_anchorages.utils.tools import list_of_days
+from pipe_anchorages.utils.ver import get_pipe_ver
 
 
 def create_queries(args, start_date, end_date):
@@ -44,14 +49,43 @@ def create_queries(args, start_date, end_date):
         start_window = end_window + datetime.timedelta(days=1)
 
 
-anchorage_query = (
-    lambda args: ("SELECT lat as anchor_lat, lon as anchor_lon, s2id as anchor_id, label "
-                  f"FROM `{args.anchorage_table}`")
-)
+def anchorage_query(args):
+    return f"""
+    SELECT lat as anchor_lat, lon as anchor_lon, s2id as anchor_id, label
+    FROM `{args.anchorage_table}`
+    """
+
+
+def prepare_output_tables(pipe_options, cloud_options, start_date, end_date):
+    output_table = DateShardedTable(
+        table_id_prefix=pipe_options.output_table,
+        description=f"""
+Created by the anchorages_pipeline: {get_pipe_ver()}.
+* Creates raw thinned messages in out port events.
+* https://github.com/GlobalFishingWatch/anchorages_pipeline
+* Sources: {pipe_options.input_table}
+* Anchorage table: {pipe_options.anchorage_table}
+* Date: {start_date}, {end_date}
+        """,
+        schema=message_schema["fields"],
+    )
+
+    bq_helper = BigQueryHelper(
+        bq_client=bigquery.Client(
+            project=cloud_options.project,
+        ),
+        labels=cloud_options.labels,
+    )
+
+    # list_of_days doesn't include the end date. However, in daily mode,
+    # start and end date are the same day.
+    for date in list_of_days(start_date, end_date + datetime.timedelta(days=1)):
+        shard = output_table.build_shard(date)
+        bq_helper.ensure_table_exists(shard)
+        bq_helper.update_table(shard)
 
 
 def run(options):
-
     known_args = options.view_as(ThinPortMessagesOptions)
     cloud_options = options.view_as(GoogleCloudOptions)
 
@@ -81,12 +115,9 @@ def run(options):
         | CreateTaggedAnchorages()
     )
 
-    sink = MessageSink(known_args.output_table, known_args, cloud_options)
-
-    (
+    _ = (
         tagged_records
-        | "thinRecords"
-        >> SmartThinRecords(
+        | "thinRecords" >> SmartThinRecords(
             anchorages=anchorages,
             anchorage_entry_dist=config["anchorage_entry_distance_km"],
             anchorage_exit_dist=config["anchorage_exit_distance_km"],
@@ -96,9 +127,10 @@ def run(options):
             start_date=start_date,
             end_date=end_date,
         )
-        | "writeThinnedRecords" >> sink
+        | "writeThinnedRecords" >> MessageSink(known_args.output_table)
     )
 
+    prepare_output_tables(known_args, cloud_options, start_date, end_date)
     result = p.run()
 
     success_states = set(
@@ -112,8 +144,6 @@ def run(options):
 
     if known_args.wait_for_job or options.view_as(StandardOptions).runner == "DirectRunner":
         result.wait_until_finish()
-        if result.state == PipelineState.DONE:
-            sink.update_labels()
 
     logging.info("returning with result.state=%s" % result.state)
     return 0 if result.state in success_states else 1

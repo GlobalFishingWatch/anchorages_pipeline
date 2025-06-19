@@ -1,259 +1,200 @@
-from google.cloud import bigquery
-from google.cloud.exceptions import NotFound
-from google.api_core.exceptions import BadRequest, Conflict as AlreadyExistErr
+from typing import Optional
+from dataclasses import dataclass, field
 import json
 import logging
-import sys
+
+from google.cloud import bigquery
+from google.cloud.exceptions import NotFound
 
 logger = logging.getLogger()
 
 
-class BQTools:
-
-    def __init__(self, project: str):
-        self.project = project
-        self.bq_client = bigquery.Client(project=project)
-
-    def schema_json2builder(self, schema_path: str):
+class Schemas:
+    @classmethod
+    def json_to_schema_field(cls, field):
         """
-        Reads json schema and convert to array of bigquery.SchemaFields.
-        :param schema_path: The path to the schema.
-        :type schema_path: str.
+        Converts a json dictionary representing a single field in a json schema
+        document to an actual SchemaField instance
         """
-        schema = None
-        with open(schema_path) as schemafield:
-            columns = json.load(schemafield)
-            schema = list(
-                map(
-                    lambda c: bigquery.SchemaField(
-                        c["name"],
-                        c["type"],
-                        mode=c["mode"],
-                        description=c["description"],
-                        fields=(
-                            [
-                                bigquery.SchemaField(
-                                    f["name"],
-                                    f["type"],
-                                    mode=f["mode"],
-                                    description=f["description"],
-                                )
-                                for f in c["fields"]
-                            ]
-                            if c["type"].upper() == "RECORD"
-                            else []
-                        ),
-                    ),
-                    columns,
-                )
-            )
-        return schema
+        subfields = field["fields"] if field["type"].upper() == "RECORD" else []
 
-    def create_tables_if_not_exists(
-        self,
-        destination_table: str,
-        labels,
-        table_desc: str,
-        schema: list,
-        clustering_fields: list = [],
-        date_field: str = "timestamp",
-    ):
-        """Creates tables if they do not exists.
-        If it doesn't exist, create it. And if exists, deletes the data of date range.
-
-        :param destination_table: dataset.table of BQ.
-        :type destination_table: str.
-        :param labels: the label of the dataset. Default None.
-        :type labels: dict.
-        :param table_desc: the main description of the table.
-        :type table_desc: str.
-        :param schema: the schema of the table.
-        :type schema: list[bigquery.SchemaField].
-        :param clustering_fields: the clustering fields of the table.
-        :type clustering_fields: list[str]. Default: [].
-        :param date_field: the date field use to check the from and to dates.
-        :type date_field: str. Default timestamp.
-        """
-        destination_table_ds, destination_table_tb = destination_table.split(".")
-        destination_dataset_ref = bigquery.DatasetReference(
-            self.bq_client.project, destination_table_ds
+        return bigquery.SchemaField(
+            field['name'],
+            field['type'],
+            mode=field['mode'],
+            description=field['description'],
+            fields=(cls.json_to_schema_field(f) for f in subfields)
         )
-        destination_table_ref = destination_dataset_ref.table(destination_table_tb)
-        try:
-            table = self.bq_client.get_table(destination_table_ref)  # API request
-            logger.info(f"Ensures the table [{table}] exists.")
-            query_job = self.bq_client.query(
-                f"""
-                   DELETE FROM `{self.project}.{destination_table}`
-                   WHERE date({date_field}) >= '1970-01-01' or {date_field} is null
-                """,
-                # f"""DROP TABLE `{self.project}.{ destination_table }`""",
-                bigquery.QueryJobConfig(
-                    use_query_cache=False,
-                    use_legacy_sql=False,
-                    labels=labels,
-                ),
+
+    @classmethod
+    def load_json_schema(cls, schema_path: str):
+        """
+        Reads a json schema file and converts it to an actual SchemaField list
+        """
+
+        with open(schema_path) as json_schema_file:
+            json_schema = json.load(json_schema_file)
+            return [cls.json_to_schema_field(field) for field in json_schema]
+
+
+@dataclass(frozen=True)
+class SimpleTable:
+    """
+    Represents an unpartitioned simple table
+    """
+    table_id: str
+    description: str
+    schema: list
+    clustering_field: Optional[str] = None
+
+    def to_bigquery_table(self):
+        """
+        Returns a bigquery.Table instance that can be used to create or update
+        the remote table at BigQuery.
+        """
+        table = bigquery.Table(self.table_id, schema=self.schema)
+        if self.clustering_field:
+            table.clustering_fields = [self.clustering_field]
+        table.description = self.description
+        return table
+
+    def clear_query(self):
+        """
+        Returns a query to delete all the data in the table.
+        """
+        return f"""
+                    TRUNCATE TABLE `{self.table_id}`
+                """
+
+
+@dataclass(frozen=True)
+class DateShardedTable:
+    """
+    Represents a legacy date sharded table
+    """
+    table_id_prefix: str
+    description: str
+    schema: list
+    clustering_field: Optional[str] = None
+
+    def build_shard(self, date):
+        """
+        Returns a simple table representing a specific shard for this
+        date-sharded table
+        """
+        return SimpleTable(
+            table_id=f"{self.table_id_prefix}{date:%Y%m%d}",
+            description=self.description,
+            schema=self.schema,
+            clustering_field=self.clustering_field,
+        )
+
+
+@dataclass(frozen=True)
+class DatePartitionedTable:
+    """
+    Represents a timestamp-partitioned table with monthly partitions
+    """
+    table_id: str
+    description: str
+    schema: list
+    partitioning_field: str
+    additional_clustering_fields: list = field(default_factory=lambda: [])
+
+    def to_bigquery_table(self):
+        """
+        Returns a bigquery.Table instance that can be used to create or update
+        the remote table at BigQuery
+        """
+        table = bigquery.Table(self.table_id, schema=self.schema)
+        table.time_partitioning = bigquery.TimePartitioning(
+            type_=bigquery.TimePartitioningType.MONTH,
+            field=self.partitioning_field,
+        )
+        table.clustering_fields = [self.partitioning_field, *self.additional_clustering_fields]
+        table.description = self.description
+        return table
+
+    def clear_query(self, from_date, to_date):
+        """
+        Returns a query to remove data in the table in a date interval
+        """
+        return f"""
+                    DELETE FROM `{self.table_id}`
+                    WHERE date({self.partitioning_field})
+                    BETWEEN '{from_date}' AND '{to_date}'
+                """
+
+
+class BigQueryHelper:
+    def __init__(self, bq_client, labels):
+        self.client = bq_client
+        self.labels = dict([entry.split("=") for entry in labels])
+
+    def ensure_table_exists(self, table):
+        """
+        Ensures a table exists, creating it if it doesn't
+        """
+
+        logger.info(f"Ensuring table {table.table_id} exists")
+        table_definition = table.to_bigquery_table()
+        table_definition.labels = self.labels
+        result = self.client.create_table(table_definition, exists_ok=True)
+        logger.info(f"Table {table.table_id} exists")
+        return result
+
+    def run_query(self, query):
+        """
+        Runs a simple, arbitrary query, tagging the query process with the
+        labels
+        """
+        logger.info("Executing query")
+        logger.info(f'=====QUERY STARTS======\n{query}\n====QUERY ENDS====')
+        self.client.query_and_wait(
+            query,
+            job_config=bigquery.QueryJobConfig(
+                labels=self.labels,
+            ),
+        )
+
+    def run_query_into_table(self, *, query, table):
+        """
+        Runs a query and inserts the results into a given table
+        """
+        logger.info(f'Executing BATCH query, destination {table.table_id}')
+        logger.info(f'=====QUERY STARTS======\n{query}\n====QUERY ENDS====')
+
+        self.client.query_and_wait(
+            query,
+            job_config=bigquery.QueryJobConfig(
+                use_query_cache=False,
+                priority=bigquery.QueryPriority.BATCH,
+                use_legacy_sql=False,
+                write_disposition='WRITE_APPEND',
+                destination=table.table_id,
+                labels=self.labels,
             )
-            logger.info(f"Delete Job {query_job.job_id} is currently in state {query_job.state}")
-            result = query_job.result()
-            logger.info(f"Table cleaned: {result}")
+        )
+        logger.info("Query job done")
 
-        except BadRequest as err:
-            logger.error(f"Bad request received {err}.")
+    def update_table(self, table):
+        """
+        Updates a table description in BigQuery
+        """
+        bq_table = self.client.get_table(table.table_id)
+        bq_table.description = table.description
+        bq_table.labels = self.labels
 
+        logger.info(f"Updating table {table.table_id}")
+        self.client.update_table(bq_table, ["description", "labels"])
+        logger.info(f"Table {table.table_id} updated.")
+
+    def fetch_table(self, table_id):
+        """
+        Returns a bigquery.Table instance for the given table_id, or None if it doesn't exist
+        """
+        try:
+            return self.client.get_table(table_id)
         except NotFound:
-            table = bigquery.Table(destination_table_ref, schema=schema)
-            table.time_partitioning = bigquery.TimePartitioning(
-                type_=bigquery.TimePartitioningType.MONTH,
-                field=date_field,
-            )
-            table.require_partition_filter = True
-            clustering_fields.insert(0, date_field)
-            table.clustering_fields = clustering_fields
-            table.description = table_desc
-            table.labels = labels
-            table = self.bq_client.create_table(table)
-            logger.info(f"Table {destination_table_ds}.{destination_table_tb} created.")
+            return None
 
-        except Exception as err:
-            logger.error(f"create_tables_if_not_exists - Unrecongnized error: {err}.")
-            sys.exit(1)
-
-    def create_table(self, destination_table: str, labels, table_desc: str, schema: list):
-        """Creates the table if it does not exist.
-        If it doesn't exist, create it. And if exists, returns error.
-
-        :param destination_table: dataset.table of BQ.
-        :type destination_table: str.
-        :param labels: the label of the dataset. Default None.
-        :type labels: dict.
-        :param schema: the schema of the table.
-        :type schema: list[bigquery.SchemaField].
-        """
-        destination_table_ds, destination_table_tb = destination_table.split(".")
-        destination_dataset_ref = bigquery.DatasetReference(
-            self.bq_client.project, destination_table_ds
-        )
-        destination_table_ref = destination_dataset_ref.table(destination_table_tb)
-        try:
-            table = bigquery.Table(destination_table_ref, schema=schema)
-            table.description = table_desc
-            table.labels = labels
-            table = self.bq_client.create_table(table)
-            logger.info(
-                f"Table {destination_table_ds}.{destination_table_tb}"
-                " created with specific schema."
-            )
-        except BadRequest as err:
-            logger.error(f"Bad request received {err}.")
-            sys.exit(1)
-        except AlreadyExistErr as err:
-            logger.warn(f"Already exists table: {err}.")
-        except Exception as err:
-            logger.error(f"create_table - Unrecongnized error: {err}.")
-            sys.exit(1)
-
-    def update_table(self, destination_table, description, schema):
-        """Updates the schema of an existent table.
-
-        :param destination_table: dataset.table of BQ.
-        :type destination_table: str.
-        :param description: the main description of the table.
-        :type description: str.
-        :param schema: the schema of the table.
-        :type schema: list[bigquery.SchemaField].
-        """
-        destination_table_ds, destination_table_tb = destination_table.split(".")
-        destination_dataset_ref = bigquery.DatasetReference(
-            self.bq_client.project, destination_table_ds
-        )
-        destination_table_ref = destination_dataset_ref.table(destination_table_tb)
-        try:
-            table = self.bq_client.get_table(destination_table_ref)
-            table.schema = schema
-            table.description = description
-            result = self.bq_client.update_table(table, ["description", "schema"])
-            logger.info(
-                f"Update table schema from table "
-                f"{destination_table_ds}.{destination_table_tb}. Result: {result}"
-            )
-        except BadRequest as err:
-            logger.error(f"update_table - Bad request received {err}.")
-            sys.exit(1)
-        except Exception as err:
-            logger.error(f"update_table - Unrecongnized error: {err}.")
-            sys.exit(1)
-
-    def update_table_descr(self, destination_table, description):
-        """Updates the schema of an existent table.
-
-        :param destination_table: dataset.table of BQ.
-        :type destination_table: str.
-        :param description: the main description of the table.
-        :type description: str.
-        """
-        destination_table_ds, destination_table_tb = destination_table.split(".")
-        destination_dataset_ref = bigquery.DatasetReference(
-            self.bq_client.project, destination_table_ds
-        )
-        destination_table_ref = destination_dataset_ref.table(destination_table_tb)
-        try:
-            table = self.bq_client.get_table(destination_table_ref)
-            table.description = description
-            result = self.bq_client.update_table(table, ["description"])
-            logger.info(
-                "Update table description from table "
-                f"{destination_table_ds}.{destination_table_tb}. Result: {result}"
-            )
-        except BadRequest as err:
-            logger.error(f"update_table_descr - Bad request received {err}.")
-            sys.exit(1)
-        except Exception as err:
-            logger.error(f"update_table_descr - Unrecongnized error: {err}.")
-            sys.exit(1)
-
-    def run_estimation_query(self, query, destination, labels, is_partitioned: bool = True):
-        self.run_query(query, destination, labels, True, is_partitioned)
-
-    def run_query(self, query, destination, labels, estimate=False, is_partitioned: bool = True):
-        # def run_query(self, query, destination, labels, estimate=False):
-        """Runs the query using the client.
-
-        :param query: The query.
-        :type query: str.
-        :param destination_table: dataset.table of BQ.
-        :type destination_table: str.
-        :param labels: the label of the dataset. Default None.
-        :type labels: dict.
-        :param estimate: If wants to get the estimation of the query.
-        :type estimate: bool.
-        """
-        job_config = bigquery.QueryJobConfig(
-            dry_run=estimate,
-            use_query_cache=False,
-            priority=bigquery.QueryPriority.BATCH,
-            use_legacy_sql=False,
-            write_disposition="WRITE_APPEND" if is_partitioned else "WRITE_TRUNCATE",
-            destination=destination,
-            labels=labels,
-        )
-
-        logger.info(
-            f'Execute {"estimate" if estimate else "real"} BATCH query, destination {destination}'
-        )
-        if not estimate:
-            logger.info(f"=====QUERY STARTS======\n{query}\n====QUERY ENDS====")
-        try:
-            query_job = self.bq_client.query(query, job_config=job_config)  # Make an API request.
-            logger.info(f"Job {query_job.job_id} is currently in state {query_job.state}")
-            if estimate:
-                logger.info(
-                    f"Estimation: This query will process {query_job.total_bytes_processed} bytes"
-                    f" ({query_job.total_bytes_processed/pow(1024,3)} GB)."
-                )
-            else:
-                query_job.result()  # Wait for the job to complete.
-
-        except Exception as err:
-            logger.error(f"run_query - Unknown Error has occurred {err}.")
-            sys.exit(1)
