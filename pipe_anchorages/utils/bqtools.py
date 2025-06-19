@@ -129,7 +129,7 @@ class DatePartitionedTable:
 class BigQueryHelper:
     def __init__(self, bq_client, labels):
         self.client = bq_client
-        self.labels = dict([entry.split("=") for entry in labels])
+        self.labels = labels
 
     def ensure_table_exists(self, table):
         """

@@ -120,7 +120,7 @@ Creates the visits to port table.
         bq_client=bigquery.Client(
             project=cloud_options.project,
         ),
-        labels=cloud_options.labels,
+        labels=dict([entry.split("=") for entry in cloud_options.labels],
     )
 
     bq_helper.ensure_table_exists(output_table)
