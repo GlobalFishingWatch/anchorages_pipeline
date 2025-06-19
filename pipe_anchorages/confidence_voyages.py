@@ -93,7 +93,7 @@ def run(arguments):
     template = env_j2.get_template("generate_confidence_voyages.sql.j2")
     query = template.render(
         {
-            "port_visits_table": f"{args.output}",
+            "port_visits_table": f"{args.source}",
             "min_confidence": args.min_confidence,
         }
     )
