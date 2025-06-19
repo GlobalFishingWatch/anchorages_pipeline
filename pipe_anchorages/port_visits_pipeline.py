@@ -11,7 +11,7 @@ from apache_beam.runners import PipelineState
 from pipe_anchorages import common as cmn
 from pipe_anchorages.objects.namedtuples import _datetime_to_s
 from pipe_anchorages.options.port_visits_options import PortVisitsOptions
-from pipe_anchorages.schema.port_visit import build as build_visit_schema
+from pipe_anchorages.schema.port_visit import port_visit_schema
 from pipe_anchorages.transforms.create_in_out_events import CreateInOutEvents
 from pipe_anchorages.transforms.create_port_visits import CreatePortVisits
 from pipe_anchorages.transforms.sink import VisitsSink
@@ -112,7 +112,7 @@ Creates the visits to port table.
 * Segments more than this distance apart will not be joined when creating visits: {pipe_options.max_inter_seg_dist_nm}
 * Date end: {end_date}
         """,
-        schema=build_visit_schema().fields,
+        schema=port_visit_schema["fields"],
         partitioning_field="end_timestamp",
     )
 
