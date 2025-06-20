@@ -63,9 +63,7 @@ class SmartThinRecords(beam.PTransform, InOutEventsBase):
         active_port = None
         for i, rcd in enumerate(records):
             s2id = rcd.location.S2CellId(cmn.VISITS_S2_SCALE).to_token()
-            port, dist = self._anchorage_distance(
-                rcd.location, anchorage_map.get(s2id, [])
-            )
+            port, dist = self._anchorage_distance(rcd.location, anchorage_map.get(s2id, []))
 
             rcd = VisitLocationRecord(
                 identifier=rcd.identifier,
@@ -91,10 +89,7 @@ class SmartThinRecords(beam.PTransform, InOutEventsBase):
                 # if this record is stored for other reasons
                 rcd = rcd._replace(is_possible_gap_end=True)
 
-            if (
-                last_rcd is not None
-                and rcd.timestamp - last_rcd.timestamp >= self.min_gap
-            ):
+            if last_rcd is not None and rcd.timestamp - last_rcd.timestamp >= self.min_gap:
                 # This record looks like the end of a gap based on this segment.
                 # We again, update the record here so that we don't store twice
                 # if this record is stored for other reasons

@@ -1,5 +1,5 @@
 import fiona
-from shapely.geometry import shape, mapping, Point, Polygon, MultiPolygon
+from shapely.geometry import shape, Point
 
 
 _cache = {}

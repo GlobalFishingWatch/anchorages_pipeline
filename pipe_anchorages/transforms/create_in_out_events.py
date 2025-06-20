@@ -95,9 +95,7 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
         self.stopped_end_speed = stopped_end_speed
         self.min_gap = timedelta(minutes=min_gap_minutes)
         self.end_date = end_date
-        self.last_possible_timestamp = (
-            end_date + timedelta(days=1) - timedelta(microseconds=1)
-        )
+        self.last_possible_timestamp = end_date + timedelta(days=1) - timedelta(microseconds=1)
         assert self.min_gap < timedelta(
             days=1
         ), "min gap must be under one day in current implementation"
@@ -146,17 +144,11 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
                     and rcd.is_possible_gap_end
                     and rcd.timestamp - last_timestamp >= self.min_gap
                 ):
-                    yield self._build_event(
-                        active_port_rcd, rcd, self.EVT_GAP_END, last_timestamp
-                    )
-                    yield from self._yield_gap_beg(
-                        rcd, last_timestamp, active_port_rcd
-                    )
+                    yield self._build_event(active_port_rcd, rcd, self.EVT_GAP_END, last_timestamp)
+                    yield from self._yield_gap_beg(rcd, last_timestamp, active_port_rcd)
 
             for event_type in self.transition_map[(last_state, state)]:
-                yield self._build_event(
-                    active_port_rcd, rcd, event_type, last_timestamp
-                )
+                yield self._build_event(active_port_rcd, rcd, event_type, last_timestamp)
 
             last_timestamp = rcd.timestamp
             last_state = state

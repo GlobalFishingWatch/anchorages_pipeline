@@ -1,22 +1,16 @@
 from apache_beam.io.gcp.internal.clients import bigquery
 
+
 class SchemaBuilder(object):
 
-    allowed_types = {
-        "INTEGER",
-        "FLOAT",
-        "TIMESTAMP",
-        "STRING",
-        "RECORD",
-        "DATE"
-    }
+    allowed_types = {"INTEGER", "FLOAT", "TIMESTAMP", "STRING", "RECORD", "DATE"}
 
     def __init__(self):
         self.schema = bigquery.TableSchema()
 
-    def build(self, name, schema_type, mode='REQUIRED', description=None):
+    def build(self, name, schema_type, mode="REQUIRED", description=None):
         is_record = isinstance(schema_type, (list, tuple))
-        type_name = 'RECORD' if is_record else schema_type
+        type_name = "RECORD" if is_record else schema_type
         if type_name not in self.allowed_types:
             raise ValueError('"{}" not in allowed_types'.format(type_name))
         if description is None:

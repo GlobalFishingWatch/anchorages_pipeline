@@ -1,12 +1,15 @@
-from datetime import date
 from pipe_anchorages.anchorages_pipeline import create_queries
 
+
 class DummyOptions(object):
-    def __init__(self, start_date, end_date, messages_table="SOURCE_TABLE", segments_table="SEGMENTS_TABLE_"):
+    def __init__(
+        self, start_date, end_date, messages_table="SOURCE_TABLE", segments_table="SEGMENTS_TABLE_"
+    ):
         self.start_date = start_date
         self.end_date = end_date
         self.messages_table = messages_table
         self.segments_table = segments_table
+
 
 def test_create_queries_1():
     # args = DummyOptions("2016-01-01", "2016-01-01")
@@ -15,14 +18,15 @@ def test_create_queries_1():
     #         CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
     # FROM `SOURCE_TABLE`
     # WHERE date(timestamp) BETWEEN '2016-01-01' AND '2016-01-01'
-      
+
     # """]
 
-    args=DummyOptions(
-        start_date='2012-05-01',
-        end_date='2017-05-15',
+    args = DummyOptions(
+        start_date="2012-05-01",
+        end_date="2017-05-15",
     )
-    assert create_queries(args) == ["""
+    assert create_queries(args) == [
+        """
     WITH
 
     destinations AS (
@@ -58,7 +62,8 @@ def test_create_queries_1():
     FROM positions
     JOIN destinations
     USING (seg_id, table_suffix)
-    ""","""
+    """,
+        """
     WITH
 
     destinations AS (
@@ -94,5 +99,5 @@ def test_create_queries_1():
     FROM positions
     JOIN destinations
     USING (seg_id, table_suffix)
-    """]
-
+    """,
+    ]

@@ -9,7 +9,6 @@ import logging
 
 
 # This just creates a null handler for that logger so there is no output
-logger = logging.getLogger('oauth2client.contrib.multistore_file')
+logger = logging.getLogger("oauth2client.contrib.multistore_file")
 handler = logging.NullHandler()
 logger.addHandler(handler)
-

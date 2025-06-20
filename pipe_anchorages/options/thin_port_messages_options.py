@@ -12,9 +12,7 @@ class ThinPortMessagesOptions(PipelineOptions):
         required = parser.add_argument_group("Required")
         optional = parser.add_argument_group("Optional")
 
-        required.add_argument(
-            "--anchorage_table", help="Name of of anchorages table (BQ)"
-        )
+        required.add_argument("--anchorage_table", help="Name of of anchorages table (BQ)")
         required.add_argument(
             "--input_table", required=True, help="Table to pull position messages from"
         )

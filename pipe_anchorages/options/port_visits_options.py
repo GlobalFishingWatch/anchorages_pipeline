@@ -39,9 +39,7 @@ class PortVisitsOptions(PipelineOptions):
             "--end_date", required=True, help="Last date (inclusive) to generate visits"
         )
 
-        optional.add_argument(
-            "--bad_segs", help="subquery producing segment ids of bad segments"
-        )
+        optional.add_argument("--bad_segs", help="subquery producing segment ids of bad segments")
         optional.add_argument(
             "--max_inter_seg_dist_nm",
             default=60,
