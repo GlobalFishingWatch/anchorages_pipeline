@@ -4,7 +4,7 @@ import setuptools
 
 setuptools.setup(
     name="pipe_anchorages",
-    version="4.4.0",
+    version="4.4.1",
     author="Global Fishing Watch.",
     description=("Pipe for processing anchorages and generating anchorages events."),
     long_description_content_type="text/markdown",
