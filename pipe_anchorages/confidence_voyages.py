@@ -19,6 +19,11 @@ confidence_meaning = {
     "4": "port entry and exit with stop and/or gap",
 }
 
+DROP_VOYAGES_QUERY = """
+DELETE FROM `{table_id}`
+WHERE date({partitioning_field}) >= '1970-01-01' or {partitioning_field} is null
+"""
+
 
 def run(arguments):
     parser = argparse.ArgumentParser(description="Generates the confidence voyages tables.")
@@ -86,6 +91,12 @@ def run(arguments):
         partitioning_field="trip_start",
     )
     bq_helper.ensure_table_exists(table)
+    bq_helper.run_query(
+        query=DROP_VOYAGES_QUERY.format(
+            table_id=table.table_id,
+            partitioning_field=table.partitioning_field,
+        )
+    )
     bq_helper.update_table(table)
 
     # Apply template
