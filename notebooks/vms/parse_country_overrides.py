@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # %% [markdown]
 # This script takes the country VMS anchorage lists provided by analysts (located in src/pipe_anchorages/assets/data/port_lists/vms_reviewed_anchorages_by_country) and turns them into homogenized files in the 
 
@@ -52,6 +51,46 @@ def make_overrides(df, country_name, duplicate_option = 'nothing', overwrite=Fal
             display(m)
 
 # %% [markdown]
+# # Montenegro
+
+# %%
+country_name = 'montenegro'
+df = pd.read_csv(f'{vms_anchorages_fldr}/{country_name}_vms_reviewed_anchorages.csv')
+df['s2id'] = df.apply(lambda row: s2_anchorage_style(row['latitude'], row['longitude']), axis=1)
+
+## all these anchorages turned out to be in Montenegro but I calculated it explicitly
+gdf_points = gpd.GeoDataFrame(
+    df,
+    geometry=gpd.points_from_xy(df['longitude'], df['latitude']),
+    crs="EPSG:4326"   # lat/lon WGS84
+)
+# this requires the EEZ_land_union_v4_202410 folder from marine regions
+eez = gpd.read_file("./EEZ_land_union_v4_202410/EEZ_land_union_v4_202410.shp")[["ISO_TER1", "geometry"]]
+eez = eez.rename(columns={"ISO_TER1": "iso3"})
+eez["iso3"] = eez["iso3"].replace({None: "high_seas"})
+np.unique(eez['iso3'])
+
+
+# Ensure both are in the same CRS
+gdf_points = gdf_points.to_crs(eez.crs)
+
+# Spatial join — assigns EEZ iso3 code to each point
+gdf_joined = gpd.sjoin(gdf_points, eez, how="left", op="within")
+
+# Clean up — move iso3 column into DataFrame
+df["iso3"] = gdf_joined["iso3"]
+
+df['sublabel'] = None # add sublabel column
+
+
+df = df.rename(columns={
+    "port_name":"label"
+})[["s2id", "latitude", "longitude", "label", "sublabel", "iso3"]]
+
+
+make_overrides(df,country_name,overwrite=True,display_map=display_map,duplicate_option='combine_with_ampersand')
+
+# %% [markdown]
 # # Palau
 
 # %%
@@ -67,7 +106,6 @@ df['sublabel'] = None
 df = df[["s2id", "latitude", "longitude", "label", "sublabel", "iso3"]]
 
 make_overrides(df,country_name,overwrite=False,display_map=display_map)
-
 
 # %% [markdown]
 # # Papua New Guinea
@@ -85,7 +123,6 @@ df['sublabel'] = None
 df = df[["s2id", "latitude", "longitude", "label", "sublabel", "iso3"]]
 
 make_overrides(df,country_name,overwrite=False,display_map=display_map)
-
 
 # %% [markdown]
 # # Peru
