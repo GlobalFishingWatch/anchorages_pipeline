@@ -1,0 +1,43 @@
+--
+-- add distance from shore to
+-- named anchorages
+--
+WITH add_distance_from_shore AS (
+SELECT 
+  * except(gridcode)
+FROM
+  (
+    SELECT *,
+      format("lon:%+07.2f_lat:%+07.2f", round(lon/0.01)*0.01, round(lat/0.01)*0.01) as gridcode
+    FROM `{{ named_anchorages_pre_table }}` 
+    WHERE lat is NOT NULL AND lon IS NOT NULL
+  )
+LEFT JOIN 
+  (
+    SELECT
+      gridcode,
+      distance_from_shore_m
+    FROM
+    `{{ spatial_measures_table }}`
+  )
+USING (gridcode))
+--
+-- Add dock/not-dock label
+-- Also reorder columns to match current order.
+--
+SELECT lat, lon,  total_visits, drift_radius, top_destination,  unique_stationary_ssvid,  unique_stationary_fishing_ssvid,
+unique_active_ssvid,  unique_total_ssvid, active_ssvid_days,  stationary_ssvid_days,  stationary_fishing_ssvid_days,  s2id,
+label,  sublabel, label_source, iso3, distance_from_shore_m,  dock
+ 
+FROM (
+SELECT
+*
+FROM
+add_distance_from_shore) a
+LEFT JOIN
+(SELECT
+s2id AS s2id1, 
+dock
+FROM
+`{{ anchorages_dock_label_table }}`) b
+ON a.s2id = b.s2id1
