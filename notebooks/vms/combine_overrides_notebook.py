@@ -29,7 +29,7 @@ ais_anchorages
 # ## VMS overrides
 
 # %%
-country_names = ['brazil','chile','panama','ecuador','palau','papua_new_guinea','costa_rica']
+country_names = ['montenegro','brazil','chile','panama','ecuador','palau','papua_new_guinea','costa_rica']
 override_lists = []
 for c in country_names:
     print(f"\n{c}")
