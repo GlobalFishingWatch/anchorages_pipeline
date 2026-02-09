@@ -32,7 +32,7 @@ requires-python = ">= 3.12"
 dependencies = [
   "apache-beam[gcp]~=2.69",
   "Fiona<2",
-  "gfw-common[beam]~=0.3",
+  "gfw-common[beam]~=0.2",
   "jinja2-cli~=0.8",
   "pyyaml~=6.0",
   "s2sphere~=0.2",

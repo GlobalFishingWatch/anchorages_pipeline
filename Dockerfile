@@ -47,7 +47,7 @@ ENTRYPOINT ["/opt/apache/beam/boot"]
 FROM beam AS prod
 
 COPY . /opt/project
-RUN pip install . && \
+RUN pip install --no-deps . && \
     rm -rf /root/.cache/pip && \
     rm -rf /opt/project/*
 
@@ -57,7 +57,7 @@ RUN pip install . && \
 FROM beam AS dev
 
 COPY . /opt/project
-RUN pip install -e .[lint,test,dev,build]
+RUN pip install --no-deps -e .[lint,test,dev,build]
 
 # ---------------------------------------------------------------------------------------
 # TEST IMAGE (This checks that package is properly installed in prod image)
