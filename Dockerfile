@@ -28,7 +28,7 @@ WORKDIR /opt/project
 # from cache and only the layer installing the package executes again.
 FROM base AS deps
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install -r requirements.txt setuptools wheel build
 
 # ---------------------------------------------------------------------------------------
 # Apache Beam integration IMAGE
