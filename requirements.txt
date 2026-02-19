@@ -495,7 +495,7 @@ unidecode==1.4.0
     # via pipe-anchorages (setup.py)
 uritemplate==4.2.0
     # via google-api-python-client
-urllib3==2.5.0
+urllib3==2.6.3
     # via requests
 websockets==15.0.1
     # via google-genai
