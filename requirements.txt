@@ -143,7 +143,7 @@ google-auth-httplib2==0.2.1
     #   apache-beam
     #   google-api-python-client
     #   google-cloud-profiler
-google-cloud-aiplatform==1.129.0
+google-cloud-aiplatform==1.133.0
     # via apache-beam
 google-cloud-bigquery==3.38.0
     # via
