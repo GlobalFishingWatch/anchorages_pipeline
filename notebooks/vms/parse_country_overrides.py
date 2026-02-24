@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # %% [markdown]
 # This script takes the country VMS anchorage lists provided by analysts (located in src/pipe_anchorages/assets/data/port_lists/vms_reviewed_anchorages_by_country) and turns them into homogenized files in the 
 
@@ -23,11 +24,15 @@ PORT_LIST_FLDR = '../../src/pipe_anchorages/assets/data/port_lists'
 display_map = False
 
 # %%
-def make_overrides(df, country_name, duplicate_option = 'nothing', overwrite=False, display_map=False,):
+def make_overrides(df, country_name, duplicate_option = 'nothing', overwrite=False, display_map=False,vms_prefix = True):
     print(f'Getting overrides for {country_name}...')
-    overrides_file = f'{PORT_LIST_FLDR}/{country_name}_vms_overrides.csv'
-    map_file = f"{FIG_FLDR}/vms_overrides_map_{country_name}.html"
-    
+    if vms_prefix:
+        overrides_file = f'{PORT_LIST_FLDR}/{country_name}_vms_overrides.csv'
+        map_file = f"{FIG_FLDR}/vms_overrides_map_{country_name}.html"
+    else:
+        overrides_file = f'{PORT_LIST_FLDR}/{country_name}_overrides.csv'
+        map_file = f"{FIG_FLDR}/overrides_map_{country_name}.html"
+
     df = clean_overrides(df,duplicate_option=duplicate_option)
 
     save_files = overwrite or (not os.path.exists(overrides_file))
@@ -40,7 +45,10 @@ def make_overrides(df, country_name, duplicate_option = 'nothing', overwrite=Fal
 
 
     if save_files or display_map:
-        df['source'] = f'{country_name}_vms_overrides'
+        if vms_prefix:
+            df['source'] = f'{country_name}_vms_overrides'
+        else:
+            df['source'] = f'{country_name}_overrides'
         m = map_s2_anchorages(df, show_labels=False, fit_bounds=True)
 
         if save_files:
@@ -49,6 +57,40 @@ def make_overrides(df, country_name, duplicate_option = 'nothing', overwrite=Fal
 
         if display_map:
             display(m)
+
+# %% [markdown]
+# # Vietnam
+# note - not technically "VMS" anchorages since they were added by Dhiya and Rollan ahead of the September 2026 long train release but I'm running them through this process since it's what needs to happen anyway
+
+# %%
+country_name = 'vietnam'
+df = pd.read_csv(f'{vms_anchorages_fldr}/{country_name}_reviewed_anchorages.csv')
+
+df = df.rename(columns={
+    "lat": "latitude",
+    "lon": "longitude"
+})
+
+mask = df['latitude'] > 40
+df.loc[mask, ['latitude', 'longitude']] = (
+    df.loc[mask, ['longitude', 'latitude']].to_numpy()
+)
+
+df['s2id'] = df.apply(lambda row: s2_anchorage_style(row['latitude'], row['longitude']), axis=1)
+
+# if duplicate s2ids, drop any rows where label starts with "vnm_" (meaning it was not hand-labeled)
+# Find all rows that have duplicate s2id (including both copies)
+dup_mask = df.duplicated('s2id', keep=False)
+# Among those duplicate groups, mark rows to drop
+drop_mask = dup_mask & df['label'].str.startswith('vnm_', na=False)
+# Drop them
+df = df[~drop_mask].copy().reset_index(drop=True)
+
+
+
+df["sublabel"] = None
+df = df[["s2id","latitude","longitude","label","sublabel","iso3"]]
+make_overrides(df,country_name,overwrite=True,display_map=True,duplicate_option='combine_with_ampersand',vms_prefix=False)
 
 # %% [markdown]
 # # Montenegro

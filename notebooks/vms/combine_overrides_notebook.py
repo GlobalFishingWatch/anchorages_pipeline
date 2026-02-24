@@ -38,6 +38,13 @@ for c in country_names:
     df = clean_overrides(df)
     override_lists.append(df)
 
+c = 'vietnam'
+print(f"\n{c}")
+df = pd.read_csv(f'{port_list_fldr}/{c}_overrides.csv')
+df['source'] = f'{c}_overrides'
+df = clean_overrides(df)
+override_lists.append(df)
+
 # %% [markdown]
 # ## Merge
 
