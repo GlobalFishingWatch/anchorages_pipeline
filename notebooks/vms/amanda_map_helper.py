@@ -1,5 +1,9 @@
-# -*- coding: utf-8 -*-
-# %%
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[ ]:
+
+
 def geojson_bbox_to_bbox(geojson_coords):
     """
     Convert GeoJSON polygon coordinates into bounding box values.
@@ -24,7 +28,9 @@ def geojson_bbox_to_bbox(geojson_coords):
     }
 
 
-# %%
+# In[ ]:
+
+
 from s2sphere import CellId, LatLng
 def s2_anchorage_style(lat: float, lon: float) -> str:
     # Build the level-14 S2 cell containing this point and return the first 8 hex digits as a string
@@ -33,7 +39,9 @@ def s2_anchorage_style(lat: float, lon: float) -> str:
     return f"{cid.id():016x}"[:8]
 
 
-# %%
+# In[ ]:
+
+
 import geopandas as gpd
 import contextily as ctx
 import matplotlib.pyplot as plt
@@ -46,10 +54,15 @@ def s2id_to_latlon(s2id):
     return latlng.lat().degrees, latlng.lng().degrees
 
 
-# %%
+# In[ ]:
 
 
-# %%
+
+
+
+# In[ ]:
+
+
 def static_point_map(df, lat_col = None, lon_col = None, label='Points', title=''):
     possible_lat_cols = ['lat', 'latitude']
     possible_lon_cols = ['lon', 'longitude']
@@ -109,3 +122,4 @@ def static_point_map(df, lat_col = None, lon_col = None, label='Points', title='
     plt.show()
 
     return
+
