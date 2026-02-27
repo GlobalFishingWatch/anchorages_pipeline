@@ -1,9 +1,0 @@
-
-label_distance_km: 4.0
-sublabel_distance_km: 1.0
-override_path: combined_anchorage_overrides.csv
-port_list_paths:
-    - peru.csv
-    - indonesia.csv
-    - WPI_ports.csv
-    - geonames_1000.csv

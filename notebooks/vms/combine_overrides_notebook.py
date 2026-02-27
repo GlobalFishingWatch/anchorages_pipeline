@@ -29,7 +29,7 @@ ais_anchorages
 # ## VMS overrides
 
 # %%
-country_names = ['montenegro','brazil','chile','panama','ecuador','palau','papua_new_guinea','costa_rica']
+country_names = ['montenegro','brazil','chile','panama','ecuador','peru','palau','papua_new_guinea','costa_rica']
 override_lists = []
 for c in country_names:
     print(f"\n{c}")
@@ -62,7 +62,7 @@ if country_dupes > 0:
 else:
     print("No S2 cells were present in 2 or more country lists")
 
-combined_anchorages = pd.concat([combined_anchorages,ais_anchorages])
+combined_anchorages = pd.concat([ais_anchorages,combined_anchorages])
 old_len = len(combined_anchorages)
 combined_anchorages = combined_anchorages.drop_duplicates(subset='s2id', keep='last').reset_index(drop=True)
 print(f"Dropped {old_len - len(combined_anchorages)} s2ids from AIS overrides list that were duplicated in the country-reviewed lists")
@@ -77,5 +77,5 @@ combined_anchorages
 # %%
 combined_to_save = combined_anchorages.drop(columns=['source'])
 
-combined_to_save.to_csv(f'{port_list_fldr}/combined_anchorage_overrides.csv',index=False)
+combined_to_save.to_csv(f'{port_list_fldr}/anchorage_overrides.csv',index=False)
 combined_to_save

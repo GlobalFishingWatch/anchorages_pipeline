@@ -172,7 +172,8 @@ make_overrides(df,country_name,overwrite=False,display_map=display_map)
 # %%
 country_name = 'peru'
 
-df = gpd.read_file(f"{vms_anchorages_fldr}/peru_vms_anchorages_s2id_rev_01.geojson")
+df = gpd.read_file(f"{vms_anchorages_fldr}/{country_name}_vms_reviewed_anchorages.geojson")
+df = pd.DataFrame(df)
 df = pd.DataFrame(df)
 df['s2id'] = df.apply(lambda row: s2_anchorage_style(row['lat'], row['lon']), axis=1)
 df['iso3'] = 'PER'

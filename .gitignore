@@ -4,7 +4,7 @@ untracked/
 fishing_list.txt
 notebooks/vms/EEZ_land_union_v4_202410
 notebooks/vms/figures
-
+*.ipynb
 
 .DS_Store
 
