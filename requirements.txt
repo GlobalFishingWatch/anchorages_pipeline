@@ -379,7 +379,7 @@ pyarrow==18.1.0
     # via apache-beam
 pyarrow-hotfix==0.7
     # via apache-beam
-pyasn1==0.6.1
+pyasn1==0.6.2
     # via
     #   oauth2client
     #   pyasn1-modules
