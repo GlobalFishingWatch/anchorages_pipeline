@@ -8,6 +8,20 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ## [Unreleased]
 
+### Fixed
+
+* [PIPELINE-1465](https://globalfishingwatch.atlassian.net/browse/PIPELINE-1465): Fixes
+  `PORT_GAP_BEGIN` events being tagged with the post-gap anchorage instead of
+  the pre-gap one. When a vessel went silent at one anchorage and reappeared at
+  another, port visits whose first event was `PORT_GAP_BEGIN` were assigned the
+  resuming anchorage's location while keeping a `start_timestamp` of
+  `last_in_port_ts + min_gap` -- describing the visit at a location the vessel
+  had not yet reached. The gap-pair emission now snapshots `active_port_rcd`
+  before the per-iteration update so `PORT_GAP_BEGIN` is anchored to where the
+  vessel was last seen, while `PORT_GAP_END` continues to reflect where it
+  reappeared. Affects confidence-2 and confidence-3 visits that begin with
+  `PORT_GAP_BEGIN`.
+
 ## v3.4.0 - 2023-08-02
 
 ### Added

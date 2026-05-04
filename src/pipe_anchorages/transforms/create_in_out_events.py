@@ -134,6 +134,10 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
         last_timestamp = None
         for rcd in records:
             is_in_port = self._is_in_port(last_state, rcd.port_dist)
+            # The pre-update active_port_rcd anchors PORT_GAP_BEGIN to where
+            # the vessel was last seen in port. The post-update one anchors
+            # PORT_GAP_END to where the vessel reappeared.
+            prev_active_port_rcd = active_port_rcd
             active_port_rcd = rcd if is_in_port else active_port_rcd
             is_stopped = self._is_stopped(last_state, rcd.speed)
             state = self._compute_state(is_in_port, is_stopped)
@@ -145,7 +149,7 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
                     and rcd.timestamp - last_timestamp >= self.min_gap
                 ):
                     yield self._build_event(active_port_rcd, rcd, self.EVT_GAP_END, last_timestamp)
-                    yield from self._yield_gap_beg(rcd, last_timestamp, active_port_rcd)
+                    yield from self._yield_gap_beg(rcd, last_timestamp, prev_active_port_rcd)
 
             for event_type in self.transition_map[(last_state, state)]:
                 yield self._build_event(active_port_rcd, rcd, event_type, last_timestamp)
