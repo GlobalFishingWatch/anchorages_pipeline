@@ -8,6 +8,8 @@ Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to
 
 ## [Unreleased]
 
+## v4.6.5 - 2026-05-04
+
 ### Fixed
 
 * [PIPELINE-1465](https://globalfishingwatch.atlassian.net/browse/PIPELINE-1465): Fixes
