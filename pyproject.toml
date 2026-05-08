@@ -15,7 +15,7 @@ namespaces = false
 
 [project]
 name = "pipe-anchorages"
-version = "4.6.4"
+version = "4.6.5"
 description = "Tools for finding anchorages and associated port-visit events."
 readme = "README.md"
 license = { text = "Apache-2.0" }
