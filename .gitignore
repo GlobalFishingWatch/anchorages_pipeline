@@ -2,8 +2,8 @@ scratch/
 untracked/
 .pytest_cache/
 fishing_list.txt
-notebooks/vms/EEZ_land_union_v4_202410
-notebooks/vms/figures
+notebooks/anchorages_update/EEZ_land_union_v4_202410
+notebooks/anchorages_update/figures
 *.ipynb
 
 .DS_Store
