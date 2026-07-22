@@ -1,4 +1,9 @@
-# %%
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[ ]:
+
+
 from amanda_notebook_bq_helper import *
 import numpy as np
 import pandas as pd
@@ -13,22 +18,24 @@ fig_fldr = './figures'
 port_list_fldr = '../../src/pipe_anchorages/assets/data/port_lists'
 
 
-# %% [markdown]
 # # Merge anchorages_overrides with the vms country overrides
 
-# %% [markdown]
 # ## Read AIS anchorage overrides
 
-# %%
+# In[ ]:
+
+
 ais_anchorages = pd.read_csv(f'{port_list_fldr}/anchorage_overrides.csv')
 ais_anchorages['source'] = 'ais_anchorage_overrides'
 ais_anchorages = clean_overrides(ais_anchorages,duplicate_option='keep_last')
 ais_anchorages
 
-# %% [markdown]
+
 # ## VMS overrides
 
-# %%
+# In[ ]:
+
+
 country_names = ['montenegro','brazil','chile','panama','ecuador','peru','palau','papua_new_guinea','costa_rica']
 override_lists = []
 for c in country_names:
@@ -45,10 +52,12 @@ df['source'] = f'{c}_overrides'
 df = clean_overrides(df)
 override_lists.append(df)
 
-# %% [markdown]
+
 # ## Merge
 
-# %%
+# In[ ]:
+
+
 combined_anchorages = override_lists[0]
 for o in override_lists[1:]:
     combined_anchorages = pd.concat([combined_anchorages,o])
@@ -71,11 +80,18 @@ if country_dupes > 0:
     print('Country duplicates:')
     duplicates
 
-# %%
+
+# In[ ]:
+
+
 combined_anchorages
 
-# %%
+
+# In[ ]:
+
+
 combined_to_save = combined_anchorages.drop(columns=['source'])
 
 combined_to_save.to_csv(f'{port_list_fldr}/anchorage_overrides.csv',index=False)
 combined_to_save
+

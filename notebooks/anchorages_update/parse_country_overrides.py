@@ -1,8 +1,11 @@
-# -*- coding: utf-8 -*-
-# %% [markdown]
+#!/usr/bin/env python
+# coding: utf-8
+
 # This script takes the country VMS anchorage lists provided by analysts (located in src/pipe_anchorages/assets/data/port_lists/vms_reviewed_anchorages_by_country) and turns them into homogenized files in the 
 
-# %%
+# In[ ]:
+
+
 from amanda_notebook_bq_helper import *
 import numpy as np
 import pandas as pd
@@ -23,7 +26,10 @@ PORT_LIST_FLDR = '../../src/pipe_anchorages/assets/data/port_lists'
 
 display_map = False
 
-# %%
+
+# In[ ]:
+
+
 def make_overrides(df, country_name, duplicate_option = 'nothing', overwrite=False, display_map=False,vms_prefix = True):
     print(f'Getting overrides for {country_name}...')
     if vms_prefix:
@@ -58,11 +64,13 @@ def make_overrides(df, country_name, duplicate_option = 'nothing', overwrite=Fal
         if display_map:
             display(m)
 
-# %% [markdown]
+
 # # Vietnam
 # note - not technically "VMS" anchorages since they were added by Dhiya and Rollan ahead of the September 2026 long train release but I'm running them through this process since it's what needs to happen anyway
 
-# %%
+# In[ ]:
+
+
 country_name = 'vietnam'
 df = pd.read_csv(f'{vms_anchorages_fldr}/{country_name}_reviewed_anchorages.csv')
 
@@ -92,10 +100,12 @@ df["sublabel"] = None
 df = df[["s2id","latitude","longitude","label","sublabel","iso3"]]
 make_overrides(df,country_name,overwrite=True,display_map=True,duplicate_option='combine_with_ampersand',vms_prefix=False)
 
-# %% [markdown]
+
 # # Montenegro
 
-# %%
+# In[ ]:
+
+
 country_name = 'montenegro'
 df = pd.read_csv(f'{vms_anchorages_fldr}/{country_name}_vms_reviewed_anchorages.csv')
 df['s2id'] = df.apply(lambda row: s2_anchorage_style(row['latitude'], row['longitude']), axis=1)
@@ -132,10 +142,12 @@ df = df.rename(columns={
 
 make_overrides(df,country_name,overwrite=True,display_map=display_map,duplicate_option='combine_with_ampersand')
 
-# %% [markdown]
+
 # # Palau
 
-# %%
+# In[ ]:
+
+
 country_name = 'palau'
 df = pd.read_csv(f'{vms_anchorages_fldr}/{country_name}_vms_reviewed_anchorages.csv')
 df = df.rename(columns={
@@ -149,10 +161,12 @@ df = df[["s2id", "latitude", "longitude", "label", "sublabel", "iso3"]]
 
 make_overrides(df,country_name,overwrite=False,display_map=display_map)
 
-# %% [markdown]
+
 # # Papua New Guinea
 
-# %%
+# In[ ]:
+
+
 country_name = 'papua_new_guinea'
 df = pd.read_csv(f'{vms_anchorages_fldr}/{country_name}_vms_reviewed_anchorages.csv')
 df = df.rename(columns={
@@ -166,10 +180,12 @@ df = df[["s2id", "latitude", "longitude", "label", "sublabel", "iso3"]]
 
 make_overrides(df,country_name,overwrite=False,display_map=display_map)
 
-# %% [markdown]
+
 # # Peru
 
-# %%
+# In[ ]:
+
+
 country_name = 'peru'
 
 df = gpd.read_file(f"{vms_anchorages_fldr}/{country_name}_vms_reviewed_anchorages.geojson")
@@ -185,13 +201,14 @@ df = df.rename(columns={
 
 make_overrides(df,country_name,overwrite=True,display_map=display_map,duplicate_option='keep_last')
 
-# %% [markdown]
+
 # # Brazil
 
-# %% [markdown]
 # ### duplicate map
 
-# %%
+# In[ ]:
+
+
 # # create map showing duplicated anchorages for brazil
 
 # country_name = 'brazil'
@@ -216,10 +233,12 @@ make_overrides(df,country_name,overwrite=True,display_map=display_map,duplicate_
 # m.save(f"{fig_fldr}/vms_overrides_duplicates_map_{country_name}_20251110.html")
 # m
 
-# %% [markdown]
+
 # ### deduplicated
 
-# %%
+# In[ ]:
+
+
 country_name = 'brazil'
 df = pd.read_csv(f'{vms_anchorages_fldr}/{country_name}_vms_reviewed_anchorages.csv')
 sao_jose_s2ids = ['9511839d','95118377','95118371']
@@ -247,10 +266,12 @@ df = df[
 df['sublabel'] = None # clear sublabels
 make_overrides(df,country_name,overwrite=True,display_map=display_map,duplicate_option='keep_last')
 
-# %% [markdown]
+
 # # Chile
 
-# %%
+# In[ ]:
+
+
 # ran once to swap the labels and sublabels to align with the other overrides where label is the most specific and sublabel is the larger region
 # chl_anchorages = pd.read_csv('../../pipe_anchorages/data/port_lists/chile_overrides.csv')
 
@@ -260,16 +281,21 @@ make_overrides(df,country_name,overwrite=True,display_map=display_map,duplicate_
 # )
 # chl_anchorages.to_csv('../../pipe_anchorages/data/port_lists/chile_overrides.csv', index = False)
 
-# %%
+
+# In[ ]:
+
+
 country_name = 'chile'
 df = pd.read_csv(f'{vms_anchorages_fldr}/{country_name}_vms_reviewed_anchorages.csv')
 df['sublabel'] = None # clear sublabels
 make_overrides(df,country_name,overwrite=True,display_map=display_map,duplicate_option='combine_with_ampersand')
 
-# %% [markdown]
+
 # # Panama
 
-# %%
+# In[ ]:
+
+
 country_name = 'panama'
 
 df = gpd.read_file(f"{vms_anchorages_fldr}/{country_name}_vms_reviewed_anchorages.geojson")
@@ -285,10 +311,12 @@ df['sublabel'] = None # clear sublabels
 
 make_overrides(df,country_name,overwrite=True,display_map=display_map,duplicate_option='combine_with_ampersand')
 
-# %% [markdown]
+
 # # Ecuador
 
-# %%
+# In[ ]:
+
+
 country_name = 'ecuador'
 df = gpd.read_file(f"{vms_anchorages_fldr}/{country_name}_vms_reviewed_anchorages.geojson")
 df = pd.DataFrame(df)
@@ -303,10 +331,12 @@ df['sublabel'] = None # clear sublabels
 
 make_overrides(df,country_name,overwrite=True,display_map=True,duplicate_option='combine_with_ampersand')
 
-# %% [markdown]
+
 # # Costa Rica
 
-# %%
+# In[ ]:
+
+
 country_name = 'costa_rica'
 df = gpd.read_file(f"{vms_anchorages_fldr}/{country_name}_vms_reviewed_anchorages.geojson")
 df = pd.DataFrame(df)
@@ -343,5 +373,4 @@ df = df.rename(columns={
 df['sublabel'] = None # clear sublabels
 
 make_overrides(df,country_name,overwrite=True,display_map=True,duplicate_option='combine_with_ampersand')
-
 

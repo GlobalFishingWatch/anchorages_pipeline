@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[2]:
 
 
 from amanda_notebook_bq_helper import *
@@ -56,7 +56,7 @@ plt.xlim([0, 180])
 plt.ylim([-10, 10])
 
 
-# In[17]:
+# In[ ]:
 
 
 s2id_to_latlon('8efe7543')
