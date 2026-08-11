@@ -52,9 +52,9 @@ class CreatePortVisits(beam.PTransform):
         return events
 
     def create_visit(self, id_, visit_events):
-        ssvid, vessel_id = id_
+        ssvid, entity_id = id_
         raw_visit_id = "{}-{}-{}-{}".format(
-            vessel_id,
+            entity_id,
             visit_events[0].timestamp.isoformat(),
             visit_events[0].lon,
             visit_events[0].lat,
@@ -65,7 +65,7 @@ class CreatePortVisits(beam.PTransform):
         return PortVisit(
             visit_id=hashlib.md5(six.ensure_binary(raw_visit_id)).hexdigest(),
             ssvid=str(ssvid),
-            vessel_id=str(vessel_id),
+            entity_id=str(entity_id),
             start_timestamp=visit_events[0].timestamp,
             start_lat=visit_events[0].lat,
             start_lon=visit_events[0].lon,
@@ -100,7 +100,7 @@ class CreatePortVisits(beam.PTransform):
         grouping_id, events = tagged_events
         if not len(events):
             return
-        id_ = events[0].ssvid, events[0].vessel_id
+        id_ = events[0].ssvid, events[0].entity_id
         # Sort events by timestamp, and also so that enter, stop, start,
         # exit are in the correct order.
         tagged = [(x.timestamp, self.TYPE_ORDER[x.event_type], x) for x in events]

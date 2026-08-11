@@ -6,7 +6,7 @@ PortVisit = namedtuple(
     [
         "visit_id",
         "ssvid",
-        "vessel_id",
+        "entity_id",
         "start_timestamp",
         "start_lat",
         "start_lon",

@@ -7,10 +7,10 @@ port_visit_schema = {
             "description": "Unique ID for this visit"
         },
         {
-            "name": "vessel_id",
+            "name": "entity_id",
             "mode": "NULLABLE",
             "type": "STRING",
-            "description": "`vessel_id` of the track this visit was found on"
+            "description": "`entity_id` of the track this visit was found on"
         },
         {
             "name": "ssvid",

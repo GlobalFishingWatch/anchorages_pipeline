@@ -23,13 +23,22 @@ from pipe_anchorages.utils.ver import get_pipe_ver
 
 def create_queries(args, start_date, end_date):
     template = """
+
+    with entity_seg as (
+        select
+            ssvid,
+            entity_id, 
+            seg_id
+        from `{vid_table}`, unnest(seg_ids)
+    )
+
     SELECT vids.ssvid,
-           vids.vessel_id,
+           vids.entity_id,
            vids.seg_id,
            records.* except (timestamp, identifier),
            CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
     FROM `{table}` records
-    JOIN `{vid_table}` vids
+    JOIN entity_seg vids
     ON records.identifier = vids.seg_id
     WHERE DATE(timestamp) BETWEEN '{start}' AND '{end}'
      {condition}
@@ -61,13 +70,13 @@ def from_msg(x):
     )
     ssvid = x_new.pop("ssvid")
     seg_id = x_new.pop("seg_id")
-    vessel_id = x_new.pop("vessel_id")
-    ident = (ssvid, vessel_id, seg_id)
+    entity_id = x_new.pop("entity_id")
+    ident = (ssvid, entity_id, seg_id)
     loc = cmn.LatLon(x_new.pop("lat"), x_new.pop("lon"))
     port_dist = x_new.pop("port_dist")
     if port_dist is None:
         port_dist = math.inf
-    return vessel_id, VisitLocationRecord(
+    return entity_id, VisitLocationRecord(
         identifier=ident, location=loc, port_dist=port_dist, **x_new
     )
 
@@ -75,7 +84,7 @@ def from_msg(x):
 def event_to_msg(x):
     x = x._asdict()
     x["timestamp"] = _datetime_to_s(x["timestamp"])
-    x.pop("vessel_id")
+    x.pop("entity_id")
     x.pop("last_timestamp")
     x.pop("ssvid")
     return x

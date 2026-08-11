@@ -101,7 +101,7 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
         ), "min gap must be under one day in current implementation"
 
     def _build_event(self, active_port_rcd, rcd, event_type, last_timestamp):
-        ssvid, vessel_id, seg_id = rcd.identifier
+        ssvid, entity_id, seg_id = rcd.identifier
         return VisitEvent(
             anchorage_id=active_port_rcd.port_s2id,
             lat=active_port_rcd.port_lat,
@@ -110,7 +110,7 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
             vessel_lon=rcd.location.lon,
             ssvid=ssvid,
             seg_id=seg_id,
-            vessel_id=vessel_id,
+            entity_id=entity_id,
             timestamp=rcd.timestamp,
             event_type=event_type,
             last_timestamp=last_timestamp,

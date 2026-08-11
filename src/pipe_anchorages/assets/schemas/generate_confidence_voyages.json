@@ -29,7 +29,7 @@
     "type": "STRING",
     "description": "The id of the anchorage where the voyage ends."
   },
-    {
+  {
     "mode": "NULLABLE",
     "name": "trip_start_visit_id",
     "type": "STRING",
@@ -41,7 +41,7 @@
     "type": "STRING",
     "description": "The id of the visit where the voyage ends."
   },
-    {
+  {
     "mode": "NULLABLE",
     "name": "trip_start_confidence",
     "type": "INTEGER",
@@ -61,8 +61,8 @@
   },
   {
     "mode": "NULLABLE",
-    "name": "vessel_id",
+    "name": "entity_id",
     "type": "STRING",
-    "description": "Vessel-id for this Trip."
+    "description": "Entity-id for this Trip."
   }
 ]
