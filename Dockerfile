@@ -28,7 +28,12 @@ WORKDIR /opt/project
 # from cache and only the layer installing the package executes again.
 FROM base AS deps
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+# setuptools + build are required by Apache Beam's Dataflow launcher: it packages
+# --setup_file into an sdist (via `python -m build`, falling back to
+# `setup.py sdist`) before staging. The base slim image ships neither, and the
+# project below is installed with --no-deps, so install them explicitly here.
+RUN pip install -r requirements.txt && \
+    pip install setuptools build
 
 # ---------------------------------------------------------------------------------------
 # Apache Beam integration IMAGE

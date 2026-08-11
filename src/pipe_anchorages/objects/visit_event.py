@@ -12,7 +12,7 @@ VisitEvent = namedtuple(
         "vessel_lon",
         "ssvid",
         "seg_id",
-        "vessel_id",
+        "entity_id",
         "timestamp",
         "event_type",
         "last_timestamp",
