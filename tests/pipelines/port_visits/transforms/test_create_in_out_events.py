@@ -8,14 +8,16 @@ from pipe_anchorages.pipelines.port_visits.transforms.create_in_out_events impor
     CreateInOutEvents,
 )
 
-from .factories import PORT_LAT, PORT_LON, T0, at, record
+from .factories import PORT_LAT, PORT_LON, at, record
+
+END_OF_DAY = 24 * 60
 
 AT_SEA = dict(port_dist=10.0, speed=10.0)
 IN_PORT = dict(port_dist=1.0, speed=5.0)
 STOPPED = dict(port_dist=1.0, speed=0.0)
 
 
-def create(min_gap_minutes=60, end_time=T0):
+def create(min_gap_minutes=60, end_time=at(END_OF_DAY)):
     return CreateInOutEvents(
         anchorage_entry_dist=3.0,
         anchorage_exit_dist=4.0,
@@ -123,19 +125,28 @@ def test_no_gap_events_without_a_possible_gap_end_or_a_long_enough_gap(
 def test_a_vessel_still_in_port_at_the_end_of_the_range_gets_a_gap_begin():
     records = [record(0, **AT_SEA), record(10, **IN_PORT)]
 
-    assert events_of(records, min_gap_minutes=60, end_time=T0) == [
+    assert events_of(records, min_gap_minutes=60, end_time=at(END_OF_DAY)) == [
         ("PORT_ENTRY", at(10)),
         ("PORT_GAP_BEGIN", at(70)),
     ]
 
 
 def test_no_gap_begin_when_the_last_record_is_within_min_gap_of_the_range_end():
-    end_of_day = 24 * 60
-    records = [record(end_of_day - 20, **AT_SEA), record(end_of_day - 10, **IN_PORT)]
+    records = [record(END_OF_DAY - 20, **AT_SEA), record(END_OF_DAY - 10, **IN_PORT)]
 
-    assert events_of(records, min_gap_minutes=60, end_time=T0) == [
-        ("PORT_ENTRY", at(end_of_day - 10)),
+    assert events_of(records, min_gap_minutes=60, end_time=at(END_OF_DAY)) == [
+        ("PORT_ENTRY", at(END_OF_DAY - 10)),
     ]
+
+
+@pytest.mark.parametrize("minutes_before_end, gap_begin", [(61, True), (60, False)])
+def test_the_range_ends_just_before_the_exclusive_end_time(minutes_before_end, gap_begin):
+    last = END_OF_DAY - minutes_before_end
+    records = [record(last - 10, **AT_SEA), record(last, **IN_PORT)]
+
+    types = [t for t, _ in events_of(records, min_gap_minutes=60, end_time=at(END_OF_DAY))]
+
+    assert ("PORT_GAP_BEGIN" in types) is gap_begin
 
 
 def test_events_are_located_at_the_last_anchorage_the_vessel_was_in_port_at():

@@ -23,7 +23,7 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
     record that may end a gap emits PORT_GAP_END at that record and PORT_GAP_BEGIN at
     `min_gap_minutes` after the previous one. A vessel still in port at the end of the
     range, with no record for at least `min_gap_minutes` before the range's last
-    possible timestamp (the end of `end_time`'s day), gets a PORT_GAP_BEGIN.
+    possible timestamp (just before the exclusive `end_time`), gets a PORT_GAP_BEGIN.
 
     Every event is located at the last anchorage the vessel was in port at.
     """
@@ -44,7 +44,7 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
         self.stopped_end_speed = stopped_end_speed
         self.min_gap = timedelta(minutes=min_gap_minutes)
         self.end_time = end_time
-        self.last_possible_timestamp = end_time + timedelta(days=1) - timedelta(microseconds=1)
+        self.last_possible_timestamp = end_time - timedelta(microseconds=1)
         assert self.min_gap < timedelta(
             days=1
         ), "min gap must be under one day in current implementation"

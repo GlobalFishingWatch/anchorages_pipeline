@@ -105,7 +105,7 @@ def test_detect_port_visits_turns_rows_into_visit_rows(pipeline):
             starting_speed_knots=0.5,
             min_anchorage_gap_minutes=60,
             max_inter_seg_dist_nm=60.0,
-            end_time=T0,
+            end_time=at(24 * 60),
         )
         summary = visits | beam.Map(
             lambda v: (v["vessel_id"], v["confidence"], [e["event_type"] for e in v["events"]])
