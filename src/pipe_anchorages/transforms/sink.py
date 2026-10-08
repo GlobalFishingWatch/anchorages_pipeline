@@ -4,7 +4,6 @@ from pipe_anchorages.core.namedtuples import epoch
 from pipe_anchorages.schema.message_schema import message_schema
 from pipe_anchorages.schema.named_anchorage import build as build_named_anchorage_schema
 from pipe_anchorages.utils.ver import get_pipe_ver
-from pipe_anchorages.schema.port_visit import port_visit_schema
 
 
 def cloud_to_labels(ll): return {x.split("=")[0]: x.split("=")[1] for x in ll}
@@ -104,18 +103,4 @@ Creates the named anchorage table.
                     },
                 },
             )
-        )
-
-
-class VisitsSink(PTransform):
-    def __init__(self, table, key="end_timestamp"):
-        self.table = table
-        self.key = key
-
-    def expand(self, xs):
-        return xs | io.WriteToBigQuery(
-            table=self.table,
-            schema=port_visit_schema,
-            write_disposition=io.BigQueryDisposition.WRITE_TRUNCATE,
-            create_disposition=io.BigQueryDisposition.CREATE_NEVER,
         )

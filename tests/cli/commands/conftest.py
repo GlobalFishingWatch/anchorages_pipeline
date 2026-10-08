@@ -9,8 +9,8 @@ class _StopAfterPipelineInit(Exception):
 def capture_pipeline_init(mocker):
     """Runs a Beam pipeline's run() only up to its Pipeline(...) call, and returns that mock.
 
-    TEMPORARY: the legacy Beam pipelines (anchorages, name_anchorages, thin_port_messages,
-    port_visits) build their DAG inline in run(), with no way to inject fake sources/sinks.
+    TEMPORARY: the legacy Beam pipelines (name_anchorages, thin_port_messages) build their
+    DAG inline in run(), with no way to inject fake sources/sinks.
     Patching Pipeline alone isn't enough: the DAG then gets built against a Mock, and once a
     plain list of those Mocks is piped into e.g. beam.Flatten(), Beam wraps it in an implicit
     pipeline of its own and actually runs it on the local runner (Prism) -- spinning up a real

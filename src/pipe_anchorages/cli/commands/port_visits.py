@@ -3,8 +3,8 @@ from types import SimpleNamespace
 
 from gfw.common.cli import Command, Option
 
-from pipe_anchorages import port_visits_pipeline
 from pipe_anchorages.cli.commands.port_state_transitions import PortStateTransitions
+from pipe_anchorages.pipelines.port_visits.main import run
 
 
 DESCRIPTION = """\
@@ -25,7 +25,6 @@ HELP_BAD_SEGS = "Subquery producing segment ids of bad segments to exclude."
 HELP_INTERSEG_DIST = (
     "Segments more than this distance apart will not be joined when creating visits."
 )
-HELP_WAIT_FOR_JOB = "Wait until the job finishes before returning."
 
 
 class PortVisits(Command):
@@ -48,10 +47,14 @@ class PortVisits(Command):
             Option("--end-date", type=str, required=True, help=HELP_END_DATE),
             Option("--bad-segs", type=str, help=HELP_BAD_SEGS),
             Option("--max-inter-seg-dist-nm", type=float, default=60.0, help=HELP_INTERSEG_DIST),
-            Option("--wait-for-job", type=bool, default=False, help=HELP_WAIT_FOR_JOB),
             *PortStateTransitions.transition_options(),
+            Option(
+                "--mock-bq-clients",
+                type=bool,
+                help="If passed, mocks the BQ clients [Useful for development].",
+            ),
         ]
 
     @classmethod
     def run(cls, config: SimpleNamespace, **kwargs: Any) -> Any:
-        return port_visits_pipeline.run(config, **kwargs)
+        return run(config, **kwargs)
