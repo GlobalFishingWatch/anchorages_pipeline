@@ -5,13 +5,21 @@ import apache_beam as beam
 
 from pipe_anchorages import common as cmn
 from pipe_anchorages.core.namedtuples import _datetime_to_s
+from pipe_anchorages.core.visit_event import VisitEvent
 from pipe_anchorages.transforms.smart_thin_records import VisitLocationRecord
 
 from .create_in_out_events import CreateInOutEvents
 from .create_port_visits import CreatePortVisits
 
 
+# No type hints on the functions Beam maps: it would infer coders from them, and the
+# registered PortVisitCoder can't encode a visit's events.
 def from_msg(x):
+    """Converts a query row into a (vessel_id, VisitLocationRecord) pair.
+
+    The record's identifier is (ssvid, vessel_id, seg_id), and a missing port_dist
+    (no anchorage nearby) becomes infinity.
+    """
     x_new = x.copy()
     x_new["timestamp"] = datetime.datetime.fromtimestamp(x_new["timestamp"], datetime.UTC)
     ssvid = x_new.pop("ssvid")
@@ -27,7 +35,8 @@ def from_msg(x):
     )
 
 
-def event_to_msg(x):
+def event_to_msg(x: VisitEvent) -> dict:
+    """Converts a VisitEvent into a row of the output table's `events` field."""
     x = x._asdict()
     x["timestamp"] = _datetime_to_s(x["timestamp"])
     x.pop("vessel_id")
@@ -37,6 +46,7 @@ def event_to_msg(x):
 
 
 def visit_to_msg(x):
+    """Converts a PortVisit into a row of the output table."""
     x = x._asdict()
     x["events"] = [event_to_msg(y) for y in x["events"]]
     x["start_timestamp"] = _datetime_to_s(x["start_timestamp"])
