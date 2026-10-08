@@ -9,7 +9,7 @@ import apache_beam as beam
 from pipe_anchorages import common as cmn
 
 from ..common import LatLon
-from .create_in_out_events import InOutEventsBase
+from .in_out_events import InOutEventsBase
 
 
 class VisitLocationRecord(NamedTuple):

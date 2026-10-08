@@ -5,9 +5,10 @@ import apache_beam as beam
 
 from pipe_anchorages import common as cmn
 from pipe_anchorages.core.namedtuples import _datetime_to_s
-from pipe_anchorages.transforms.create_in_out_events import CreateInOutEvents
-from pipe_anchorages.transforms.create_port_visits import CreatePortVisits
 from pipe_anchorages.transforms.smart_thin_records import VisitLocationRecord
+
+from .create_in_out_events import CreateInOutEvents
+from .create_port_visits import CreatePortVisits
 
 
 def from_msg(x):
