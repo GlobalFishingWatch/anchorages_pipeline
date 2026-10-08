@@ -4,7 +4,7 @@ import numpy as np
 
 from pipe_anchorages.core.visit_event import VisitEvent
 from pipe_anchorages.core.namedtuples import _datetime_to_s
-from pipe_anchorages.transforms.create_port_visits import CreatePortVisits
+from pipe_anchorages.pipelines.port_visits.transforms.create_port_visits import CreatePortVisits
 
 
 expected_1 = OrderedDict(
