@@ -1,6 +1,7 @@
 from collections import OrderedDict
 import datetime
 import numpy as np
+import pytest
 
 from pipe_anchorages.core.visit_event import VisitEvent
 from pipe_anchorages.core.namedtuples import _datetime_to_s
@@ -887,3 +888,100 @@ class TestCreatePortVisits(object):
             result = target.create_port_visits(((None, None), events))
             visits = [visit_to_msg(x) for x in result]
             assert visits == expected
+
+
+def make_event(event_type, minutes, seg_id="seg-1", lat=0.0, lon=0.0):
+    t0 = datetime.datetime(2024, 1, 2, tzinfo=datetime.timezone.utc)
+    return VisitEvent(
+        anchorage_id="a1", lat=lat, lon=lon, vessel_lat=lat, vessel_lon=lon,
+        ssvid="111", seg_id=seg_id, vessel_id="vessel-1",
+        timestamp=t0 + datetime.timedelta(minutes=minutes),
+        event_type=event_type, last_timestamp=None,
+    )
+
+
+def visits_of(events, max_interseg_dist_nm=60.0):
+    target = CreatePortVisits(max_interseg_dist_nm=max_interseg_dist_nm)
+    return list(target.create_port_visits(("vessel-1", events)))
+
+
+@pytest.mark.parametrize(
+    "event_types, confidence",
+    [
+        (["PORT_ENTRY", "PORT_STOP_BEGIN", "PORT_EXIT"], 4),
+        (["PORT_ENTRY", "PORT_GAP_BEGIN"], 3),
+        (["PORT_GAP_END", "PORT_EXIT"], 3),
+        (["PORT_STOP_BEGIN", "PORT_STOP_END"], 2),
+        (["PORT_ENTRY", "PORT_EXIT"], 1),
+    ],
+)
+def test_compute_confidence(event_types, confidence):
+    events = [make_event(t, i) for i, t in enumerate(event_types)]
+
+    assert CreatePortVisits(60.0).compute_confidence(events) == confidence
+
+
+def test_compute_confidence_rejects_events_of_no_known_type():
+    with pytest.raises(ValueError, match="missing expected event types"):
+        CreatePortVisits(60.0).compute_confidence([make_event("UNKNOWN", 0)])
+
+
+def test_a_visit_ends_at_exit_and_the_next_starts_at_entry():
+    events = [
+        make_event("PORT_ENTRY", 0), make_event("PORT_EXIT", 10),
+        make_event("PORT_ENTRY", 20), make_event("PORT_EXIT", 30),
+    ]
+
+    visits = visits_of(events)
+
+    assert [[e.event_type for e in v.events] for v in visits] == [
+        ["PORT_ENTRY", "PORT_EXIT"], ["PORT_ENTRY", "PORT_EXIT"]
+    ]
+
+
+def test_events_at_the_same_time_are_ordered_entry_stop_exit():
+    events = [make_event("PORT_EXIT", 0), make_event("PORT_STOP_BEGIN", 0),
+              make_event("PORT_ENTRY", 0)]
+
+    (visit,) = visits_of(events)
+
+    assert [e.event_type for e in visit.events] == ["PORT_ENTRY", "PORT_STOP_BEGIN", "PORT_EXIT"]
+
+
+def test_a_visit_is_split_between_segments_too_far_apart():
+    events = [
+        make_event("PORT_STOP_BEGIN", 0, seg_id="seg-1", lat=0.0),
+        make_event("PORT_STOP_END", 10, seg_id="seg-2", lat=2.0),  # 120 nm north
+    ]
+
+    assert len(visits_of(events, max_interseg_dist_nm=60.0)) == 2
+    assert len(visits_of(events, max_interseg_dist_nm=150.0)) == 1
+
+
+def test_the_same_segment_is_never_split_by_distance():
+    events = [
+        make_event("PORT_STOP_BEGIN", 0, lat=0.0), make_event("PORT_STOP_END", 10, lat=2.0)
+    ]
+
+    assert len(visits_of(events, max_interseg_dist_nm=60.0)) == 1
+
+
+def test_unknown_event_types_raise():
+    # Documents current behavior: create_port_visits means to log and drop unknown event types,
+    # but sorting looks them up in TYPE_ORDER first, which raises.
+    events = [make_event("PORT_ENTRY", 0), make_event("UNKNOWN", 5), make_event("PORT_EXIT", 10)]
+
+    with pytest.raises(KeyError, match="UNKNOWN"):
+        visits_of(events)
+
+
+def test_visits_keep_only_the_first_and_last_events_beyond_the_maximum():
+    n = CreatePortVisits.MAX_EMITTED_EVENTS + 2
+    events = [make_event("PORT_STOP_BEGIN", i) for i in range(n)]
+
+    (visit,) = visits_of(events)
+
+    kept = [e.timestamp for e in visit.events]
+    assert len(kept) == CreatePortVisits.MAX_EMITTED_EVENTS
+    assert kept[0] == events[0].timestamp and kept[-1] == events[-1].timestamp
+    assert events[n // 2].timestamp not in kept

@@ -18,7 +18,8 @@ class CreatePortVisits(beam.PTransform):
     Events are sorted by timestamp (and, at the same timestamp, by EVENT_TYPES order).
     A visit starts at a PORT_ENTRY, or when consecutive events are on segments more than
     `max_interseg_dist_nm` apart, and ends at a PORT_EXIT or the vessel's last event.
-    Events of an unknown type are logged and dropped.
+    N.B. an event of a type not in EVENT_TYPES raises KeyError when sorting, so the
+    "Unknown event type" branch of create_port_visits is never reached.
     """
 
     EVENT_TYPES = [
