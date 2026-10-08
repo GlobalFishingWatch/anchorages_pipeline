@@ -20,7 +20,7 @@ HELP_MESSAGES = "BigQuery table with the port-state-transitions output."
 HELP_IN_SEGMENT_INFO = "BigQuery table mapping vessel_id to seg_id, one vessel_id per seg_id."
 HELP_OUT_PORT_VISITS = "BigQuery table in which to store the port visits."
 HELP_START_DATE = "First date (inclusive) to generate visits."
-HELP_END_DATE = "Last date (inclusive) to generate visits."
+HELP_END_DATE = "End date (exclusive) to generate visits."
 HELP_BAD_SEGS = "Subquery producing segment ids of bad segments to exclude."
 HELP_INTERSEG_DIST = (
     "Segments more than this distance apart will not be joined when creating visits."

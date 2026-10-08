@@ -130,7 +130,8 @@ def test_run_reads_the_date_range_and_writes_the_output_table():
     (read,) = reads
     assert "project.dataset.port_state_transitions" in read["query"]
     assert "project.dataset.segment_info" in read["query"]
-    assert "BETWEEN '2024-01-01' AND '2024-01-07'" in read["query"]
+    assert "DATE(timestamp) >= '2024-01-01'" in read["query"]
+    assert "DATE(timestamp) < '2024-01-07'" in read["query"]
     assert "seg_id NOT IN (SELECT seg_id FROM project.dataset.bad)" in read["query"]
     assert read["bigquery_job_labels"] == {"environment": "development", "stage": "anchorages"}
     (write,) = writes
@@ -145,11 +146,11 @@ def test_run_reads_the_date_range_and_writes_the_output_table():
 def test_run_reads_long_date_ranges_in_several_queries():
     reads = []
 
-    run_pipeline([], check_no_rows, reads=reads, start_date="2020-01-01", end_date="2024-01-01")
+    run_pipeline([], check_no_rows, reads=reads, start_date="2020-01-01", end_date="2024-01-02")
 
     assert len(reads) == 2
-    assert "BETWEEN '2020-01-01' AND '2022-09-27'" in reads[0]["query"]
-    assert "BETWEEN '2022-09-28' AND '2024-01-01'" in reads[1]["query"]
+    assert "< '2022-09-28'" in reads[0]["query"]
+    assert ">= '2022-09-28'" in reads[1]["query"]
 
 
 def test_run_creates_the_output_table_and_sets_its_metadata(bq_clients, bq_client_factory):
@@ -168,13 +169,17 @@ def test_run_creates_the_output_table_and_sets_its_metadata(bq_clients, bq_clien
     assert "PORT VISITS" in updated.description
 
 
-def test_query_windows_split_the_range_into_inclusive_windows():
-    windows = list(query_windows(datetime.date(2020, 1, 1), datetime.date(2024, 1, 1)))
+def test_query_windows_split_the_range_into_consecutive_windows():
+    windows = list(query_windows(datetime.date(2020, 1, 1), datetime.date(2024, 1, 2)))
 
     assert windows == [
-        (datetime.date(2020, 1, 1), datetime.date(2022, 9, 27)),
-        (datetime.date(2022, 9, 28), datetime.date(2024, 1, 1)),
+        (datetime.date(2020, 1, 1), datetime.date(2022, 9, 28)),
+        (datetime.date(2022, 9, 28), datetime.date(2024, 1, 2)),
     ]
+
+
+def test_query_windows_of_an_empty_range():
+    assert list(query_windows(datetime.date(2020, 1, 1), datetime.date(2020, 1, 1))) == []
 
 
 def test_query_renders_without_bad_segs():
@@ -198,6 +203,7 @@ JOIN
 ON
     records.identifier = vids.seg_id
 WHERE
-    DATE(timestamp) BETWEEN '2016-01-01' AND '2016-01-02'
+    DATE(timestamp) >= '2016-01-01'
+    AND DATE(timestamp) < '2016-01-02'
 """
     assert query.render() == expected.strip("\n")

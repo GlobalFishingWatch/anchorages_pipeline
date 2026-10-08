@@ -11,7 +11,8 @@ JOIN
 ON
     records.identifier = vids.seg_id
 WHERE
-    DATE(timestamp) BETWEEN '{{ start_date }}' AND '{{ end_date }}'
+    DATE(timestamp) >= '{{ start_date }}'
+    AND DATE(timestamp) < '{{ end_date }}'
 {%- if bad_segs %}
     AND seg_id NOT IN (SELECT seg_id FROM {{ bad_segs }})
 {%- endif %}

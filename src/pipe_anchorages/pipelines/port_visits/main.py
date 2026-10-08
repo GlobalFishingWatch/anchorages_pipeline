@@ -25,8 +25,8 @@ from pipe_anchorages.version import __version__
 
 logger = logging.getLogger(__name__)
 
-# Days added to each query window's start date to get its (inclusive) end date.
-QUERY_WINDOW_DAYS = 1000
+# Days in each query window.
+QUERY_WINDOW_DAYS = 1001
 
 
 class PortVisitsQuery(Query):
@@ -65,12 +65,12 @@ class PortVisitsQuery(Query):
 
 
 def query_windows(start_date: date, end_date: date) -> Iterator[tuple[date, date]]:
-    """Splits [start_date, end_date] into consecutive inclusive windows, one query each."""
+    """Splits [start_date, end_date) into consecutive [start, end) windows, one query each."""
     start_window = start_date
-    while start_window <= end_date:
+    while start_window < end_date:
         end_window = min(start_window + datetime.timedelta(days=QUERY_WINDOW_DAYS), end_date)
         yield start_window, end_window
-        start_window = end_window + datetime.timedelta(days=1)
+        start_window = end_window
 
 
 def strdate_to_utcdatetime(strdate: str) -> datetime.datetime:
