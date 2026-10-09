@@ -3,7 +3,7 @@
 import datetime
 
 from pipe_anchorages.common import LatLon
-from pipe_anchorages.transforms.smart_thin_records import VisitLocationRecord
+from pipe_anchorages.core.visit_location_record import VisitLocationRecord
 
 T0 = datetime.datetime(2024, 1, 2, tzinfo=datetime.timezone.utc)
 
