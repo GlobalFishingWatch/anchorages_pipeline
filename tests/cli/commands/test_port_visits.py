@@ -2,6 +2,7 @@ import argparse
 
 import pytest
 
+from gfw.common.config import PipelineConfigError
 from pipe_anchorages.cli import main
 
 
@@ -41,4 +42,20 @@ def test_cli_requires_argument(flag):
     del args[i:i + 2]
 
     with pytest.raises(argparse.ArgumentTypeError, match="Missing required arguments"):
+        main.run(args)
+
+
+def test_cli_rejects_an_invalid_date():
+    args = list(BASE_ARGS)
+    args[args.index("2024-01-07")] = "07/01/2024"
+
+    with pytest.raises(SystemExit):
+        main.run(args)
+
+
+def test_cli_rejects_an_empty_date_range():
+    args = list(BASE_ARGS)
+    args[args.index("2024-01-07")] = "2024-01-01"
+
+    with pytest.raises(PipelineConfigError, match=r"end_date .* must be after start_date"):
         main.run(args)
