@@ -1,9 +1,9 @@
 from typing import Any
 from types import SimpleNamespace
 
-from gfw.common.cli import Command, Option
+from gfw.common.cli import Command, Option, date_range_options
 
-from pipe_anchorages import thin_port_messages_pipeline
+from pipe_anchorages.pipelines.port_state_transitions.main import run
 
 
 DESCRIPTION = """\
@@ -35,12 +35,9 @@ defined for Apache Beam PipelineOptions class. For more information, see
 HELP_IN_ANCHORAGES = "BigQuery table with named anchorages."
 HELP_IN_MESSAGES = "BigQuery table to pull position messages from."
 HELP_OUT_POSITIONS = "BigQuery table in which to store the selected position messages."
-HELP_START_DATE = "First date of position messages to process."
-HELP_END_DATE = "Last date (inclusive) of position messages to process."
 HELP_SSVID_FILTER = (
     "Subquery or list of ssvid to limit processing to. If prefixed by @, load from given path."
 )
-HELP_WAIT_FOR_JOB = "Wait until the job finishes before returning."
 HELP_ENTRY_DIST_KM = "Max distance (km) from an anchorage to count as an entry."
 HELP_EXIT_DIST_KM = "Min distance (km) from an anchorage to count as an exit."
 HELP_STOPPING_KNOTS = "Speed (knots) below which a vessel is considered stopped."
@@ -84,13 +81,16 @@ class PortStateTransitions(Command):
             Option(
                 "--bq-out-port-state-transitions", type=str, required=True, help=HELP_OUT_POSITIONS
             ),
-            Option("--start-date", type=str, required=True, help=HELP_START_DATE),
-            Option("--end-date", type=str, required=True, help=HELP_END_DATE),
+            *date_range_options(),
             Option("--ssvid-filter", type=str, help=HELP_SSVID_FILTER),
-            Option("--wait-for-job", type=bool, default=False, help=HELP_WAIT_FOR_JOB),
             *self.transition_options(),
+            Option(
+                "--mock-bq-clients",
+                type=bool,
+                help="If passed, mocks the BQ clients [Useful for development].",
+            ),
         ]
 
     @classmethod
     def run(cls, config: SimpleNamespace, **kwargs: Any) -> Any:
-        return thin_port_messages_pipeline.run(config, **kwargs)
+        return run(config, **kwargs)
