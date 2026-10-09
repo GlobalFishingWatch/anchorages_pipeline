@@ -1,4 +1,3 @@
-import datetime
 from datetime import date
 from functools import cached_property
 from types import SimpleNamespace
@@ -11,6 +10,7 @@ from gfw.common.beam.pipeline.dag import LinearDag
 from gfw.common.beam.pipeline.hooks import create_table_hook
 from gfw.common.beam.transforms import ReadFromBigQuery, WriteToBigQueryWrapper
 from gfw.common.bigquery.helper import BigQueryHelper
+from gfw.common.datetime import datetime_from_isoformat
 from gfw.common.query import Query
 
 from pipe_anchorages import common as cmn
@@ -59,10 +59,6 @@ class PortStateTransitionsQuery(Query):
         }
 
 
-def strdate_to_utcdatetime(strdate: str) -> datetime.datetime:
-    return datetime.datetime.strptime(strdate, "%Y-%m-%d").replace(tzinfo=datetime.UTC)
-
-
 def run(
     config: SimpleNamespace,
     unknown_unparsed_args: tuple = (),
@@ -91,7 +87,7 @@ def run(
     )
     assert anchorage_visit_max_distance * cmn.VISIT_SAFETY_FACTOR < 2 * cmn.approx_visit_cell_size
 
-    end_time = strdate_to_utcdatetime(config.end_date)
+    end_time = datetime_from_isoformat(config.end_date)
 
     table_config = PortVisitsTableConfig(
         table_id=config.bq_out_port_visits,
