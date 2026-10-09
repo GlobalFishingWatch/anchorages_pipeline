@@ -9,6 +9,7 @@ from gfw.common.beam.transforms.bigquery import FakeReadFromBigQuery
 
 from pipe_anchorages.assets import schemas
 from pipe_anchorages.pipelines.port_visits.main import PortVisitsQuery, query_windows, run
+from pipe_anchorages.pipelines.port_visits.table_config import PortVisitsTableConfig
 
 # The in-process runner: DirectRunner would pick Prism, which runs as a subprocess and stages an
 # sdist of the package in the working directory.
@@ -153,20 +154,23 @@ def test_run_reads_long_date_ranges_in_several_queries():
     assert ">= '2022-09-28'" in reads[1]["query"]
 
 
-def test_run_creates_the_output_table_and_sets_its_metadata(bq_clients, bq_client_factory):
+def test_run_describes_the_output_table_after_writing_it(bq_clients, bq_client_factory):
     run_pipeline([], check_no_rows, bq_client_factory=bq_client_factory)
 
     (client,) = bq_clients
-    (table,), create_kwargs = client.create_table.call_args
-    assert create_kwargs == {"exists_ok": True}
-    assert table.table_id == "port_visits"
-    assert table.time_partitioning.type_ == "MONTH"
-    assert table.time_partitioning.field == "end_timestamp"
-    assert table.clustering_fields == ["end_timestamp"]
-    assert table.labels == {"environment": "development", "stage": "anchorages"}
     (updated, fields), _ = client.update_table.call_args
     assert fields == ["description", "labels"]
     assert "PORT VISITS" in updated.description
+    assert updated.labels == {"environment": "development", "stage": "anchorages"}
+
+
+def test_output_table_layout():
+    table_config = PortVisitsTableConfig(table_id="project.dataset.port_visits")
+
+    params = table_config.to_bigquery_params()
+
+    assert (params["partition_type"], params["partition_field"]) == ("MONTH", "end_timestamp")
+    assert params["clustering_fields"] == ("end_timestamp",)
 
 
 def test_query_windows_split_the_range_into_consecutive_windows():
