@@ -1,12 +1,10 @@
 import datetime
-import logging
 from datetime import date
 from functools import cached_property
 from types import SimpleNamespace
 from typing import Any, Callable, Iterator
 
 import apache_beam as beam
-from apache_beam.runners import PipelineState
 
 from gfw.common.beam.pipeline.base import Pipeline
 from gfw.common.beam.pipeline.dag import LinearDag
@@ -24,8 +22,6 @@ from pipe_anchorages.pipelines.port_visits.table_config import (
 )
 from pipe_anchorages.pipelines.port_visits.transforms.core import DetectPortVisits
 from pipe_anchorages.version import __version__
-
-logger = logging.getLogger(__name__)
 
 # Days in each query window.
 QUERY_WINDOW_DAYS = 1001
@@ -87,7 +83,7 @@ def run(
     write_to_bigquery_factory: Callable = None,
     bq_client_factory: Callable = None,
     **kwargs: Any,
-) -> int:
+) -> None:
     config = PortVisitsConfig.from_namespace(config, version=__version__)
 
     if read_from_bigquery_factory is None:
@@ -182,14 +178,4 @@ def run(
         **kwargs,
     )
 
-    result, _ = pipeline.run()
-
-    success_states = {
-        PipelineState.DONE,
-        PipelineState.RUNNING,
-        PipelineState.UNKNOWN,
-        PipelineState.PENDING,
-    }
-
-    logger.info("returning with result.state=%s" % result.state)
-    return 0 if result.state in success_states else 1
+    pipeline.run()

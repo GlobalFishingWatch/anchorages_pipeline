@@ -120,11 +120,11 @@ def check_no_rows(rows):
 
 
 def test_run_detects_a_visit_with_entry_stop_and_exit():
-    assert run_pipeline(transitions(SEA_PORT_STOP_PORT_SEA), check_one_full_visit) == 0
+    run_pipeline(transitions(SEA_PORT_STOP_PORT_SEA), check_one_full_visit)
 
 
 def test_run_detects_no_visit_for_a_vessel_that_stays_at_sea():
-    assert run_pipeline(transitions([(10.0, 10.0)] * 5), check_no_rows) == 0
+    run_pipeline(transitions([(10.0, 10.0)] * 5), check_no_rows)
 
 
 def test_run_reads_the_date_range_and_writes_the_output_table():
