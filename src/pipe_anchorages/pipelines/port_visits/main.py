@@ -10,11 +10,13 @@ from apache_beam.runners import PipelineState
 
 from gfw.common.beam.pipeline.base import Pipeline
 from gfw.common.beam.pipeline.dag import LinearDag
+from gfw.common.beam.pipeline.hooks import create_table_hook
 from gfw.common.beam.transforms import ReadFromBigQuery, WriteToBigQueryWrapper
 from gfw.common.bigquery.helper import BigQueryHelper
 from gfw.common.query import Query
 
 from pipe_anchorages import common as cmn
+from pipe_anchorages.hooks import update_table_metadata_hook
 from pipe_anchorages.pipelines.port_visits.config import PortVisitsConfig
 from pipe_anchorages.pipelines.port_visits.table_config import (
     PortVisitsTableConfig,
@@ -75,28 +77,6 @@ def query_windows(start_date: date, end_date: date) -> Iterator[tuple[date, date
 
 def strdate_to_utcdatetime(strdate: str) -> datetime.datetime:
     return datetime.datetime.strptime(strdate, "%Y-%m-%d").replace(tzinfo=datetime.UTC)
-
-
-def prepare_output_table_hook(
-    table_config: PortVisitsTableConfig, labels: dict, bq_client_factory: Callable
-) -> Callable[[Pipeline], None]:
-    """Returns a pre-hook that creates the output table if needed, and sets its metadata.
-
-    The sink writes with CREATE_NEVER, so the table (with its partitioning and clustering)
-    must exist before the pipeline runs. An existing table gets the current description and
-    labels.
-    """
-
-    def _hook(p: Pipeline) -> None:
-        bq = BigQueryHelper(bq_client_factory, project=p.cloud_options.project)
-        bq.create_table(**table_config.to_bigquery_params(), labels=labels, exists_ok=True)
-        bq.update_table_metadata(
-            table_config.table_id,
-            description=table_config.description.render(),
-            labels=labels,
-        )
-
-    return _hook
 
 
 def run(
@@ -194,7 +174,8 @@ def run(
         name="pipe-anchorages",
         version=__version__,
         dag=dag,
-        pre_hooks=[prepare_output_table_hook(table_config, config.labels, bq_client_factory)],
+        pre_hooks=[create_table_hook(table_config, mock=bool(config.mock_bq_clients))],
+        post_hooks=[update_table_metadata_hook(table_config, config.labels, bq_client_factory)],
         unparsed_args=config.unknown_unparsed_args,
         labels=config.labels,
         **config.unknown_parsed_args,
