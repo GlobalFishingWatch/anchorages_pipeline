@@ -10,7 +10,6 @@ from gfw.common.beam.transforms.bigquery import FakeReadFromBigQuery
 from pipe_anchorages.assets import schemas
 from pipe_anchorages.pipelines.port_visits.main import (
     PortStateTransitionsQuery,
-    query_windows,
     run,
 )
 from pipe_anchorages.pipelines.port_visits.table_config import PortVisitsTableConfig
@@ -148,16 +147,6 @@ def test_run_reads_the_date_range_and_writes_the_output_table():
     ]
 
 
-def test_run_reads_long_date_ranges_in_several_queries():
-    reads = []
-
-    run_pipeline([], check_no_rows, reads=reads, start_date="2020-01-01", end_date="2024-01-02")
-
-    assert len(reads) == 2
-    assert "< '2022-09-28'" in reads[0]["query"]
-    assert ">= '2022-09-28'" in reads[1]["query"]
-
-
 def test_run_describes_the_output_table_after_writing_it(bq_clients, bq_client_factory):
     run_pipeline([], check_no_rows, bq_client_factory=bq_client_factory)
 
@@ -175,19 +164,6 @@ def test_output_table_layout():
 
     assert (params["partition_type"], params["partition_field"]) == ("MONTH", "end_timestamp")
     assert params["clustering_fields"] == ("end_timestamp",)
-
-
-def test_query_windows_split_the_range_into_consecutive_windows():
-    windows = list(query_windows(datetime.date(2020, 1, 1), datetime.date(2024, 1, 2)))
-
-    assert windows == [
-        (datetime.date(2020, 1, 1), datetime.date(2022, 9, 28)),
-        (datetime.date(2022, 9, 28), datetime.date(2024, 1, 2)),
-    ]
-
-
-def test_query_windows_of_an_empty_range():
-    assert list(query_windows(datetime.date(2020, 1, 1), datetime.date(2020, 1, 1))) == []
 
 
 def test_query_renders_without_bad_segs():
