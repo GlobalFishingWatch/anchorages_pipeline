@@ -1,4 +1,5 @@
 import dataclasses
+import datetime
 from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any, Callable
@@ -10,7 +11,7 @@ from gfw.common.beam.pipeline.dag import LinearDag
 from gfw.common.beam.pipeline.hooks import create_table_hook
 from gfw.common.beam.transforms import ReadFromBigQuery, WriteToBigQueryWrapper
 from gfw.common.bigquery.helper import BigQueryHelper
-from gfw.common.datetime import datetime_from_isoformat
+from gfw.common.datetime import datetime_from_date
 from gfw.common.query import Query
 
 from pipe_anchorages import common as cmn
@@ -26,7 +27,7 @@ from pipe_anchorages.version import __version__
 
 @dataclass
 class PortStateTransitionsQuery(Query):
-    """Port state transitions in [start_date, end_date) (YYYY-MM-DD), joined to each segment's
+    """Port state transitions in [start_date, end_date), joined to each segment's
     vessel_id, optionally excluding the segments `bad_segs` (a subquery) returns.
 
     Its fields are the template's variables (see template_vars).
@@ -34,8 +35,8 @@ class PortStateTransitionsQuery(Query):
 
     source_port_state_transitions: str
     source_segment_info: str
-    start_date: str
-    end_date: str
+    start_date: datetime.date
+    end_date: datetime.date
     bad_segs: str = None
 
     template_filename = "port_state_transitions.sql.j2"
@@ -54,7 +55,7 @@ def run(
     bq_client_factory: Callable = None,
     **kwargs: Any,
 ) -> None:
-    config = PortVisitsConfig.from_namespace(config, version=__version__)
+    config = PortVisitsConfig.from_namespace(config)
 
     if read_from_bigquery_factory is None:
         read_from_bigquery_factory = ReadFromBigQuery.get_client_factory(
@@ -73,7 +74,7 @@ def run(
     )
     assert anchorage_visit_max_distance * cmn.VISIT_SAFETY_FACTOR < 2 * cmn.approx_visit_cell_size
 
-    end_time = datetime_from_isoformat(config.end_date)
+    end_time = datetime_from_date(config.end_date)
 
     table_config = PortVisitsTableConfig(
         table_id=config.bq_out_port_visits,
@@ -131,8 +132,6 @@ def run(
     )
 
     pipeline = Pipeline(
-        name="pipe-anchorages",
-        version=__version__,
         dag=dag,
         pre_hooks=[create_table_hook(table_config, mock=config.mock_bq_clients)],
         post_hooks=[update_table_metadata_hook(table_config, config.labels, bq_client_factory)],
