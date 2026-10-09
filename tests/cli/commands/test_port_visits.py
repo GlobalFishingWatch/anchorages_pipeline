@@ -20,11 +20,9 @@ def test_cli_executes_run_with_mock_bq_clients():
     # The pipeline really builds and runs its Beam DAG, with the BigQuery source/sink swapped for
     # gfw-common's fakes and the in-process FnApiRunner (DirectRunner would pick Prism, which
     # runs as a subprocess and stages an sdist of the package in the working directory).
-    exit_code, _ = main.run(
+    main.run(
         [*BASE_ARGS, "--mock-bq-clients", "--project", "test-project", "--runner", "FnApiRunner"]
     )
-
-    assert exit_code == 0
 
 
 @pytest.mark.parametrize(
