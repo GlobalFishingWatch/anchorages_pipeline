@@ -56,7 +56,7 @@ def run(args):
             "--labels environment=development resource_creator=tomas-link "
             "project=ais stage=anchorages",
             "pipe-anchorages port-visits "
-            "--bq-in-port-events project.dataset.port_events "
+            "--bq-in-port-state-transitions project.dataset.port_state_transitions "
             "--bq-in-segment-info project.dataset.segment_info "
             "--bq-out-port-visits project.dataset.port_visits "
             "--start-date 2024-01-01 --end-date 2024-01-07 "
