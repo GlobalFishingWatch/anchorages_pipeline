@@ -1,5 +1,5 @@
-from datetime import date
-from functools import cached_property
+import dataclasses
+from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any, Callable
 
@@ -24,39 +24,25 @@ from pipe_anchorages.pipelines.port_visits.transforms.core import DetectPortVisi
 from pipe_anchorages.version import __version__
 
 
+@dataclass
 class PortStateTransitionsQuery(Query):
-    """Encapsulates the port state transitions query, joined to each segment's vessel_id."""
+    """Port state transitions in [start_date, end_date) (YYYY-MM-DD), joined to each segment's
+    vessel_id, optionally excluding the segments `bad_segs` (a subquery) returns.
 
-    NAME = "port_state_transitions"
-    JINJA_TEMPLATE_FILENAME = "port_state_transitions.sql.j2"
+    Its fields are the template's variables (see template_vars).
+    """
 
-    def __init__(
-        self,
-        source_port_state_transitions: str,
-        source_segment_info: str,
-        start_date: date,
-        end_date: date,
-        bad_segs: str = None,
-    ):
-        self._source_port_state_transitions = source_port_state_transitions
-        self._source_segment_info = source_segment_info
-        self._start_date = start_date
-        self._end_date = end_date
-        self._bad_segs = bad_segs
+    source_port_state_transitions: str
+    source_segment_info: str
+    start_date: str
+    end_date: str
+    bad_segs: str = None
 
-    @cached_property
-    def template_filename(self) -> str:
-        return self.JINJA_TEMPLATE_FILENAME
+    template_filename = "port_state_transitions.sql.j2"
 
-    @cached_property
+    @property
     def template_vars(self) -> dict:
-        return {
-            "source_port_state_transitions": self._source_port_state_transitions,
-            "source_segment_info": self._source_segment_info,
-            "start_date": self._start_date,
-            "end_date": self._end_date,
-            "bad_segs": self._bad_segs,
-        }
+        return dataclasses.asdict(self)
 
 
 def run(
