@@ -190,4 +190,19 @@ WHERE
     DATE(timestamp) >= '2016-01-01'
     AND DATE(timestamp) < '2016-01-02'
 """
-    assert query.render() == expected.strip("\n")
+    assert query.render() == expected.lstrip("\n")
+
+
+def test_query_excludes_bad_segs_on_its_own_line():
+    query = PortStateTransitionsQuery(
+        source_port_state_transitions="TRANSITIONS",
+        source_segment_info="SEGMENT_INFO",
+        start_date="2016-01-01",
+        end_date="2016-01-02",
+        bad_segs="BAD_SEGS",
+    )
+
+    assert query.render().endswith(
+        "    AND DATE(timestamp) < '2016-01-02'\n"
+        "    AND seg_id NOT IN (SELECT seg_id FROM BAD_SEGS)\n"
+    )
