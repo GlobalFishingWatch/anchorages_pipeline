@@ -4,6 +4,15 @@ from pipe_anchorages.records import VesselInfoRecord, VesselLocationRecord
 
 
 class CreateTaggedRecordsByDay(beam.PTransform):
+    """Groups each vessel's records by day, deduplicated and tagged with their destination.
+
+    Input: (identifier, record) pairs of VesselInfoRecord and VesselLocationRecord.
+    Output: ((identifier, date), records) pairs of VesselLocationRecord, sorted by timestamp,
+    keeping one record per timestamp. Each location record gets the destination of the last
+    info record before it that day (empty if there was none).
+    """
+
+    # No type hints on the methods Beam maps: it would infer coders from them.
     def add_date_to_key(self, item):
         identity, value = item
         return (identity, str(value.timestamp.date())), value
@@ -36,7 +45,7 @@ class CreateTaggedRecordsByDay(beam.PTransform):
                 raise RuntimeError("unknown type {}".format(type(rcd)))
         return (ident, tagged)
 
-    def expand(self, vessel_records):
+    def expand(self, vessel_records: beam.PCollection) -> beam.PCollection:
         return (
             vessel_records
             | beam.Map(self.add_date_to_key)
