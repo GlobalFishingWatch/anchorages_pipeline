@@ -2,8 +2,10 @@ import apache_beam as beam
 
 from pipe_anchorages import common as cmn
 from pipe_anchorages.core.namedtuples import datetime_to_s
-from pipe_anchorages.transforms.create_tagged_anchorages import CreateTaggedAnchorages
-from pipe_anchorages.transforms.smart_thin_records import SmartThinRecords
+
+from .create_tagged_anchorages import CreateTaggedAnchorages
+from .create_tagged_records_by_day import CreateTaggedRecordsByDay
+from .smart_thin_records import SmartThinRecords
 
 
 # No type hints on the functions Beam maps: it would infer coders from them.
@@ -58,7 +60,7 @@ class FindPortStateTransitions(beam.PTransform):
         return (
             xs
             | cmn.CreateVesselRecords(destination=None)
-            | cmn.CreateTaggedRecordsByDay()
+            | CreateTaggedRecordsByDay()
             | "ThinRecords" >> SmartThinRecords(
                 anchorages=anchorages,
                 anchorage_entry_dist=self.anchorage_entry_dist_km,

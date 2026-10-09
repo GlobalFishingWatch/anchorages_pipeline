@@ -3,25 +3,12 @@ from __future__ import absolute_import, division, print_function
 import datetime
 import math
 from datetime import timedelta
-from typing import NamedTuple, Optional
 
 import apache_beam as beam
 from pipe_anchorages import common as cmn
 
-from ..common import LatLon
-from .in_out_events import InOutEventsBase
-
-
-class VisitLocationRecord(NamedTuple):
-    identifier: str
-    timestamp: datetime.datetime
-    location: LatLon
-    speed: float
-    is_possible_gap_end: bool
-    port_s2id: Optional[str]
-    port_dist: Optional[float]
-    port_lon: Optional[float]
-    port_lat: Optional[float]
+from pipe_anchorages.core.visit_location_record import VisitLocationRecord
+from pipe_anchorages.transforms.in_out_events import InOutEventsBase
 
 
 class SmartThinRecords(beam.PTransform, InOutEventsBase):
