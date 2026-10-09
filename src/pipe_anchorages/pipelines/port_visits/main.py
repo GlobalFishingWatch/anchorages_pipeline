@@ -31,11 +31,11 @@ logger = logging.getLogger(__name__)
 QUERY_WINDOW_DAYS = 1001
 
 
-class PortVisitsQuery(Query):
+class PortStateTransitionsQuery(Query):
     """Encapsulates the port state transitions query, joined to each segment's vessel_id."""
 
-    NAME = "port_visits"
-    JINJA_TEMPLATE_FILENAME = "port_visits.sql.j2"
+    NAME = "port_state_transitions"
+    JINJA_TEMPLATE_FILENAME = "port_state_transitions.sql.j2"
 
     def __init__(
         self,
@@ -132,7 +132,7 @@ def run(
 
     sources = [
         ReadFromBigQuery.from_query(
-            PortVisitsQuery(
+            PortStateTransitionsQuery(
                 source_port_state_transitions=config.bq_in_port_state_transitions,
                 source_segment_info=config.bq_in_segment_info,
                 start_date=start_window,

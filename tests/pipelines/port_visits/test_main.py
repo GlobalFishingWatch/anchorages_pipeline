@@ -8,7 +8,11 @@ from apache_beam.testing.util import assert_that
 from gfw.common.beam.transforms.bigquery import FakeReadFromBigQuery
 
 from pipe_anchorages.assets import schemas
-from pipe_anchorages.pipelines.port_visits.main import PortVisitsQuery, query_windows, run
+from pipe_anchorages.pipelines.port_visits.main import (
+    PortStateTransitionsQuery,
+    query_windows,
+    run,
+)
 from pipe_anchorages.pipelines.port_visits.table_config import PortVisitsTableConfig
 
 # The in-process runner: DirectRunner would pick Prism, which runs as a subprocess and stages an
@@ -187,7 +191,7 @@ def test_query_windows_of_an_empty_range():
 
 
 def test_query_renders_without_bad_segs():
-    query = PortVisitsQuery(
+    query = PortStateTransitionsQuery(
         source_port_state_transitions="TRANSITIONS",
         source_segment_info="SEGMENT_INFO",
         start_date="2016-01-01",
