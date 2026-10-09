@@ -8,7 +8,8 @@ SELECT
 FROM
     `{{ source_messages }}`
 WHERE
-    DATE(timestamp) BETWEEN '{{ start_date }}' AND '{{ end_date }}'
+    DATE(timestamp) >= '{{ start_date }}'
+    AND DATE(timestamp) < '{{ end_date }}'
 {% if ssvid_filter %}
     AND ssvid IN ({{ ssvid_filter }})
 {% endif %}

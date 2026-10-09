@@ -28,7 +28,7 @@ from pipe_anchorages.version import __version__
 
 @dataclass
 class MessagesBySegmentQuery(Query):
-    """Position messages in [start_date, end_date], one row per position, keyed by segment.
+    """Position messages in [start_date, end_date), one row per position, keyed by segment.
 
     Optionally limited to the vessels `ssvid_filter` (a subquery or a list of ssvids) returns.
     Its fields are the template's variables (see template_vars).
