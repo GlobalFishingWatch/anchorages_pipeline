@@ -2,7 +2,7 @@ import datetime
 from datetime import date
 from functools import cached_property
 from types import SimpleNamespace
-from typing import Any, Callable, Iterator
+from typing import Any, Callable
 
 import apache_beam as beam
 
@@ -22,9 +22,6 @@ from pipe_anchorages.pipelines.port_visits.table_config import (
 )
 from pipe_anchorages.pipelines.port_visits.transforms.core import DetectPortVisits
 from pipe_anchorages.version import __version__
-
-# Days in each query window.
-QUERY_WINDOW_DAYS = 1001
 
 
 class PortStateTransitionsQuery(Query):
@@ -62,15 +59,6 @@ class PortStateTransitionsQuery(Query):
         }
 
 
-def query_windows(start_date: date, end_date: date) -> Iterator[tuple[date, date]]:
-    """Splits [start_date, end_date) into consecutive [start, end) windows, one query each."""
-    start_window = start_date
-    while start_window < end_date:
-        end_window = min(start_window + datetime.timedelta(days=QUERY_WINDOW_DAYS), end_date)
-        yield start_window, end_window
-        start_window = end_window
-
-
 def strdate_to_utcdatetime(strdate: str) -> datetime.datetime:
     return datetime.datetime.strptime(strdate, "%Y-%m-%d").replace(tzinfo=datetime.UTC)
 
@@ -103,7 +91,6 @@ def run(
     )
     assert anchorage_visit_max_distance * cmn.VISIT_SAFETY_FACTOR < 2 * cmn.approx_visit_cell_size
 
-    start_time = strdate_to_utcdatetime(config.start_date)
     end_time = strdate_to_utcdatetime(config.end_date)
 
     table_config = PortVisitsTableConfig(
@@ -126,26 +113,21 @@ def run(
         ),
     )
 
-    sources = [
-        ReadFromBigQuery.from_query(
-            PortStateTransitionsQuery(
-                source_port_state_transitions=config.bq_in_port_state_transitions,
-                source_segment_info=config.bq_in_segment_info,
-                start_date=start_window,
-                end_date=end_window,
-                bad_segs=config.bad_segs,
-            ).with_env(config.jinja_env),
-            label=f"ReadPortStateTransitions_{i}",
-            read_from_bigquery_factory=read_from_bigquery_factory,
-            read_from_bigquery_kwargs={"bigquery_job_labels": config.labels},
-        )
-        for i, (start_window, end_window) in enumerate(
-            query_windows(start_time.date(), end_time.date())
-        )
-    ]
-
     dag = LinearDag(
-        sources=sources,
+        sources=[
+            ReadFromBigQuery.from_query(
+                PortStateTransitionsQuery(
+                    source_port_state_transitions=config.bq_in_port_state_transitions,
+                    source_segment_info=config.bq_in_segment_info,
+                    start_date=config.start_date,
+                    end_date=config.end_date,
+                    bad_segs=config.bad_segs,
+                ).with_env(config.jinja_env),
+                label="ReadPortStateTransitions",
+                read_from_bigquery_factory=read_from_bigquery_factory,
+                read_from_bigquery_kwargs={"bigquery_job_labels": config.labels},
+            ),
+        ],
         core=DetectPortVisits(
             anchorage_entry_dist_km=config.anchorage_entry_dist_km,
             anchorage_exit_dist_km=config.anchorage_exit_dist_km,
