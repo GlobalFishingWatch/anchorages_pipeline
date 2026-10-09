@@ -13,6 +13,6 @@ ON
 WHERE
     DATE(timestamp) >= '{{ start_date }}'
     AND DATE(timestamp) < '{{ end_date }}'
-{%- if bad_segs %}
+{% if bad_segs %}
     AND seg_id NOT IN (SELECT seg_id FROM {{ bad_segs }})
-{%- endif %}
+{% endif %}
