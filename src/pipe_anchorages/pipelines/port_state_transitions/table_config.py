@@ -51,13 +51,13 @@ class PortStateTransitionsTableConfig(TableConfig):
         return schemas.get_schema(self.schema_file)
 
     def delete_query(self, start_date: date, end_date: Optional[date] = None) -> str:
-        """Returns the query that deletes the rows of the processed date range.
+        """Returns the query that deletes the rows of the processed range [start_date, end_date).
 
         The pipeline appends, so the range is cleared first to make reprocessing it
         idempotent. Without end_date, it deletes everything from start_date on.
         """
         query = f"DELETE FROM `{self.table_id}` WHERE DATE(timestamp) >= '{start_date}'"
         if end_date is not None:
-            query += f" AND DATE(timestamp) <= '{end_date}'"
+            query += f" AND DATE(timestamp) < '{end_date}'"
 
         return query

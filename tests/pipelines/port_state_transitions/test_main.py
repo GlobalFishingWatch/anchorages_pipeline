@@ -141,7 +141,8 @@ def test_run_reads_the_date_range_and_the_anchorages_and_appends_to_the_output_t
 
     messages_read, anchorages_read = sorted(reads, key=lambda r: "anchor_lat" in r["query"])
     assert "project.dataset.messages" in messages_read["query"]
-    assert "BETWEEN '2024-01-01' AND '2024-01-07'" in messages_read["query"]
+    assert "DATE(timestamp) >= '2024-01-01'" in messages_read["query"]
+    assert "DATE(timestamp) < '2024-01-07'" in messages_read["query"]
     assert "AND ssvid IN ('111', '222')" in messages_read["query"]
     assert "project.dataset.named_anchorages" in anchorages_read["query"]
     for read in reads:
@@ -181,7 +182,7 @@ def test_delete_query_clears_the_processed_date_range():
 
     assert query == (
         "DELETE FROM `project.dataset.output` "
-        "WHERE DATE(timestamp) >= '2024-01-01' AND DATE(timestamp) <= '2024-01-07'"
+        "WHERE DATE(timestamp) >= '2024-01-01' AND DATE(timestamp) < '2024-01-07'"
     )
 
 
@@ -202,7 +203,8 @@ SELECT
 FROM
     `MESSAGES`
 WHERE
-    DATE(timestamp) BETWEEN '2016-01-01' AND '2016-01-02'
+    DATE(timestamp) >= '2016-01-01'
+    AND DATE(timestamp) < '2016-01-02'
 """
     assert query.render() == expected.lstrip("\n")
 
