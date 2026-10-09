@@ -1,0 +1,7 @@
+SELECT
+    lat AS anchor_lat,
+    lon AS anchor_lon,
+    s2id AS anchor_id,
+    label
+FROM
+    `{{ source_named_anchorages }}`

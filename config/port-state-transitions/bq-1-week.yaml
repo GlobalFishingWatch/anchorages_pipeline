@@ -1,6 +1,6 @@
 # Query parameters:
 bq_in_named_anchorages: "world-fishing-827.anchorages.named_anchorages_v20201104"
-bq_in_messages: "world-fishing-827.pipe_production_v20201001.position_messages_"
+bq_in_messages: "world-fishing-827.pipe_ais_v3_internal.messages_positions"
 bq_out_port_state_transitions: "world-fishing-827.scratch_tomas_ttl30d.port_visit_msgs"
 start_date: "2018-01-01"
 end_date: "2018-01-07"
