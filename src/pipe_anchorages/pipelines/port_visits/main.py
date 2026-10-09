@@ -92,14 +92,14 @@ def run(
 
     if read_from_bigquery_factory is None:
         read_from_bigquery_factory = ReadFromBigQuery.get_client_factory(
-            mocked=bool(config.mock_bq_clients)
+            mocked=config.mock_bq_clients
         )
     if write_to_bigquery_factory is None:
         write_to_bigquery_factory = WriteToBigQueryWrapper.get_client_factory(
-            mocked=bool(config.mock_bq_clients)
+            mocked=config.mock_bq_clients
         )
     if bq_client_factory is None:
-        bq_client_factory = BigQueryHelper.get_client_factory(mocked=bool(config.mock_bq_clients))
+        bq_client_factory = BigQueryHelper.get_client_factory(mocked=config.mock_bq_clients)
 
     # Ensure that S2 Cell sizes are large enough that we don't miss ports.
     anchorage_visit_max_distance = max(
@@ -174,7 +174,7 @@ def run(
         name="pipe-anchorages",
         version=__version__,
         dag=dag,
-        pre_hooks=[create_table_hook(table_config, mock=bool(config.mock_bq_clients))],
+        pre_hooks=[create_table_hook(table_config, mock=config.mock_bq_clients)],
         post_hooks=[update_table_metadata_hook(table_config, config.labels, bq_client_factory)],
         unparsed_args=config.unknown_unparsed_args,
         labels=config.labels,
