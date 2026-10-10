@@ -1,9 +1,11 @@
 SELECT
-    ssvid AS ident,
+    {{ ident_field }} AS ident,
     lat,
     lon,
     CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp,
+{% if include_destination %}
     destination,
+{% endif %}
     speed
 FROM
     `{{ source_messages }}`
@@ -14,3 +16,6 @@ WHERE
     AND lat IS NOT NULL
     AND lon IS NOT NULL
     AND speed IS NOT NULL
+{% if ssvid_filter %}
+    AND ssvid IN ({{ ssvid_filter }})
+{% endif %}
