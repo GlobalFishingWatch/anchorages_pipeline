@@ -9,7 +9,7 @@ from gfw.common.beam.transforms.bigquery import FakeReadFromBigQuery
 from gfw.common.bigquery.helper import BigQueryHelper
 
 from pipe_anchorages.assets import schemas
-from pipe_anchorages.pipelines.anchorage_locations.main import MessagesQuery, run
+from pipe_anchorages.pipelines.anchorage_locations.main import run
 
 # Beam's local runner, named explicitly: DirectRunner would fall back to other runners for
 # pipelines Prism doesn't support.
@@ -149,30 +149,3 @@ def test_run_finds_the_anchorage_where_vessels_stay(fishing_ssvids, bq_clients, 
     assert fields == ["description", "labels"]
     assert "ANCHORAGE POINTS" in updated.description
     assert updated.labels == {"environment": "development", "stage": "anchorages"}
-
-
-def test_query_renders_single_table():
-    query = MessagesQuery(
-        source_messages="SOURCE_TABLE",
-        start_date="2016-01-01",
-        end_date="2016-01-02",
-    )
-    expected = """
-SELECT
-    ssvid AS ident,
-    lat,
-    lon,
-    CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp,
-    destination,
-    speed
-FROM
-    `SOURCE_TABLE`
-WHERE
-    date(timestamp) >= '2016-01-01'
-    AND date(timestamp) < '2016-01-02'
-    AND seg_id IS NOT NULL
-    AND lat IS NOT NULL
-    AND lon IS NOT NULL
-    AND speed IS NOT NULL
-"""
-    assert query.render() == expected.strip("\n")

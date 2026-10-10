@@ -8,7 +8,6 @@ from gfw.common.beam.transforms.bigquery import FakeReadFromBigQuery
 
 from pipe_anchorages.assets import schemas
 from pipe_anchorages.pipelines.port_state_transitions.main import (
-    MessagesBySegmentQuery,
     NamedAnchoragesQuery,
     read_ssvid_filter,
     run,
@@ -36,16 +35,15 @@ SEA_PORT_STOP_PORT_SEA = [(10.0, 10.0), (1.0, 5.0), (0.5, 0.0), (1.0, 5.0), (10.
 AT_SEA = [(10.0, 10.0)] * 5
 
 
-def messages(track, seg_id="seg-1", ssvid="111"):
+def messages(track, seg_id="seg-1"):
     """Rows shaped like the messages query's output, one per (km, speed) in `track`."""
     return [
         dict(
             ident=seg_id,
-            ssvid=ssvid,
             lat=PORT_LAT + km / KM_PER_DEGREE_LAT,
             lon=PORT_LON,
-            speed=speed,
             timestamp=T0 + i * EVERY_SECONDS,
+            speed=speed,
         )
         for i, (km, speed) in enumerate(track)
     ]
@@ -141,8 +139,10 @@ def test_run_reads_the_date_range_and_the_anchorages_and_appends_to_the_output_t
 
     messages_read, anchorages_read = sorted(reads, key=lambda r: "anchor_lat" in r["query"])
     assert "project.dataset.messages" in messages_read["query"]
-    assert "DATE(timestamp) >= '2024-01-01'" in messages_read["query"]
-    assert "DATE(timestamp) < '2024-01-07'" in messages_read["query"]
+    assert "seg_id AS ident" in messages_read["query"]
+    assert "destination" not in messages_read["query"]
+    assert "date(timestamp) >= '2024-01-01'" in messages_read["query"]
+    assert "date(timestamp) < '2024-01-07'" in messages_read["query"]
     assert "AND ssvid IN ('111', '222')" in messages_read["query"]
     assert "project.dataset.named_anchorages" in anchorages_read["query"]
     for read in reads:
@@ -184,29 +184,6 @@ def test_delete_query_clears_the_processed_date_range():
         "DELETE FROM `project.dataset.output` "
         "WHERE DATE(timestamp) >= '2024-01-01' AND DATE(timestamp) < '2024-01-07'"
     )
-
-
-def test_messages_query_renders_without_ssvid_filter():
-    query = MessagesBySegmentQuery(
-        source_messages="MESSAGES",
-        start_date="2016-01-01",
-        end_date="2016-01-02",
-    )
-    expected = """
-SELECT
-    seg_id AS ident,
-    ssvid,
-    lat,
-    lon,
-    speed,
-    CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
-FROM
-    `MESSAGES`
-WHERE
-    DATE(timestamp) >= '2016-01-01'
-    AND DATE(timestamp) < '2016-01-02'
-"""
-    assert query.render() == expected.lstrip("\n")
 
 
 def test_named_anchorages_query_renders():
