@@ -1,0 +1,104 @@
+[
+    {
+        "name": "s2id",
+        "type": "STRING",
+        "mode": "REQUIRED",
+        "description": "anchorage ID (id of the S2 grid cell)"
+    },
+    {
+        "name": "lat",
+        "type": "FLOAT",
+        "mode": "REQUIRED",
+        "description": "latitude of the anchorage"
+    },
+    {
+        "name": "lon",
+        "type": "FLOAT",
+        "mode": "REQUIRED",
+        "description": "longitude of the anchorage"
+    },
+    {
+        "name": "label",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "port name"
+    },
+    {
+        "name": "sublabel",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "anchorage name"
+    },
+    {
+        "name": "iso3",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "ISO3 of EEZ containing anchorage"
+    },
+    {
+        "name": "label_source",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "source of the label name (WPI, GeoNames, KKP, top destination)"
+    },
+    {
+        "name": "total_visits",
+        "type": "INTEGER",
+        "mode": "NULLABLE",
+        "description": "number of visits to the anchorage"
+    },
+    {
+        "name": "drift_radius",
+        "type": "FLOAT",
+        "mode": "NULLABLE",
+        "description": "drift radius of vessels at the anchorage"
+    },
+    {
+        "name": "top_destination",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "top destination reported in AIS messages from vessels arriving at the anchorage"
+    },
+    {
+        "name": "unique_stationary_ssvid",
+        "type": "INTEGER",
+        "mode": "NULLABLE",
+        "description": "number of unique vessels that have stopped at the anchorage"
+    },
+    {
+        "name": "unique_stationary_fishing_ssvid",
+        "type": "INTEGER",
+        "mode": "NULLABLE",
+        "description": "number of unique fishing vessels that have stopped at the anchorage"
+    },
+    {
+        "name": "unique_active_ssvid",
+        "type": "INTEGER",
+        "mode": "NULLABLE",
+        "description": "number of unique vessels that passed through the anchorage"
+    },
+    {
+        "name": "unique_total_ssvid",
+        "type": "INTEGER",
+        "mode": "NULLABLE",
+        "description": "number of unique vessels that have visited the anchorage"
+    },
+    {
+        "name": "active_ssvid_days",
+        "type": "FLOAT",
+        "mode": "NULLABLE",
+        "description": "number of days a vessel passed through the anchorage"
+    },
+    {
+        "name": "stationary_ssvid_days",
+        "type": "FLOAT",
+        "mode": "NULLABLE",
+        "description": "number of days a vessel was stopped at the anchorage"
+    },
+    {
+        "name": "stationary_fishing_ssvid_days",
+        "type": "FLOAT",
+        "mode": "NULLABLE",
+        "description": "number of days a fishing vessel was stopped at the anchorage"
+    }
+]
