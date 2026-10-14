@@ -11,21 +11,39 @@ from pipe_anchorages.shapefile_to_iso3 import get_iso3_finder
 
 
 class AddNamesToAnchorages(beam.PTransform):
+    """Sets the label, sublabel, iso3 and label_source of each NamedAnchoragePoint.
+
+    The name comes from the nearest place in the lists of `config["port_list_paths"]`, after the
+    anchorage overrides (see PortInfoFinder): with its sublabel within
+    `config["sublabel_distance_km"]`, without it within `config["label_distance_km"]`. Anchorages
+    with no place that close are named after their top destination, or their s2id if they have
+    none, with label_source "top_destination".
+
+    The iso3 comes from that place, or else from the EEZ of the `shapefile_path` shapefile the
+    anchorage is in. Anchorages in China get their s2id as label (label_source
+    "china_s2id_override"), unless named by the overrides.
+
+    `config` has the keys PortInfoFinder.from_config takes. The finders load their files lazily,
+    on the workers.
+    """
 
     _port_info_finder = None
     _iso3_finder = None
 
-    def __init__(self, shapefile_path, config):
+    def __init__(self, shapefile_path: str, config: dict) -> None:
         self.config = config
         self.shapefile_path = shapefile_path
 
     @property
-    def port_info_finder(self):
+    def port_info_finder(self) -> PortInfoFinder:
+        """The PortInfoFinder of `config`, created on first use."""
         if self._port_info_finder is None:
             self._port_info_finder = PortInfoFinder.from_config(self.config)
         return self._port_info_finder
 
+    # No type hints on the methods Beam maps: it would infer coders from them.
     def add_best_label(self, anchorage):
+        """Returns `anchorage` with the label, sublabel, iso3 and label_source of its place."""
         port_info, source = self.port_info_finder.find(anchorage.mean_location)
         if port_info is None:
             port_info = Port(
@@ -46,6 +64,7 @@ class AddNamesToAnchorages(beam.PTransform):
         return NamedAnchoragePoint(**map)
 
     def add_iso3(self, named_anchorage):
+        """Returns `named_anchorage` with its EEZ's iso3 if it has none, and China's override."""
         if named_anchorage.iso3 is None:
             finder = get_iso3_finder(files(EEZ).joinpath(self.shapefile_path))
             iso3 = finder.iso3(
@@ -63,5 +82,5 @@ class AddNamesToAnchorages(beam.PTransform):
             )
         return named_anchorage._replace(iso3=iso3)
 
-    def expand(self, anchorages):
+    def expand(self, anchorages: beam.PCollection) -> beam.PCollection:
         return anchorages | beam.Map(self.add_best_label) | beam.Map(self.add_iso3)

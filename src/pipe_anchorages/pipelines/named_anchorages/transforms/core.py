@@ -1,3 +1,5 @@
+from typing import Sequence
+
 import apache_beam as beam
 
 from pipe_anchorages.core.named_anchorage_point import NamedAnchoragePoint
@@ -48,12 +50,12 @@ class NameAnchorages(beam.PTransform):
 
     def __init__(
         self,
-        shapefile,
-        label_distance_km,
-        sublabel_distance_km,
-        anchorage_overrides,
-        reference_ports,
-        reference_places,
+        shapefile: str,
+        label_distance_km: float,
+        sublabel_distance_km: float,
+        anchorage_overrides: str,
+        reference_ports: Sequence[str],
+        reference_places: Sequence[str],
     ) -> None:
         super().__init__()
         self.shapefile = shapefile
@@ -63,7 +65,7 @@ class NameAnchorages(beam.PTransform):
         self.reference_ports = reference_ports
         self.reference_places = reference_places
 
-    def expand(self, xs):
+    def expand(self, xs: beam.PCollection) -> beam.PCollection:
         port_info_config = {
             "override_path": self.anchorage_overrides,
             "port_list_paths": list(self.reference_ports) + list(self.reference_places),

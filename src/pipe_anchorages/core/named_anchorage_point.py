@@ -11,10 +11,19 @@ class NamedAnchoragePoint(
     )
 ):
 
+    """An AnchorageLocation with a port name (label), an anchorage name (sublabel), the ISO3 of
+    its EEZ, and where the name comes from (label_source).
+
+    Read back from the anchorage locations table, it has no vessel sets: `vessels` and
+    `fishing_vessels` are lists of None, as long as the counts they come from.
+    """
+
     __slots__ = ()
 
+    # No type hints: Beam maps it, and would infer coders from them.
     @staticmethod
     def from_msg(msg):
+        """Builds a NamedAnchoragePoint, with no names yet, from an anchorage locations row."""
         msg["mean_location"] = cmn.LatLon(msg.pop("lat"), msg.pop("lon"))
         msg["rms_drift_radius"] = msg.pop("drift_radius")
         msg["vessels"] = [None] * msg.pop("unique_stationary_ssvid")
