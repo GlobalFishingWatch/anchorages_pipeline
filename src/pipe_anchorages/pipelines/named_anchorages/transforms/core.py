@@ -2,7 +2,7 @@ from typing import Sequence
 
 import apache_beam as beam
 
-from pipe_anchorages.core.named_anchorage_point import NamedAnchoragePoint
+from pipe_anchorages.core.named_anchorage_location import NamedAnchorageLocation
 
 from .add_names_to_anchorages import AddNamesToAnchorages
 from .create_override_anchorages import CreateOverrideAnchorages
@@ -11,7 +11,7 @@ from .find_used_s2ids import FindUsedS2ids
 
 # No type hints on the functions Beam maps: it would infer coders from them.
 def named_anchorage_to_msg(anchorage):
-    """Converts a NamedAnchoragePoint into a row of the output table."""
+    """Converts a NamedAnchorageLocation into a row of the output table."""
     return {
         "lat": anchorage.mean_location.lat,
         "lon": anchorage.mean_location.lon,
@@ -41,7 +41,7 @@ def is_not_removed(anchorage):
 class NameAnchorages(beam.PTransform):
     """Turns anchorage locations (query rows) into named anchorages table records (row dicts).
 
-    Groups the inline chain (NamedAnchoragePoint.from_msg -> AddNamesToAnchorages, plus the
+    Groups the inline chain (NamedAnchorageLocation.from_msg -> AddNamesToAnchorages, plus the
     anchorages CreateOverrideAnchorages adds -> drop the removed ones -> named_anchorage_to_msg)
     into one composite PTransform, since LinearDag's core slot takes exactly one transform.
 
@@ -75,7 +75,7 @@ class NameAnchorages(beam.PTransform):
 
         existing_anchorages = (
             xs
-            | "FromMsg" >> beam.Map(NamedAnchoragePoint.from_msg)
+            | "FromMsg" >> beam.Map(NamedAnchorageLocation.from_msg)
             | AddNamesToAnchorages(self.shapefile, port_info_config)
         )
 

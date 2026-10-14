@@ -1,6 +1,6 @@
 """Builders for the records these transforms work on."""
 
-from pipe_anchorages.core.named_anchorage_point import NamedAnchoragePoint
+from pipe_anchorages.core.named_anchorage_location import NamedAnchorageLocation
 
 KM_PER_DEGREE_LAT = 111.2
 
@@ -48,5 +48,5 @@ def anchorage_location(s2id="s2id-1", lat=HIGH_SEAS_LAT, lon=HIGH_SEAS_LON, top_
 
 
 def named_anchorage(**kwargs):
-    """A NamedAnchoragePoint with no names yet, built from an anchorage_location(**kwargs) row."""
-    return NamedAnchoragePoint.from_msg(anchorage_location(**kwargs))
+    """A NamedAnchorageLocation with no names yet, from an anchorage_location(**kwargs) row."""
+    return NamedAnchorageLocation.from_msg(anchorage_location(**kwargs))
