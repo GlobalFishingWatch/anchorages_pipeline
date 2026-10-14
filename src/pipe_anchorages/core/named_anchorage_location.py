@@ -4,9 +4,9 @@ from pipe_anchorages import common as cmn
 from pipe_anchorages.core.anchorage_location import AnchorageLocation
 
 
-class NamedAnchoragePoint(
+class NamedAnchorageLocation(
     namedtuple(
-        "NamedAnchoragePoint",
+        "NamedAnchorageLocation",
         AnchorageLocation._fields + ("label", "sublabel", "iso3", "label_source"),
     )
 ):
@@ -23,7 +23,7 @@ class NamedAnchoragePoint(
     # No type hints: Beam maps it, and would infer coders from them.
     @staticmethod
     def from_msg(msg):
-        """Builds a NamedAnchoragePoint, with no names yet, from an anchorage locations row."""
+        """Builds a NamedAnchorageLocation, with no names yet, from an anchorage locations row."""
         msg["mean_location"] = cmn.LatLon(msg.pop("lat"), msg.pop("lon"))
         msg["rms_drift_radius"] = msg.pop("drift_radius")
         msg["vessels"] = [None] * msg.pop("unique_stationary_ssvid")
@@ -39,4 +39,4 @@ class NamedAnchoragePoint(
         msg["label_source"] = None
         msg["neighbor_s2ids"] = None
 
-        return NamedAnchoragePoint(**msg)
+        return NamedAnchorageLocation(**msg)

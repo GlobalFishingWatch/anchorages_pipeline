@@ -1,5 +1,5 @@
 from pipe_anchorages import common as cmn
-from pipe_anchorages.core.named_anchorage_point import NamedAnchoragePoint
+from pipe_anchorages.core.named_anchorage_location import NamedAnchorageLocation
 from pipe_anchorages.pipelines.named_anchorages.transforms.core import (
     is_not_removed,
     named_anchorage_to_msg,
@@ -8,8 +8,8 @@ from pipe_anchorages.pipelines.named_anchorages.transforms.core import (
 from .factories import HIGH_SEAS_LAT, HIGH_SEAS_LON, anchorage_location, named_anchorage
 
 
-def test_a_query_row_becomes_a_named_anchorage_point_with_no_names():
-    anchorage = NamedAnchoragePoint.from_msg(anchorage_location())
+def test_a_query_row_becomes_a_named_anchorage_location_with_no_names():
+    anchorage = NamedAnchorageLocation.from_msg(anchorage_location())
 
     assert anchorage.s2id == "s2id-1"
     assert anchorage.mean_location == cmn.LatLon(HIGH_SEAS_LAT, HIGH_SEAS_LON)

@@ -4,13 +4,13 @@ from importlib.resources import files
 import apache_beam as beam
 
 from pipe_anchorages.assets.data import port_lists
-from pipe_anchorages.core.named_anchorage_point import NamedAnchoragePoint
+from pipe_anchorages.core.named_anchorage_location import NamedAnchorageLocation
 from pipe_anchorages.get_override_list import get_override_list
 from pipe_anchorages.port_info_finder import normalize_label
 
 
 class CreateOverrideAnchorages(beam.PTransform):
-    """Creates a NamedAnchoragePoint for each anchorage of the overrides list at `override_path`
+    """Creates a NamedAnchorageLocation for each anchorage of the overrides list at `override_path`
     whose s2id isn't in `used_s2ids` (a side input, see FindUsedS2ids).
 
     They take the override's location, names and iso3, have no stats, and their label_source is
@@ -27,7 +27,7 @@ class CreateOverrideAnchorages(beam.PTransform):
         used_s2ids = set(used_s2ids)
         for row in get_override_list(files(port_lists).joinpath(self.override_path)):
             if row["s2id"] not in used_s2ids:
-                yield NamedAnchoragePoint(
+                yield NamedAnchorageLocation(
                     mean_location=row["latLon"],
                     total_visits=None,
                     vessels=frozenset([]),

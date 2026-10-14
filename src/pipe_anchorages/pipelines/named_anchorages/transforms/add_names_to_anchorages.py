@@ -3,7 +3,7 @@ from importlib.resources import files
 import apache_beam as beam
 
 from pipe_anchorages.assets.data import EEZ
-from pipe_anchorages.core.named_anchorage_point import NamedAnchoragePoint
+from pipe_anchorages.core.named_anchorage_location import NamedAnchorageLocation
 from pipe_anchorages.nearest_port import Port
 from pipe_anchorages.port_info_finder import PortInfoFinder
 from pipe_anchorages.port_info_finder import normalize_label
@@ -11,7 +11,7 @@ from pipe_anchorages.shapefile_to_iso3 import get_iso3_finder
 
 
 class AddNamesToAnchorages(beam.PTransform):
-    """Sets the label, sublabel, iso3 and label_source of each NamedAnchoragePoint.
+    """Sets the label, sublabel, iso3 and label_source of each NamedAnchorageLocation.
 
     The name comes from the nearest place in the lists of `config["port_list_paths"]`, after the
     anchorage overrides (see PortInfoFinder): with its sublabel within
@@ -61,7 +61,7 @@ class AddNamesToAnchorages(beam.PTransform):
         map["sublabel"] = normalize_label(port_info.sublabel)
         map["iso3"] = normalize_label(port_info.iso3)
         map["label_source"] = source
-        return NamedAnchoragePoint(**map)
+        return NamedAnchorageLocation(**map)
 
     def add_iso3(self, named_anchorage):
         """Returns `named_anchorage` with its EEZ's iso3 if it has none, and China's override."""
