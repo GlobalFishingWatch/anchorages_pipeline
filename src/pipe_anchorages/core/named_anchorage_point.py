@@ -1,0 +1,33 @@
+from collections import namedtuple
+
+from pipe_anchorages import common as cmn
+from pipe_anchorages.core.anchorage_location import AnchorageLocation
+
+
+class NamedAnchoragePoint(
+    namedtuple(
+        "NamedAnchoragePoint",
+        AnchorageLocation._fields + ("label", "sublabel", "iso3", "label_source"),
+    )
+):
+
+    __slots__ = ()
+
+    @staticmethod
+    def from_msg(msg):
+        msg["mean_location"] = cmn.LatLon(msg.pop("lat"), msg.pop("lon"))
+        msg["rms_drift_radius"] = msg.pop("drift_radius")
+        msg["vessels"] = [None] * msg.pop("unique_stationary_ssvid")
+        msg["fishing_vessels"] = [None] * msg.pop("unique_stationary_fishing_ssvid")
+        msg["active_ssvids"] = msg.pop("unique_active_ssvid")
+        msg["total_ssvids"] = msg.pop("unique_total_ssvid")
+        msg["stationary_fishing_ssvid_days"] = msg.pop("stationary_fishing_ssvid_days")
+        msg["stationary_ssvid_days"] = msg.pop("stationary_ssvid_days")
+        msg["active_ssvid_days"] = msg.pop("active_ssvid_days")
+        msg["label"] = None
+        msg["sublabel"] = None
+        msg["iso3"] = None
+        msg["label_source"] = None
+        msg["neighbor_s2ids"] = None
+
+        return NamedAnchoragePoint(**msg)

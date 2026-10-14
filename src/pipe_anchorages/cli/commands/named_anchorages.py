@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 from gfw.common.cli import Command, Option
 
-from pipe_anchorages import name_anchorages_pipeline
+from pipe_anchorages.pipelines.named_anchorages.main import run
 
 
 DESCRIPTION = """\
@@ -78,8 +78,13 @@ class NamedAnchorages(Command):
                 default=["geonames_1000.csv"],
                 help=HELP_REFERENCE_PLACES,
             ),
+            Option(
+                "--mock-bq-clients",
+                type=bool,
+                help="If passed, mocks the BQ clients [Useful for development].",
+            ),
         ]
 
     @classmethod
     def run(cls, config: SimpleNamespace, **kwargs: Any) -> Any:
-        return name_anchorages_pipeline.run(config, **kwargs)
+        return run(config, **kwargs)
