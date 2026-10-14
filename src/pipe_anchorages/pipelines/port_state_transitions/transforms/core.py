@@ -3,6 +3,7 @@ import apache_beam as beam
 from pipe_anchorages import common as cmn
 from pipe_anchorages.core.namedtuples import datetime_to_s
 
+from .anchorage_arrays import to_anchorage_arrays
 from .create_tagged_anchorages import CreateTaggedAnchorages
 from .create_tagged_records_by_day import CreateTaggedRecordsByDay
 from .smart_thin_records import SmartThinRecords
@@ -55,7 +56,11 @@ class FindPortStateTransitions(beam.PTransform):
         self._named_anchorages = side_inputs
 
     def expand(self, xs):
-        anchorages = self._named_anchorages | CreateTaggedAnchorages()
+        anchorages = (
+            self._named_anchorages
+            | CreateTaggedAnchorages()
+            | "ToAnchorageArrays" >> beam.Map(to_anchorage_arrays)
+        )
 
         return (
             xs

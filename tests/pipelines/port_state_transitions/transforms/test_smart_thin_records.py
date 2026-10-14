@@ -3,6 +3,9 @@ import datetime
 
 import pytest
 
+from pipe_anchorages.pipelines.port_state_transitions.transforms.anchorage_arrays import (
+    to_anchorage_arrays,
+)
 from pipe_anchorages.pipelines.port_state_transitions.transforms.create_tagged_anchorages import (
     CreateTaggedAnchorages,
 )
@@ -19,14 +22,14 @@ FAR_AWAY = dict(km=1000.0, speed=10.0)
 
 
 def anchorage_map():
-    """The S2 token -> anchorages map SmartThinRecords gets as a side input."""
+    """The S2 token -> AnchorageArrays map SmartThinRecords gets as a side input."""
     transform = CreateTaggedAnchorages()
     anchorages = collections.defaultdict(list)
     for token, anchorage in transform.tag_anchorage_with_s2ids(
         transform.dict_to_psuedo_anchorage(NAMED_ANCHORAGE)
     ):
         anchorages[token].append(anchorage)
-    return dict(anchorages)
+    return dict(map(to_anchorage_arrays, anchorages.items()))
 
 
 def thin(records, min_gap_minutes=240):
