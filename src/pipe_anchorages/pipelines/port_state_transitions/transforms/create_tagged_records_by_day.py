@@ -17,6 +17,25 @@ class CreateTaggedRecordsByDay(beam.PTransform):
         identity, value = item
         return (identity, str(value.timestamp.date())), value
 
+    def to_shuffle(self, item):
+        """Compacts location records for the GroupByKey (see VesselLocationRecord.to_shuffle).
+
+        Other records go through unchanged: port-state-transitions doesn't produce them.
+        """
+        key, value = item
+        if isinstance(value, VesselLocationRecord):
+            return key, value.to_shuffle()
+        return key, value
+
+    def from_shuffle(self, item):
+        """Rebuilds the records to_shuffle compacted; the key's identifier is theirs."""
+        key, values = item
+        identity, _ = key
+        return key, [
+            VesselLocationRecord.from_shuffle(identity, v) if type(v) is tuple else v
+            for v in values
+        ]
+
     def order_by_timestamp(self, item):
         key, records = item
         records = sorted(records, key=lambda x: (x.timestamp, x.speed, x.location))
@@ -49,7 +68,9 @@ class CreateTaggedRecordsByDay(beam.PTransform):
         return (
             vessel_records
             | beam.Map(self.add_date_to_key)
+            | "ToShuffle" >> beam.Map(self.to_shuffle)
             | beam.GroupByKey()
+            | "FromShuffle" >> beam.Map(self.from_shuffle)
             | beam.Map(self.order_by_timestamp)
             | beam.Map(self.dedup_by_timestamp)
             | beam.Map(self.tag_records)
