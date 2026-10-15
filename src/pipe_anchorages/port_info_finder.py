@@ -11,7 +11,6 @@ Use `python -m pipe_anchorages.port_info_finder --help` to see full options.
 
 """
 
-from __future__ import absolute_import, print_function, division
 import os
 import unidecode
 import six
@@ -34,7 +33,7 @@ def normalize_label(lbl):
     return unidecode.unidecode(six.ensure_text(lbl)).upper()
 
 
-class PortInfoFinder(object):
+class PortInfoFinder:
     """object that finds the nearest port to a location
 
     Parameters

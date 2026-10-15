@@ -18,7 +18,7 @@ def has_destination(msg):
     return msg["destination"] not in ("", None)
 
 
-class VesselRecord(object):
+class VesselRecord:
     @staticmethod
     def tagged_from_msg(msg):
 

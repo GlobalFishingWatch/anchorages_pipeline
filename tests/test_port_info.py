@@ -1,12 +1,9 @@
-import os
 import yaml
 from importlib.resources import files
 
 from pipe_anchorages.assets import config as config_pkg
 from pipe_anchorages.port_info_finder import PortInfoFinder, normalize_label
 
-this_dir = os.path.dirname(__file__)
-parent_dir = os.path.dirname(this_dir)
 
 default_config_path = files(config_pkg).joinpath("name_anchorages_cfg.yaml")
 
