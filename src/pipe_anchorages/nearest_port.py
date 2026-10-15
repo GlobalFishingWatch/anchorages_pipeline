@@ -1,4 +1,3 @@
-from __future__ import print_function, division
 import csv
 import logging
 from collections import namedtuple
@@ -7,10 +6,9 @@ from .distance import distance, inf
 Port = namedtuple("Port", ["iso3", "label", "sublabel", "lat", "lon"])
 
 
-class PortFinder(object):
+class PortFinder:
 
     def __init__(self, path):
-        self.ports_near = {}
         self.ports = []
         with open(path) as f:
             reader = csv.DictReader(f)

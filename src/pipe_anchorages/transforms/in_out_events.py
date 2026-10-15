@@ -1,12 +1,9 @@
-
-
 class InOutEventsBase:
     IN_PORT = "IN_PORT"
     AT_SEA = "AT_SEA"
     STOPPED = "STOPPED"
 
     in_port_states = (IN_PORT, STOPPED)
-    all_states = (IN_PORT, AT_SEA, STOPPED)
 
     EVT_ENTER = "PORT_ENTRY"
     EVT_EXIT = "PORT_EXIT"

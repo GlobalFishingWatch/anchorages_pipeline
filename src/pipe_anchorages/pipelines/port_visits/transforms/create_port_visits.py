@@ -4,7 +4,6 @@ import math
 from typing import Iterator
 
 import apache_beam as beam
-import six
 from pipe_anchorages.core.port_visit import PortVisit
 from pipe_anchorages.core.visit_event import VisitEvent
 
@@ -89,7 +88,7 @@ class CreatePortVisits(beam.PTransform):
             60 * 60
         )
         return PortVisit(
-            visit_id=hashlib.md5(six.ensure_binary(raw_visit_id)).hexdigest(),
+            visit_id=hashlib.md5(raw_visit_id.encode()).hexdigest(),
             ssvid=str(ssvid),
             vessel_id=str(vessel_id),
             start_timestamp=visit_events[0].timestamp,
