@@ -35,6 +35,21 @@ def from_msg(x):
     )
 
 
+def record_to_shuffle(item):
+    """Compacts a (vessel_id, record) pair for the GroupByKey.
+
+    See VisitLocationRecord.to_shuffle.
+    """
+    vessel_id, record = item
+    return vessel_id, record.to_shuffle()
+
+
+def records_from_shuffle(item):
+    """Rebuilds a vessel's records after the GroupByKey; the key is their vessel_id."""
+    vessel_id, values = item
+    return vessel_id, [VisitLocationRecord.from_shuffle(vessel_id, v) for v in values]
+
+
 def event_to_msg(x: VisitEvent) -> dict:
     """Converts a VisitEvent into a row of the output table's `events` field."""
     x = x._asdict()
@@ -57,9 +72,9 @@ def visit_to_msg(x):
 class DetectPortVisits(beam.PTransform):
     """Turns port state transitions (query rows) into port visit table records (row dicts).
 
-    Groups the inline chain (from_msg -> GroupByKey -> CreateInOutEvents -> CreatePortVisits ->
-    visit_to_msg) into one composite PTransform, since LinearDag's core slot takes exactly one
-    transform.
+    Groups the inline chain (from_msg -> record_to_shuffle -> GroupByKey -> records_from_shuffle ->
+    CreateInOutEvents -> CreatePortVisits -> visit_to_msg) into one composite PTransform, since
+    LinearDag's core slot takes exactly one transform.
 
     Constructor params are the raw config fields, not a config object.
     """
@@ -87,7 +102,9 @@ class DetectPortVisits(beam.PTransform):
         return (
             xs
             | "FromMsg" >> beam.Map(from_msg)
+            | "ToShuffle" >> beam.Map(record_to_shuffle)
             | "GroupByVesselId" >> beam.GroupByKey()
+            | "FromShuffle" >> beam.Map(records_from_shuffle)
             | CreateInOutEvents(
                 anchorage_entry_dist=self.anchorage_entry_dist_km,
                 anchorage_exit_dist=self.anchorage_exit_dist_km,
