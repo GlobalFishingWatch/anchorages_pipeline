@@ -1,14 +1,18 @@
 import fiona
+import threading
 from shapely.geometry import shape, Point
 
 
 _cache = {}
+_lock = threading.Lock()
 
 
 def get_iso3_finder(shapefile_path):
-    if shapefile_path not in _cache:
-        _cache[shapefile_path] = Iso3Finder(shapefile_path)
-    return _cache[shapefile_path]
+    # Beam runs several worker threads per process: they wait for the first to load the file.
+    with _lock:
+        if shapefile_path not in _cache:
+            _cache[shapefile_path] = Iso3Finder(shapefile_path)
+        return _cache[shapefile_path]
 
 
 class Iso3Finder:

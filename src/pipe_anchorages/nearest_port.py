@@ -1,5 +1,6 @@
 import csv
 import logging
+import threading
 from collections import namedtuple
 from .distance import distance, inf
 
@@ -43,9 +44,12 @@ class PortFinder:
 
 
 _cache = {}
+_lock = threading.Lock()
 
 
 def get_port_finder(path):
-    if path not in _cache:
-        _cache[path] = PortFinder(path)
-    return _cache[path]
+    # Beam runs several worker threads per process: they wait for the first to load the file.
+    with _lock:
+        if path not in _cache:
+            _cache[path] = PortFinder(path)
+        return _cache[path]
