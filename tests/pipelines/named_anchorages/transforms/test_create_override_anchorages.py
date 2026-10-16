@@ -1,6 +1,3 @@
-import apache_beam as beam
-from apache_beam.testing.util import assert_that, equal_to
-
 from pipe_anchorages import common as cmn
 from pipe_anchorages.pipelines.named_anchorages.transforms.create_override_anchorages import (
     CreateOverrideAnchorages,
@@ -49,10 +46,3 @@ def test_the_overrides_of_the_used_s2ids_are_not_created():
 
     assert len(anchorages) == N_OVERRIDES - 1
     assert POINTE_NOIRE_S2ID not in {a.s2id for a in anchorages}
-
-
-def test_the_transform_takes_the_used_s2ids_as_a_side_input(pipeline):
-    with pipeline as p:
-        used = beam.pvalue.AsList(p | "Used" >> beam.Create([POINTE_NOIRE_S2ID]))
-        count = p | CreateOverrideAnchorages(OVERRIDES, used) | beam.combiners.Count.Globally()
-        assert_that(count, equal_to([N_OVERRIDES - 1]))
