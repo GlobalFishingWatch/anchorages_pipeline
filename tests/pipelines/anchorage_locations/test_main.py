@@ -1,5 +1,4 @@
 import datetime
-import functools
 from types import SimpleNamespace
 
 import apache_beam as beam
@@ -105,46 +104,33 @@ def run_pipeline(
     )
 
 
-def check_one_anchorage(rows, fishing_vessels):
+def check_one_anchorage(rows):
+    # 111 is a fishing vessel, 222 isn't.
     assert len(rows) == 1, rows
     (row,) = rows
     assert row["total_visits"] == 2
     assert row["unique_stationary_ssvid"] == 2
     assert row["unique_total_ssvid"] == 2
     assert row["stationary_ssvid_days"] == pytest.approx(2 * STAY_HOURS / 24)
-    assert row["unique_stationary_fishing_ssvid"] == fishing_vessels
-    assert row["stationary_fishing_ssvid_days"] == pytest.approx(fishing_vessels * STAY_HOURS / 24)
+    assert row["unique_stationary_fishing_ssvid"] == 1
+    assert row["stationary_fishing_ssvid_days"] == pytest.approx(STAY_HOURS / 24)
     assert row["lat"] == pytest.approx(-34.60005)
     assert row["lon"] == pytest.approx(-58.40005)
     assert set(row) == {f["name"] for f in schemas.get_schema("anchorage_locations.json")}
 
 
-def check_no_rows(rows):
-    assert rows == []
-
-
-def test_run_finds_the_anchorage_where_vessels_stay(fishing_ssvids):
-    check = functools.partial(check_one_anchorage, fishing_vessels=0)
-
-    run_pipeline(TWO_VESSELS_AT_ONE_ANCHORAGE, check, fishing_ssvids())
-
-
-def test_run_counts_fishing_vessels_from_the_side_input(fishing_ssvids):
-    check = functools.partial(check_one_anchorage, fishing_vessels=1)
-
-    run_pipeline(TWO_VESSELS_AT_ONE_ANCHORAGE, check, fishing_ssvids("111"))
-
-
-def test_run_skips_anchorages_with_too_few_vessels(fishing_ssvids):
-    run_pipeline(
-        TWO_VESSELS_AT_ONE_ANCHORAGE, check_no_rows, fishing_ssvids(), min_unique_vessels=3
-    )
-
-
-def test_run_reads_the_date_range_and_writes_the_output_table(fishing_ssvids):
+def test_run_finds_the_anchorage_where_vessels_stay(fishing_ssvids, bq_clients, bq_client_factory):
+    # The one test that runs the pipeline in Beam: the transforms' own tests cover each case.
     reads, writes = [], []
 
-    run_pipeline([], check_no_rows, fishing_ssvids(), reads=reads, writes=writes)
+    run_pipeline(
+        TWO_VESSELS_AT_ONE_ANCHORAGE,
+        check_one_anchorage,
+        fishing_ssvids("111"),
+        reads=reads,
+        writes=writes,
+        bq_client_factory=bq_client_factory,
+    )
 
     (read,) = reads
     assert "project.dataset.messages_positions" in read["query"]
@@ -152,22 +138,12 @@ def test_run_reads_the_date_range_and_writes_the_output_table(fishing_ssvids):
     assert "date(timestamp) < '2024-01-07'" in read["query"]
     (write,) = writes
     assert write["table"] == "project.dataset.anchorage_locations"
+    assert write["create_disposition"] == beam.io.BigQueryDisposition.CREATE_NEVER
+    assert "additional_bq_parameters" not in write
     assert [f["name"] for f in write["schema"]["fields"]] == [
         f["name"] for f in schemas.get_schema("anchorage_locations.json")
     ]
-
-
-def test_run_writes_without_creating_the_table_and_describes_it_after(
-    fishing_ssvids, bq_clients, bq_client_factory
-):
-    writes = []
-
-    run_pipeline([], check_no_rows, fishing_ssvids(), writes=writes,
-                 bq_client_factory=bq_client_factory)
-
-    (write,) = writes
-    assert write["create_disposition"] == beam.io.BigQueryDisposition.CREATE_NEVER
-    assert "additional_bq_parameters" not in write
+    # The output table is described after writing it.
     (update_client,) = bq_clients
     (updated, fields), _ = update_client.update_table.call_args
     assert fields == ["description", "labels"]

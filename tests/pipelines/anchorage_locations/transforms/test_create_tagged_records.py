@@ -73,23 +73,20 @@ def test_tag_records_rejects_unknown_record_types():
 
 
 def test_expand_builds_a_sorted_deduped_thinned_track_per_vessel(pipeline):
-    keyed = [("1", location("1", m)) for m in (10, 0, 0, 5)] + [("2", location("2", 0))]
+    # The one Beam test of these transforms: the order of the steps only exists in expand.
+    keyed = (
+        [("1", location("1", m)) for m in (10, 0, 0, 5)]
+        # Too few positions.
+        + [("2", location("2", 0))]
+        # Documents current behavior: the minimum is checked before thinning, so a vessel can
+        # end up with fewer positions than required.
+        + [("3", location("3", m)) for m in (0, 1, 2)]
+    )
 
     with pipeline as p:
         tracks = p | beam.Create(keyed) | CreateTaggedRecords(3)
 
         assert_that(tracks, equal_to([
             ("1", [location("1", m, destination="") for m in (0, 5, 10)]),
-        ]))
-
-
-def test_expand_checks_min_required_positions_before_thinning(pipeline):
-    """Documents current behavior: a vessel can end up with fewer positions than required."""
-    keyed = [("1", location("1", m)) for m in range(10)]
-
-    with pipeline as p:
-        tracks = p | beam.Create(keyed) | CreateTaggedRecords(10)
-
-        assert_that(tracks, equal_to([
-            ("1", [location("1", m, destination="") for m in (0, 5)]),
+            ("3", [location("3", 0, destination="")]),
         ]))

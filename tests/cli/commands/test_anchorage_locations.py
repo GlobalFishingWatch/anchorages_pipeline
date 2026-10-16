@@ -1,4 +1,5 @@
 import argparse
+import datetime
 
 import pytest
 
@@ -17,18 +18,26 @@ BASE_ARGS = [
 ]
 
 
-def test_cli_executes_run_with_mock_bq_clients(tmp_path):
-    # The pipeline really builds and runs its Beam DAG, with the BigQuery source/sink swapped for
-    # gfw-common's fakes and the in-process FnApiRunner (DirectRunner would pick Prism, which
-    # runs as a subprocess and stages an sdist of the package in the working directory).
-    fishing_ssvids = tmp_path / "fishing_mmsi.txt"
-    fishing_ssvids.write_text("416000001\n")
-    args = list(BASE_ARGS)
-    args[args.index("gs://bucket/fishing_mmsi.txt")] = str(fishing_ssvids)
-
-    main.run(
-        [*args, "--mock-bq-clients", "--project", "test-project", "--runner", "FnApiRunner"]
+def test_cli_executes_run_with_the_config(monkeypatch):
+    configs = []
+    monkeypatch.setattr(
+        "pipe_anchorages.cli.commands.anchorage_locations.run",
+        lambda config, **kwargs: configs.append(config),
     )
+
+    main.run(BASE_ARGS)
+
+    (config,) = configs
+    assert config.bq_in_messages == "project.dataset.messages"
+    assert config.bq_out_anchorage_locations == "project.dataset.anchorage_locations"
+    assert config.gcs_in_fishing_ssvids == "gs://bucket/fishing_mmsi.txt"
+    assert config.start_date == datetime.date(2024, 1, 1)
+    assert config.end_date == datetime.date(2024, 1, 7)
+    assert config.min_positions == 200
+    assert config.min_unique_vessels == 20
+    assert config.stationary_period_min_duration_minutes == 720
+    assert config.stationary_period_max_distance_km == 0.5
+    assert config.labels == {"environment": "development", "stage": "anchorages"}
 
 
 @pytest.mark.parametrize(

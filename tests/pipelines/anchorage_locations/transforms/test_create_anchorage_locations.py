@@ -1,8 +1,7 @@
+import collections
 import datetime
 
-import apache_beam as beam
 import pytest
-from apache_beam.testing.util import assert_that, is_empty
 
 from pipe_anchorages import common as cmn
 from pipe_anchorages.pipelines.anchorage_locations.transforms.create_anchorage_locations import (
@@ -76,75 +75,77 @@ def test_split_on_movement_never_closes_a_stay_at_the_end_of_the_track():
     assert len(split.active_records) == len(track)
 
 
-def check_single(check):
-    def matcher(locations):
-        assert len(locations) == 1, locations
-        check(locations[0])
+def create(tracks, min_unique_vessels=1, fishing_vessels=()):
+    """Runs CreateAnchorageLocations' steps on `tracks` without Beam.
 
-    return matcher
+    Groups the stationary periods and active records by S2 cell as its CoGroupByKey does.
+    """
+    target = transform(min_unique_vessels)
+    cells = collections.defaultdict(lambda: ([], []))
+    for track in tracks:
+        split = target.split_on_movement(track)
+        for token, value in target.extract_stationary(split):
+            cells[token][0].append(value)
+        for token, value in target.extract_active(split):
+            cells[token][1].append(value)
+    locations = [
+        location
+        for item in cells.items()
+        for location in target.create_anchorage_pts(item, fishing_vessels)
+    ]
+    return [location for location in locations if target.has_enough_vessels(location)]
 
 
-def test_creates_one_anchorage_location_per_cell_where_vessels_stay(pipeline):
+def test_creates_one_anchorage_location_per_cell_where_vessels_stay():
     tracks = [("1", stay_then_leave("1", 90)), ("2", stay_then_leave("2", 120))]
 
-    def check(loc):
-        assert loc.s2id == cmn.LatLon(LAT, LON).S2CellId(cmn.ANCHORAGES_S2_SCALE).to_token()
-        assert loc.mean_location.lat == pytest.approx(LAT)
-        assert loc.mean_location.lon == pytest.approx(LON)
-        assert loc.vessels == frozenset({"1", "2"})
-        assert loc.total_visits == 2
-        assert loc.stationary_ssvid_days == pytest.approx((90 + 120) / (24 * 60))
-        assert loc.fishing_vessels == frozenset()
+    (loc,) = create(tracks, min_unique_vessels=2)
 
-    with pipeline as p:
-        assert_that(p | beam.Create(tracks) | transform(min_unique_vessels=2), check_single(check))
+    assert loc.s2id == cmn.LatLon(LAT, LON).S2CellId(cmn.ANCHORAGES_S2_SCALE).to_token()
+    assert loc.mean_location.lat == pytest.approx(LAT)
+    assert loc.mean_location.lon == pytest.approx(LON)
+    assert loc.vessels == frozenset({"1", "2"})
+    assert loc.total_visits == 2
+    assert loc.stationary_ssvid_days == pytest.approx((90 + 120) / (24 * 60))
+    assert loc.fishing_vessels == frozenset()
 
 
-def test_counts_fishing_vessels_from_the_fishing_vessel_list(pipeline):
+def test_counts_fishing_vessels_from_the_fishing_vessel_list():
     tracks = [("1", stay_then_leave("1", 90)), ("2", stay_then_leave("2", 90))]
 
-    def check(loc):
-        assert loc.fishing_vessels == frozenset({"1"})
-        assert loc.stationary_fishing_ssvid_days == pytest.approx(90 / (24 * 60))
+    (loc,) = create(tracks, fishing_vessels=["1"])
 
-    with pipeline as p:
-        fishing = beam.pvalue.AsList(p | "Fishing" >> beam.Create(["1"]))
-        locations = p | beam.Create(tracks) | transform(fishing_vessels=fishing)
-        assert_that(locations, check_single(check))
+    assert loc.fishing_vessels == frozenset({"1"})
+    assert loc.stationary_fishing_ssvid_days == pytest.approx(90 / (24 * 60))
 
 
-def test_drops_cells_with_fewer_than_min_unique_vessels(pipeline):
+def test_drops_cells_with_fewer_than_min_unique_vessels():
     tracks = [("1", stay_then_leave("1", 90)), ("2", stay_then_leave("2", 90))]
 
-    with pipeline as p:
-        assert_that(p | beam.Create(tracks) | transform(min_unique_vessels=3), is_empty())
+    assert create(tracks, min_unique_vessels=3) == []
 
 
-def test_vessels_only_passing_through_a_cell_do_not_count_towards_min_unique_vessels(pipeline):
+def test_vessels_only_passing_through_a_cell_do_not_count_towards_min_unique_vessels():
     """Documents current behavior: only vessels with a stay in the cell count as its vessels."""
     passing = stay("2", 0, 20) + [location("2", 30, lat=FAR_LAT, destination="")]
     tracks = [("1", stay_then_leave("1", 90)), ("2", passing)]
 
-    def check(loc):
-        assert loc.vessels == frozenset({"1"})
-        assert loc.total_ssvids == 2
+    (loc,) = create(tracks, min_unique_vessels=1)
 
-    with pipeline as p:
-        assert_that(p | beam.Create(tracks) | transform(min_unique_vessels=1), check_single(check))
+    assert loc.vessels == frozenset({"1"})
+    assert loc.total_ssvids == 2
 
 
-def test_top_destination_is_the_most_common_destination_of_the_stays(pipeline):
+def test_top_destination_is_the_most_common_destination_of_the_stays():
     tracks = [
         ("1", stay_then_leave("1", 90, destination="buenos aires")),
         ("2", stay_then_leave("2", 90, destination="BUENOS AIRES")),
         ("3", stay_then_leave("3", 90, destination="MONTEVIDEO")),
     ]
 
-    def check(loc):
-        assert loc.top_destination == "BUENOS AIRES"
+    (loc,) = create(tracks)
 
-    with pipeline as p:
-        assert_that(p | beam.Create(tracks) | transform(), check_single(check))
+    assert loc.top_destination == "BUENOS AIRES"
 
 
 def test_destinations_must_be_strings():
