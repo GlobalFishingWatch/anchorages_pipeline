@@ -66,18 +66,17 @@ def test_has_valid_location():
     ]
 
 
-class TestVesselLocationRecord(object):
+def test_a_position_message_becomes_a_vessel_location_record():
+    (md, obj) = VesselRecord.tagged_from_msg(examples_msgs[0])
+    assert obj == VesselLocationRecord(
+        identifier=111219501,
+        timestamp=datetime.datetime(2016, 1, 1, 5, 20, 13, tzinfo=pytz.UTC),
+        location=common.LatLon(lat=55.2189674377, lon=9.2907962799),
+        destination=None,
+        speed=15.8999996185,
+    )
 
-    def test_create(self):
-        (md, obj) = VesselRecord.tagged_from_msg(examples_msgs[0])
-        assert obj == VesselLocationRecord(
-            identifier=111219501,
-            timestamp=datetime.datetime(2016, 1, 1, 5, 20, 13, tzinfo=pytz.UTC),
-            location=common.LatLon(lat=55.2189674377, lon=9.2907962799),
-            destination=None,
-            speed=15.8999996185,
-        )
 
-    def test_pickle(self):
-        (md, obj) = VesselRecord.tagged_from_msg(examples_msgs[0])
-        assert pickle.loads(pickle.dumps(obj)) == obj
+def test_a_vessel_location_record_survives_pickling():
+    (md, obj) = VesselRecord.tagged_from_msg(examples_msgs[0])
+    assert pickle.loads(pickle.dumps(obj)) == obj
