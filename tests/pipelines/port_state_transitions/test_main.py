@@ -120,22 +120,29 @@ def check_only_the_first_and_last_positions(rows):
     assert [round(r["port_dist"]) for r in rows] == [10, 10]
 
 
-def check_no_rows(rows):
-    assert rows == []
+def check_both_segments(rows):
+    # seg-1 visits port, seg-2 stays at sea.
+    by_segment = {}
+    for row in rows:
+        by_segment.setdefault(row["identifier"], []).append(row)
+    assert set(by_segment) == {"seg-1", "seg-2"}
+    check_all_positions_around_transitions(by_segment["seg-1"])
+    check_only_the_first_and_last_positions(by_segment["seg-2"])
 
 
-def test_run_keeps_the_positions_around_port_state_transitions():
-    run_pipeline(messages(SEA_PORT_STOP_PORT_SEA), check_all_positions_around_transitions)
-
-
-def test_run_keeps_only_the_day_edges_for_a_vessel_that_stays_at_sea():
-    run_pipeline(messages(AT_SEA), check_only_the_first_and_last_positions)
-
-
-def test_run_reads_the_date_range_and_the_anchorages_and_appends_to_the_output_table():
+def test_run_keeps_the_positions_around_port_state_transitions(bq_clients, bq_client_factory):
+    # The one test that runs the pipeline in Beam: the transforms' own tests cover each case.
+    rows = messages(SEA_PORT_STOP_PORT_SEA) + messages(AT_SEA, seg_id="seg-2")
     reads, writes = [], []
 
-    run_pipeline([], check_no_rows, reads=reads, writes=writes, ssvid_filter="'111', '222'")
+    run_pipeline(
+        rows,
+        check_both_segments,
+        reads=reads,
+        writes=writes,
+        bq_client_factory=bq_client_factory,
+        ssvid_filter="'111', '222'",
+    )
 
     messages_read, anchorages_read = sorted(reads, key=lambda r: "anchor_lat" in r["query"])
     assert "project.dataset.messages" in messages_read["query"]
@@ -154,11 +161,7 @@ def test_run_reads_the_date_range_and_the_anchorages_and_appends_to_the_output_t
     assert [f["name"] for f in write["schema"]["fields"]] == [
         f["name"] for f in schemas.get_schema("port_state_transitions.json")
     ]
-
-
-def test_run_describes_the_output_table_after_writing_it(bq_clients, bq_client_factory):
-    run_pipeline([], check_no_rows, bq_client_factory=bq_client_factory)
-
+    # The output table is described after writing it.
     (client,) = bq_clients
     (updated, fields), _ = client.update_table.call_args
     assert fields == ["description", "labels"]
