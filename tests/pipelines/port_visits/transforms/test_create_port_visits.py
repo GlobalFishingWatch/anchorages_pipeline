@@ -814,80 +814,81 @@ def visit_to_msg(visit):
     return visit
 
 
-class TestCreatePortVisits(object):
+PERMUTATIONS_PER_CASE = 3
 
-    permutations_per_case = 3
 
-    def generate_test_cases(self):
-        np.random.seed(4321)
-        for raw_evts, exp in expected:
-            evts = [evt_from_dict(x.copy()) for x in raw_evts]
-            for i in range(self.permutations_per_case):
-                np.random.shuffle(evts)
-                yield (evts, exp)
+def generate_test_cases():
+    """Yields each case of `expected` PERMUTATIONS_PER_CASE times, its events shuffled."""
+    np.random.seed(4321)
+    for raw_evts, exp in expected:
+        evts = [evt_from_dict(x.copy()) for x in raw_evts]
+        for i in range(PERMUTATIONS_PER_CASE):
+            np.random.shuffle(evts)
+            yield (evts, exp)
 
-    def test_test_cases(self):
-        # Ensure that evts are really getting scrambled
-        orders = []
-        for events, _ in self.generate_test_cases():
-            orders.append([x.event_type for x in events])
-        assert orders[:6] == [
-            [
-                "PORT_STOP_BEGIN",
-                "PORT_STOP_BEGIN",
-                "PORT_STOP_END",
-                "PORT_ENTRY",
-                "PORT_STOP_END",
-                "PORT_EXIT",
-            ],
-            [
-                "PORT_STOP_BEGIN",
-                "PORT_EXIT",
-                "PORT_STOP_END",
-                "PORT_STOP_BEGIN",
-                "PORT_ENTRY",
-                "PORT_STOP_END",
-            ],
-            [
-                "PORT_STOP_BEGIN",
-                "PORT_STOP_BEGIN",
-                "PORT_EXIT",
-                "PORT_STOP_END",
-                "PORT_ENTRY",
-                "PORT_STOP_END",
-            ],
-            [
-                "PORT_STOP_BEGIN",
-                "PORT_STOP_END",
-                "PORT_STOP_END",
-                "PORT_ENTRY",
-                "PORT_STOP_BEGIN",
-                "PORT_EXIT",
-            ],
-            [
-                "PORT_STOP_END",
-                "PORT_STOP_BEGIN",
-                "PORT_STOP_BEGIN",
-                "PORT_STOP_END",
-                "PORT_ENTRY",
-                "PORT_EXIT",
-            ],
-            [
-                "PORT_STOP_END",
-                "PORT_STOP_END",
-                "PORT_STOP_BEGIN",
-                "PORT_ENTRY",
-                "PORT_EXIT",
-                "PORT_STOP_BEGIN",
-            ],
-        ]
 
-    def test_creation(self):
-        target = CreatePortVisits(max_interseg_dist_nm=60.0)
-        for events, expected in self.generate_test_cases():
-            result = target.create_port_visits(((None, None), events))
-            visits = [visit_to_msg(x) for x in result]
-            assert visits == expected
+def test_the_cases_events_are_really_shuffled():
+    orders = []
+    for events, _ in generate_test_cases():
+        orders.append([x.event_type for x in events])
+    assert orders[:6] == [
+        [
+            "PORT_STOP_BEGIN",
+            "PORT_STOP_BEGIN",
+            "PORT_STOP_END",
+            "PORT_ENTRY",
+            "PORT_STOP_END",
+            "PORT_EXIT",
+        ],
+        [
+            "PORT_STOP_BEGIN",
+            "PORT_EXIT",
+            "PORT_STOP_END",
+            "PORT_STOP_BEGIN",
+            "PORT_ENTRY",
+            "PORT_STOP_END",
+        ],
+        [
+            "PORT_STOP_BEGIN",
+            "PORT_STOP_BEGIN",
+            "PORT_EXIT",
+            "PORT_STOP_END",
+            "PORT_ENTRY",
+            "PORT_STOP_END",
+        ],
+        [
+            "PORT_STOP_BEGIN",
+            "PORT_STOP_END",
+            "PORT_STOP_END",
+            "PORT_ENTRY",
+            "PORT_STOP_BEGIN",
+            "PORT_EXIT",
+        ],
+        [
+            "PORT_STOP_END",
+            "PORT_STOP_BEGIN",
+            "PORT_STOP_BEGIN",
+            "PORT_STOP_END",
+            "PORT_ENTRY",
+            "PORT_EXIT",
+        ],
+        [
+            "PORT_STOP_END",
+            "PORT_STOP_END",
+            "PORT_STOP_BEGIN",
+            "PORT_ENTRY",
+            "PORT_EXIT",
+            "PORT_STOP_BEGIN",
+        ],
+    ]
+
+
+def test_each_case_gives_its_expected_visits_in_any_event_order():
+    target = CreatePortVisits(max_interseg_dist_nm=60.0)
+    for events, expected_visits in generate_test_cases():
+        result = target.create_port_visits(((None, None), events))
+        visits = [visit_to_msg(x) for x in result]
+        assert visits == expected_visits
 
 
 def make_event(event_type, minutes, seg_id="seg-1", lat=0.0, lon=0.0):
