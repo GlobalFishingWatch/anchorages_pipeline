@@ -114,22 +114,22 @@ def check_one_full_visit(rows):
     assert set(row["events"][0]) == {f["name"] for f in schema_events["fields"]}
 
 
-def check_no_rows(rows):
-    assert rows == []
-
-
-def test_run_detects_a_visit_with_entry_stop_and_exit():
-    run_pipeline(transitions(SEA_PORT_STOP_PORT_SEA), check_one_full_visit)
-
-
-def test_run_detects_no_visit_for_a_vessel_that_stays_at_sea():
-    run_pipeline(transitions([(10.0, 10.0)] * 5), check_no_rows)
-
-
-def test_run_reads_the_date_range_and_writes_the_output_table():
+def test_run_detects_a_visit_with_entry_stop_and_exit(bq_clients, bq_client_factory):
+    # The one test that runs the pipeline in Beam: the transforms' own tests cover each case.
+    # vessel-2 stays at sea, so only vessel-1's visit is written.
+    rows = transitions(SEA_PORT_STOP_PORT_SEA) + transitions(
+        [(10.0, 10.0)] * 5, ssvid="222", vessel_id="vessel-2", seg_id="seg-2"
+    )
     reads, writes = [], []
 
-    run_pipeline([], check_no_rows, reads=reads, writes=writes, bad_segs="project.dataset.bad")
+    run_pipeline(
+        rows,
+        check_one_full_visit,
+        reads=reads,
+        writes=writes,
+        bq_client_factory=bq_client_factory,
+        bad_segs="project.dataset.bad",
+    )
 
     (read,) = reads
     assert "project.dataset.port_state_transitions" in read["query"]
@@ -145,11 +145,7 @@ def test_run_reads_the_date_range_and_writes_the_output_table():
     assert [f["name"] for f in write["schema"]["fields"]] == [
         f["name"] for f in schemas.get_schema("port_visits.json")
     ]
-
-
-def test_run_describes_the_output_table_after_writing_it(bq_clients, bq_client_factory):
-    run_pipeline([], check_no_rows, bq_client_factory=bq_client_factory)
-
+    # The output table is described after writing it.
     (client,) = bq_clients
     (updated, fields), _ = client.update_table.call_args
     assert fields == ["description", "labels"]

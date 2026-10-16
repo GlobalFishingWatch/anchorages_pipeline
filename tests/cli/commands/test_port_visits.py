@@ -1,4 +1,5 @@
 import argparse
+import datetime
 
 import pytest
 
@@ -17,13 +18,22 @@ BASE_ARGS = [
 ]
 
 
-def test_cli_executes_run_with_mock_bq_clients():
-    # The pipeline really builds and runs its Beam DAG, with the BigQuery source/sink swapped for
-    # gfw-common's fakes and the in-process FnApiRunner (DirectRunner would pick Prism, which
-    # runs as a subprocess and stages an sdist of the package in the working directory).
-    main.run(
-        [*BASE_ARGS, "--mock-bq-clients", "--project", "test-project", "--runner", "FnApiRunner"]
+def test_cli_executes_run_with_the_config(monkeypatch):
+    configs = []
+    monkeypatch.setattr(
+        "pipe_anchorages.cli.commands.port_visits.run",
+        lambda config, **kwargs: configs.append(config),
     )
+
+    main.run(BASE_ARGS)
+
+    (config,) = configs
+    assert config.bq_in_port_state_transitions == "project.dataset.port_state_transitions"
+    assert config.bq_in_segment_info == "project.dataset.segment_info"
+    assert config.bq_out_port_visits == "project.dataset.port_visits"
+    assert config.start_date == datetime.date(2024, 1, 1)
+    assert config.end_date == datetime.date(2024, 1, 7)
+    assert config.labels == {"environment": "development", "stage": "anchorages"}
 
 
 @pytest.mark.parametrize(

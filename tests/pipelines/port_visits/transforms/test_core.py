@@ -1,13 +1,9 @@
 import math
 
-import apache_beam as beam
-from apache_beam.testing.util import assert_that, equal_to
-
 from pipe_anchorages.common import LatLon
 from pipe_anchorages.core.port_visit import PortVisit
 from pipe_anchorages.core.visit_event import VisitEvent
 from pipe_anchorages.pipelines.port_visits.transforms.core import (
-    DetectPortVisits,
     event_to_msg,
     from_msg,
     visit_to_msg,
@@ -88,26 +84,3 @@ def test_visit_to_msg_converts_timestamps_and_events():
     assert msg["end_timestamp"] == at(20).timestamp()
     assert msg["events"] == [event_to_msg(e) for e in events]
     assert msg["confidence"] == 1
-
-
-def test_detect_port_visits_turns_rows_into_visit_rows(pipeline):
-    rows = [
-        row(port_dist=10.0, speed=10.0, timestamp=at(0).timestamp()),
-        row(port_dist=1.0, speed=5.0, timestamp=at(10).timestamp()),
-        row(port_dist=10.0, speed=10.0, timestamp=at(20).timestamp()),
-    ]
-
-    with pipeline as p:
-        visits = p | beam.Create(rows) | DetectPortVisits(
-            anchorage_entry_dist_km=3.0,
-            anchorage_exit_dist_km=4.0,
-            stopping_speed_knots=0.2,
-            starting_speed_knots=0.5,
-            min_anchorage_gap_minutes=60,
-            max_inter_seg_dist_nm=60.0,
-            end_time=at(24 * 60),
-        )
-        summary = visits | beam.Map(
-            lambda v: (v["vessel_id"], v["confidence"], [e["event_type"] for e in v["events"]])
-        )
-        assert_that(summary, equal_to([("vessel-1", 1, ["PORT_ENTRY", "PORT_EXIT"])]))
