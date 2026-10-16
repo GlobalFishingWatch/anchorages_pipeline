@@ -68,6 +68,12 @@ FROM prod AS test
 COPY ./requirements-test.txt .
 RUN pip install -r requirements-test.txt
 
+# The tests run Beam on Prism, a binary Beam downloads from GitHub on first use. Fetch it here,
+# so the tests don't download it on every run.
+RUN python -c "from apache_beam.options.pipeline_options import PipelineOptions; \
+from apache_beam.runners.portability.prism_runner import PrismJobServer as S; \
+server = S(PipelineOptions()); server.local_bin(server.path_to_binary(), S.BIN_CACHE)"
+
 COPY ./tests ./tests
 
 # Suppress all warnings during tests
