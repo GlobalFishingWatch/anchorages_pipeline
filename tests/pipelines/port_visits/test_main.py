@@ -14,9 +14,9 @@ from pipe_anchorages.pipelines.port_visits.main import (
 )
 from pipe_anchorages.pipelines.port_visits.table_config import PortVisitsTableConfig
 
-# The in-process runner: DirectRunner would pick Prism, which runs as a subprocess and stages an
-# sdist of the package in the working directory.
-RUNNER = "FnApiRunner"
+# Beam's local runner, named explicitly: DirectRunner would fall back to other runners for
+# pipelines Prism doesn't support.
+RUNNER = "PrismRunner"
 
 T0 = datetime.datetime(2024, 1, 2, tzinfo=datetime.timezone.utc).timestamp()
 EVERY_SECONDS = 10 * 60
