@@ -1,6 +1,3 @@
-import apache_beam as beam
-from apache_beam.testing.util import assert_that, equal_to
-
 from pipe_anchorages.pipelines.named_anchorages.transforms.add_names_to_anchorages import (
     AddNamesToAnchorages,
 )
@@ -77,20 +74,3 @@ def test_an_anchorage_in_china_keeps_the_name_the_overrides_give_it():
     anchorage = named_anchorage(lat=31.23, lon=121.49)
 
     assert names(add_names(anchorage)) == ("SHANGHAI", None, "CHN", "anchorage_overrides")
-
-
-def test_the_transform_names_each_anchorage(pipeline):
-    anchorages = [
-        named_anchorage(s2id="pointe-noire", lat=POINTE_NOIRE_LAT, lon=POINTE_NOIRE_LON),
-        named_anchorage(s2id="high-seas", top_destination="SOMEWHERE"),
-    ]
-
-    with pipeline as p:
-        named = (
-            p
-            | beam.Create(anchorages)
-            | AddNamesToAnchorages(SHAPEFILE, PORT_INFO_CONFIG)
-            | beam.Map(lambda a: (a.s2id, a.label))
-        )
-        expected = [("pointe-noire", "POINTE NOIRE"), ("high-seas", "SOMEWHERE")]
-        assert_that(named, equal_to(expected))

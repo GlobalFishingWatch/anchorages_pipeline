@@ -1,3 +1,4 @@
+import pathlib
 from types import SimpleNamespace
 
 import apache_beam as beam
@@ -13,9 +14,12 @@ from pipe_anchorages.pipelines.named_anchorages.table_config import NamedAnchora
 # sdist of the package in the working directory.
 RUNNER = "FnApiRunner"
 
-# anchorage_overrides.csv has 60410 anchorages. The pipeline adds every one whose s2id isn't
-# among its input's, and drops the one labelled REMOVE.
-N_OVERRIDES = 60410
+# A few rows of the real anchorage_overrides.csv, so the pipeline doesn't push its 60410 through
+# Beam: TONGYEONG and REMOVE, which the input has, POINTE NOIRE, which it doesn't, and two OLIB
+# rows in the same S2 cell. The pipeline adds every override whose s2id isn't among its input's,
+# and drops the one labelled REMOVE.
+ANCHORAGE_OVERRIDES = str(pathlib.Path(__file__).parent / "anchorage_overrides.csv")
+N_OVERRIDES = 5
 
 
 def anchorage_location(s2id, lat, lon, top_destination=None):
@@ -81,6 +85,7 @@ def run_pipeline(rows, check, reads=None, writes=None, bq_client_factory=None, *
     config = dict(
         bq_in_anchorage_locations="project.dataset.anchorage_locations",
         bq_out_named_anchorages="project.dataset.named_anchorages",
+        anchorage_overrides=ANCHORAGE_OVERRIDES,
         labels={"environment": "development", "stage": "anchorages"},
         mock_bq_clients=True,
         unknown_unparsed_args=[],
@@ -117,6 +122,10 @@ def check_named_anchorages(rows):
     assert by_s2id["thunder-bay"]["unique_stationary_ssvid"] == 3
     assert by_s2id["thunder-bay"]["unique_stationary_fishing_ssvid"] == 1
     assert by_s2id["356ec741"]["total_visits"] == 10
+    assert names(by_s2id["1a5e4eaf"]) == (
+        "POINTE NOIRE", "POINTE NOIRE OFFSHORE", "COG", "anchorage_overrides"
+    )
+    assert by_s2id["1a5e4eaf"]["total_visits"] is None
 
     # 5 input anchorages, plus the overrides but the 2 the input already has.
     assert len(rows) == 5 + N_OVERRIDES - 2
@@ -126,30 +135,17 @@ def check_named_anchorages(rows):
     assert set(rows[0]) == {f["name"] for f in schemas.get_schema("named_anchorages.json")}
 
 
-def check_only_the_overrides(rows):
-    # All the overrides' anchorages but the one labelled REMOVE.
-    assert len(rows) == N_OVERRIDES - 1
-    assert {r["label_source"] for r in rows} == {"anchorage_overrides"}
-    assert {r["total_visits"] for r in rows} == {None}
-    assert {r["unique_stationary_ssvid"] for r in rows} == {0}
-
-
-def check_any(rows):
-    pass
-
-
-def test_run_names_the_anchorage_locations_and_adds_the_overrides():
-    run_pipeline(ANCHORAGE_LOCATIONS, check_named_anchorages)
-
-
-def test_run_writes_only_the_overrides_without_anchorage_locations():
-    run_pipeline([], check_only_the_overrides)
-
-
-def test_run_reads_the_anchorage_locations_and_overwrites_the_output_table():
+def test_run_names_the_anchorage_locations_and_adds_the_overrides(bq_clients, bq_client_factory):
+    # The one test that runs the pipeline in Beam: the transforms' own tests cover each case.
     reads, writes = [], []
 
-    run_pipeline([], check_any, reads=reads, writes=writes)
+    run_pipeline(
+        ANCHORAGE_LOCATIONS,
+        check_named_anchorages,
+        reads=reads,
+        writes=writes,
+        bq_client_factory=bq_client_factory,
+    )
 
     (read,) = reads
     assert "FROM\n    `project.dataset.anchorage_locations`" in read["query"]
@@ -161,11 +157,7 @@ def test_run_reads_the_anchorage_locations_and_overwrites_the_output_table():
     assert [f["name"] for f in write["schema"]["fields"]] == [
         f["name"] for f in schemas.get_schema("named_anchorages.json")
     ]
-
-
-def test_run_describes_the_output_table_after_writing_it(bq_clients, bq_client_factory):
-    run_pipeline([], check_any, bq_client_factory=bq_client_factory)
-
+    # The output table is described after writing it.
     (client,) = bq_clients
     (updated, fields), _ = client.update_table.call_args
     assert fields == ["description", "labels"]
