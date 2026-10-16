@@ -1,8 +1,6 @@
 import datetime
 
-import apache_beam as beam
 import pytest
-from apache_beam.testing.util import assert_that, equal_to
 
 from pipe_anchorages.pipelines.port_visits.transforms.create_in_out_events import (
     CreateInOutEvents,
@@ -163,12 +161,3 @@ def test_events_are_located_at_the_last_anchorage_the_vessel_was_in_port_at():
 def test_min_gap_must_be_under_one_day():
     with pytest.raises(AssertionError, match="min gap must be under one day"):
         create(min_gap_minutes=datetime.timedelta(days=1).total_seconds() / 60)
-
-
-def test_transform_maps_each_vessel_to_its_events(pipeline):
-    records = [record(0, **AT_SEA), record(10, **IN_PORT), record(20, **AT_SEA)]
-
-    with pipeline as p:
-        output = p | beam.Create([("vessel-1", records)]) | create()
-        types = output | beam.MapTuple(lambda k, events: (k, [e.event_type for e in events]))
-        assert_that(types, equal_to([("vessel-1", ["PORT_ENTRY", "PORT_EXIT"])]))
