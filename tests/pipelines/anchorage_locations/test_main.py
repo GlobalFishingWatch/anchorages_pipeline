@@ -11,9 +11,9 @@ from gfw.common.bigquery.helper import BigQueryHelper
 from pipe_anchorages.assets import schemas
 from pipe_anchorages.pipelines.anchorage_locations.main import run
 
-# The in-process runner: DirectRunner would pick Prism, which runs as a subprocess and stages an
-# sdist of the package in the working directory.
-RUNNER = "FnApiRunner"
+# Beam's local runner, named explicitly: DirectRunner would fall back to other runners for
+# pipelines Prism doesn't support.
+RUNNER = "PrismRunner"
 
 T0 = datetime.datetime(2024, 1, 2, tzinfo=datetime.timezone.utc).timestamp()
 STAY_POSITIONS = 40

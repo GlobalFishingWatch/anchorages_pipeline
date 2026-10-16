@@ -10,9 +10,9 @@ from pipe_anchorages.assets import schemas
 from pipe_anchorages.pipelines.named_anchorages.main import AnchorageLocationsQuery, run
 from pipe_anchorages.pipelines.named_anchorages.table_config import NamedAnchoragesTableConfig
 
-# The in-process runner: DirectRunner would pick Prism, which runs as a subprocess and stages an
-# sdist of the package in the working directory.
-RUNNER = "FnApiRunner"
+# Beam's local runner, named explicitly: DirectRunner would fall back to other runners for
+# pipelines Prism doesn't support.
+RUNNER = "PrismRunner"
 
 # A few rows of the real anchorage_overrides.csv, so the pipeline doesn't push its 60410 through
 # Beam: TONGYEONG and REMOVE, which the input has, POINTE NOIRE, which it doesn't, and two OLIB
