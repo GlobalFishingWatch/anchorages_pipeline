@@ -15,7 +15,7 @@
         "name": "ssvid",
         "mode": "NULLABLE",
         "type": "STRING",
-        "description": "`ssvid` of the vessel involved in the visit.N.B. Some `ssvid` may be associated with multiple tracks"
+        "description": "`ssvid` of the vessel involved in the visit. Note: some `ssvid` may be associated with multiple tracks"
     },
     {
         "name": "start_timestamp",
@@ -37,6 +37,7 @@
     },
     {
         "name": "start_anchorage_id",
+        "mode": "NULLABLE",
         "type": "STRING",
         "description": "`anchorage_id` of anchorage where vessel entered port"
     },
@@ -54,8 +55,8 @@
     },
     {
         "name": "end_lon",
-        "type": "FLOAT",
         "mode": "NULLABLE",
+        "type": "FLOAT",
         "description": "longitude of vessel at `end_timestamp`"
     },
     {
@@ -68,13 +69,13 @@
         "name": "end_anchorage_id",
         "mode": "NULLABLE",
         "type": "STRING",
-        "description": "longitude of vessel at `end_timestamp`"
+        "description": "`anchorage_id` of anchorage where vessel exited port"
     },
     {
         "name": "confidence",
         "mode": "NULLABLE",
         "type": "INTEGER",
-        "description": "How confident are we that this is a real visit based on components of the visits:\n                1 -> no stop or gap; only an entry and/or exit\n                2 -> only stop and/or gap; no entry or exit\n                3 -> port entry or exit with stop and/or gap\n                4 -> port entry and exit with stop and/or gap"
+        "description": "How confident are we that this is a real visit based on components of the visits:\n1 -> no stop or gap; only an entry and/or exit\n2 -> only stop and/or gap; no entry or exit\n3 -> port entry or exit with stop and/or gap\n4 -> port entry and exit with stop and/or gap"
     },
     {
         "name": "events",
