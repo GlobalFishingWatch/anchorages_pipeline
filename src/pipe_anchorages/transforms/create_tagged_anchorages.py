@@ -3,7 +3,7 @@ from __future__ import absolute_import, print_function, division
 import apache_beam as beam
 
 from pipe_anchorages import common as cmn
-from pipe_anchorages.objects.pseudo_anchorage import PseudoAnchorage
+from pipe_anchorages.core.pseudo_anchorage import PseudoAnchorage
 
 
 class CreateTaggedAnchorages(beam.PTransform):

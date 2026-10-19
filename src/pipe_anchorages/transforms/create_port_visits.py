@@ -6,7 +6,7 @@ import math
 
 import apache_beam as beam
 import six
-from pipe_anchorages.objects.port_visit import PortVisit
+from pipe_anchorages.core.port_visit import PortVisit
 
 
 class CreatePortVisits(beam.PTransform):

@@ -59,6 +59,13 @@ jobs:
           make install-test
           pip install .
 
+      - name: Cache Prism
+        # The tests run Beam on Prism, a binary Beam downloads from GitHub on first use.
+        uses: actions/cache@v4
+        with:
+          path: ~/.apache_beam/cache/prism
+          key: prism-${{ runner.os }}-${{ hashFiles('pyproject.toml', 'requirements.txt') }}
+
       - name: Test with pytest
         run: |
           . $VENV/bin/activate

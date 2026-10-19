@@ -2,8 +2,8 @@ from collections import OrderedDict
 import datetime
 import numpy as np
 
-from pipe_anchorages.objects.visit_event import VisitEvent
-from pipe_anchorages.objects.namedtuples import _datetime_to_s
+from pipe_anchorages.core.visit_event import VisitEvent
+from pipe_anchorages.core.namedtuples import _datetime_to_s
 from pipe_anchorages.transforms.create_port_visits import CreatePortVisits
 
 

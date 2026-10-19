@@ -1,9 +1,9 @@
 from typing import Any
 from types import SimpleNamespace
 
-from gfw.common.cli import Command, Option
+from gfw.common.cli import Command, Option, date_range_options
 
-from pipe_anchorages import anchorages_pipeline
+from pipe_anchorages.pipelines.anchorage_locations.main import run
 
 
 DESCRIPTION = """\
@@ -16,10 +16,7 @@ defined for Apache Beam PipelineOptions class. For more information, see
 """
 
 HELP_IN_MESSAGES = "BigQuery table to pull position messages from."
-HELP_IN_SEGMENTS = "BigQuery table with segment destinations, partitioned by day."
 HELP_LOCATIONS = "BigQuery table in which to store the anchorage locations."
-HELP_START_DATE = "First date to look for stationary positions."
-HELP_END_DATE = "Last date (exclusive) to look for stationary positions."
 HELP_FISHING_SSVIDS = "Newline-separated list of fishing vessel ids."
 HELP_MIN_POSITIONS = "Minimum number of positions a segment needs to be considered."
 HELP_STATIONARY_PERIOD_MIN_DURATION_MINUTES = (
@@ -47,11 +44,9 @@ class AnchorageLocations(Command):
     def options(self):
         return [
             Option("--bq-in-messages", type=str, required=True, help=HELP_IN_MESSAGES),
-            Option("--bq-in-segments", type=str, required=True, help=HELP_IN_SEGMENTS),
             Option("--bq-out-anchorage-locations", type=str, required=True, help=HELP_LOCATIONS),
             Option("--gcs-in-fishing-ssvids", type=str, required=True, help=HELP_FISHING_SSVIDS),
-            Option("--start-date", type=str, required=True, help=HELP_START_DATE),
-            Option("--end-date", type=str, required=True, help=HELP_END_DATE),
+            *date_range_options(),
             Option("--min-positions", type=int, default=200, help=HELP_MIN_POSITIONS),
             Option("--min-unique-vessels", type=int, default=20, help=HELP_MIN_UNIQUE_VESSELS),
             Option(
@@ -66,8 +61,13 @@ class AnchorageLocations(Command):
                 default=0.5,
                 help=HELP_STATIONARY_PERIOD_MAX_DISTANCE_KM,
             ),
+            Option(
+                "--mock-bq-clients",
+                type=bool,
+                help="If passed, mocks the BQ clients [Useful for development].",
+            ),
         ]
 
     @classmethod
     def run(cls, config: SimpleNamespace, **kwargs: Any) -> Any:
-        return anchorages_pipeline.run(config, **kwargs)
+        return run(config, **kwargs)

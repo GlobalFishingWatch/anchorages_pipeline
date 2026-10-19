@@ -1,0 +1,16 @@
+SELECT
+    ssvid AS ident,
+    lat,
+    lon,
+    CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp,
+    destination,
+    speed
+FROM
+    `{{ source_messages }}`
+WHERE
+    date(timestamp) >= '{{ start_date }}'
+    AND date(timestamp) < '{{ end_date }}'
+    AND seg_id IS NOT NULL
+    AND lat IS NOT NULL
+    AND lon IS NOT NULL
+    AND speed IS NOT NULL

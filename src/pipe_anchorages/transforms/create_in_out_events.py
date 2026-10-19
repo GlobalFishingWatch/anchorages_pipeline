@@ -6,7 +6,7 @@ from datetime import timedelta
 import apache_beam as beam
 from pipe_anchorages import common as cmn
 from pipe_anchorages.distance import distance, inf
-from pipe_anchorages.objects.visit_event import VisitEvent
+from pipe_anchorages.core.visit_event import VisitEvent
 
 PseudoRcd = namedtuple("PseudoRcd", ["location", "timestamp", "identifier"])
 

@@ -1,6 +1,6 @@
 from collections import namedtuple
 
-from .objects.namedtuples import s_to_datetime
+from .core.namedtuples import s_to_datetime
 
 
 def is_location_message(msg):

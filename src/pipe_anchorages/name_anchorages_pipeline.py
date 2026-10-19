@@ -14,7 +14,7 @@ from pipe_anchorages.assets.data import EEZ
 from pipe_anchorages.assets.data import port_lists
 
 from . import common as cmn
-from .find_anchorage_points import AnchoragePoint
+from .core.anchorage_location import AnchorageLocation
 from .nearest_port import Port
 from .shapefile_to_iso3 import get_iso3_finder
 from .transforms.source import QuerySource
@@ -32,7 +32,7 @@ inf = float("inf")
 class NamedAnchoragePoint(
     namedtuple(
         "NamedAnchoragePoint",
-        AnchoragePoint._fields + ("label", "sublabel", "iso3", "label_source"),
+        AnchorageLocation._fields + ("label", "sublabel", "iso3", "label_source"),
     )
 ):
 
@@ -221,7 +221,7 @@ def run(config: SimpleNamespace, **kwargs: Any) -> int:
         )
     )
 
-    (named_anchorages | NamedAnchorageSink(config.bq_out_named_anchorages, config, cloud_options))
+    (named_anchorages | NamedAnchorageSink(config.bq_out_named_anchorages, config))
 
     result = p.run()
 

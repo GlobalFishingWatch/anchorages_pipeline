@@ -13,7 +13,3 @@ class AnchoragesVisitedInfoConfig(PipelineConfig):
     bq_output: str
     project: str = None
     dry_run: bool = False
-
-    # date_range it is declare in the base class as positional/required.
-    # TODO: make it optional.
-    date_range: tuple[str, str] = None

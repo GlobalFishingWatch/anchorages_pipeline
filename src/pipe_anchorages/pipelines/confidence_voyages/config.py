@@ -10,8 +10,3 @@ class ConfidenceVoyagesConfig(PipelineConfig):
     bq_out_voyages: str
     min_confidence: str
     project: str = None
-
-    # This pipeline always rebuilds the whole output table, with no date windowing, but
-    # date_range it is declare in the base class as positional/required.
-    # TODO: make it optional.
-    date_range: tuple[str, str] = None

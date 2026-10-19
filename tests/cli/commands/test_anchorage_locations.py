@@ -1,17 +1,15 @@
 import argparse
-
-from types import SimpleNamespace
+import datetime
 
 import pytest
 
-from pipe_anchorages import anchorages_pipeline
+from gfw.common.config import PipelineConfigError
 from pipe_anchorages.cli import main
 
 
 BASE_ARGS = [
     "anchorage-locations",
     "--bq-in-messages", "project.dataset.messages",
-    "--bq-in-segments", "project.dataset.segments",
     "--bq-out-anchorage-locations", "project.dataset.anchorage_locations",
     "--start-date", "2024-01-01",
     "--end-date", "2024-01-07",
@@ -20,68 +18,58 @@ BASE_ARGS = [
 ]
 
 
-def test_cli_executes_run(mocker):
-    mock_run = mocker.patch(
-        "pipe_anchorages.cli.commands.anchorage_locations.anchorages_pipeline.run",
-        return_value=0,
+def test_cli_executes_run_with_the_config(monkeypatch):
+    configs = []
+    monkeypatch.setattr(
+        "pipe_anchorages.cli.commands.anchorage_locations.run",
+        lambda config, **kwargs: configs.append(config),
     )
 
     main.run(BASE_ARGS)
 
-    mock_run.assert_called_once()
-    config = mock_run.call_args[0][0]
+    (config,) = configs
     assert config.bq_in_messages == "project.dataset.messages"
-    assert config.bq_in_segments == "project.dataset.segments"
     assert config.bq_out_anchorage_locations == "project.dataset.anchorage_locations"
-    assert config.start_date == "2024-01-01"
-    assert config.end_date == "2024-01-07"
     assert config.gcs_in_fishing_ssvids == "gs://bucket/fishing_mmsi.txt"
+    assert config.start_date == datetime.date(2024, 1, 1)
+    assert config.end_date == datetime.date(2024, 1, 7)
     assert config.min_positions == 200
+    assert config.min_unique_vessels == 20
     assert config.stationary_period_min_duration_minutes == 720
     assert config.stationary_period_max_distance_km == 0.5
-    assert config.min_unique_vessels == 20
+    assert config.labels == {"environment": "development", "stage": "anchorages"}
 
 
-def test_cli_requires_gcs_in_fishing_ssvids(mocker):
-    mocker.patch(
-        "pipe_anchorages.cli.commands.anchorage_locations.anchorages_pipeline.run",
-        return_value=0,
-    )
-    excluded = ("--gcs-in-fishing-ssvids", "gs://bucket/fishing_mmsi.txt")
-    args = [a for a in BASE_ARGS if a not in excluded]
+@pytest.mark.parametrize(
+    "flag",
+    [
+        "--bq-in-messages",
+        "--bq-out-anchorage-locations",
+        "--start-date",
+        "--end-date",
+        "--gcs-in-fishing-ssvids",
+    ],
+)
+def test_cli_requires_argument(flag):
+    args = list(BASE_ARGS)
+    i = args.index(flag)
+    del args[i:i + 2]
 
-    with pytest.raises(argparse.ArgumentTypeError, match="gcs_in_fishing_ssvids"):
+    with pytest.raises(argparse.ArgumentTypeError, match="Missing required arguments"):
         main.run(args)
 
 
-def test_run_forwards_config_file_beam_options_to_pipeline(capture_pipeline_init):
-    # Same forwarding contract as thin_port_messages_pipeline.run()/port_visits_pipeline.run():
-    # config-file keys that aren't one of this command's own Options land in
-    # config.unknown_parsed_args, and run() must forward that dict into
-    # Pipeline(**options), matching pipe-gaps' PipelineFactory.
-    config = SimpleNamespace(
-        bq_in_messages="project.dataset.messages",
-        bq_in_segments="project.dataset.segments",
-        bq_out_anchorage_locations="project.dataset.anchorage_locations",
-        start_date="2024-01-01",
-        end_date="2024-01-07",
-        gcs_in_fishing_ssvids="gs://bucket/fishing_mmsi.txt",
-        min_positions=200,
-        stationary_period_min_duration_minutes=720,
-        stationary_period_max_distance_km=0.5,
-        min_unique_vessels=20,
-        labels={"team": "pipeline"},
-        unknown_unparsed_args=[],
-        unknown_parsed_args={"project": "test-project", "max_num_workers": 50},
-    )
+def test_cli_rejects_an_invalid_date():
+    args = list(BASE_ARGS)
+    args[args.index("2024-01-07")] = "07/01/2024"
 
-    mock_pipeline_cls = capture_pipeline_init(
-        "pipe_anchorages.anchorages_pipeline.Pipeline", anchorages_pipeline.run, config
-    )
+    with pytest.raises(SystemExit):
+        main.run(args)
 
-    mock_pipeline_cls.assert_called_once_with(
-        unparsed_args=[],
-        labels={"team": "pipeline"},
-        project="test-project",
-        max_num_workers=50,
-    )
+
+def test_cli_rejects_an_empty_date_range():
+    args = list(BASE_ARGS)
+    args[args.index("2024-01-07")] = "2024-01-01"
+
+    with pytest.raises(PipelineConfigError, match=r"end_date .* must be after start_date"):
+        main.run(args)

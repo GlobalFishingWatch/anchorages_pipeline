@@ -41,7 +41,7 @@ def run(
     bq_client_factory: Callable = None,
 ) -> None:
 
-    config = AnchoragesVisitedInfoConfig.from_namespace(config, version=__version__)
+    config = AnchoragesVisitedInfoConfig.from_namespace(config)
 
     if bq_client_factory is None:
         bq_client_factory = BigQueryHelper.get_client_factory(config.mock_bq_clients)

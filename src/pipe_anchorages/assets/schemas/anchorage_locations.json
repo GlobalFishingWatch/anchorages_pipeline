@@ -1,0 +1,80 @@
+[
+    {
+        "name": "lat",
+        "type": "FLOAT",
+        "mode": "NULLABLE",
+        "description": "The mean latitude where the anchorage happened."
+    },
+    {
+        "name": "lon",
+        "type": "FLOAT",
+        "mode": "NULLABLE",
+        "description": "The mean longitude where the anchorage happened."
+    },
+    {
+        "name": "total_visits",
+        "type": "INTEGER",
+        "mode": "NULLABLE",
+        "description": "The total visits to the anchorage."
+    },
+    {
+        "name": "drift_radius",
+        "type": "FLOAT",
+        "mode": "NULLABLE",
+        "description": "The rms drift radius."
+    },
+    {
+        "name": "top_destination",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "The top destination."
+    },
+    {
+        "name": "unique_stationary_ssvid",
+        "type": "INTEGER",
+        "mode": "NULLABLE",
+        "description": "The unique stationary ssvid."
+    },
+    {
+        "name": "unique_stationary_fishing_ssvid",
+        "type": "INTEGER",
+        "mode": "NULLABLE",
+        "description": "The unique stationary fishing ssvid."
+    },
+    {
+        "name": "unique_active_ssvid",
+        "type": "INTEGER",
+        "mode": "NULLABLE",
+        "description": "The unique active ssvid."
+    },
+    {
+        "name": "unique_total_ssvid",
+        "type": "INTEGER",
+        "mode": "NULLABLE",
+        "description": "The unique total ssvid."
+    },
+    {
+        "name": "active_ssvid_days",
+        "type": "FLOAT",
+        "mode": "NULLABLE",
+        "description": "The active ssvid days."
+    },
+    {
+        "name": "stationary_ssvid_days",
+        "type": "FLOAT",
+        "mode": "NULLABLE",
+        "description": "The stationary ssvid days."
+    },
+    {
+        "name": "stationary_fishing_ssvid_days",
+        "type": "FLOAT",
+        "mode": "NULLABLE",
+        "description": "The stationary fishing ssvid days"
+    },
+    {
+        "name": "s2id",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "The s2id."
+    }
+]

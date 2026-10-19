@@ -14,7 +14,7 @@ from apache_beam.runners import PipelineState
 from gfw.common.beam.pipeline.base import Pipeline
 
 from pipe_anchorages import common as cmn
-from pipe_anchorages.objects.namedtuples import _datetime_to_s
+from pipe_anchorages.core.namedtuples import _datetime_to_s
 from pipe_anchorages.schema.port_visit import port_visit_schema
 from pipe_anchorages.transforms.create_in_out_events import CreateInOutEvents
 from pipe_anchorages.transforms.create_port_visits import CreatePortVisits
