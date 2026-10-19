@@ -1,106 +1,56 @@
-from __future__ import absolute_import, division, print_function
-
 from collections import namedtuple
-from datetime import timedelta
+from datetime import datetime, timedelta
+from typing import Iterable, Iterator
 
 import apache_beam as beam
 from pipe_anchorages import common as cmn
-from pipe_anchorages.distance import distance, inf
 from pipe_anchorages.core.visit_event import VisitEvent
+from pipe_anchorages.transforms.in_out_events import InOutEventsBase
+from pipe_anchorages.transforms.smart_thin_records import VisitLocationRecord
 
 PseudoRcd = namedtuple("PseudoRcd", ["location", "timestamp", "identifier"])
 
 
-class InOutEventsBase:
-    IN_PORT = "IN_PORT"
-    AT_SEA = "AT_SEA"
-    STOPPED = "STOPPED"
-
-    in_port_states = (IN_PORT, STOPPED)
-    all_states = (IN_PORT, AT_SEA, STOPPED)
-
-    EVT_ENTER = "PORT_ENTRY"
-    EVT_EXIT = "PORT_EXIT"
-    EVT_STOP = "PORT_STOP_BEGIN"
-    EVT_START = "PORT_STOP_END"
-    EVT_GAP_BEG = "PORT_GAP_BEGIN"
-    EVT_GAP_END = "PORT_GAP_END"
-
-    transition_map = {
-        (AT_SEA, AT_SEA): [],
-        (AT_SEA, IN_PORT): [EVT_ENTER],
-        (AT_SEA, STOPPED): [EVT_ENTER, EVT_STOP],
-        (IN_PORT, AT_SEA): [EVT_EXIT],
-        (IN_PORT, IN_PORT): [],
-        (IN_PORT, STOPPED): [EVT_STOP],
-        (STOPPED, AT_SEA): [EVT_START, EVT_EXIT],
-        (STOPPED, IN_PORT): [EVT_START],
-        (STOPPED, STOPPED): [],
-        (None, AT_SEA): [],
-        (None, IN_PORT): [],
-        (None, STOPPED): [],
-    }
-
-    def _is_in_port(self, state, dist):
-        if dist is None:
-            return False
-        if dist <= self.anchorage_entry_dist:
-            return True
-        elif dist >= self.anchorage_exit_dist:
-            return False
-        else:
-            return state in (self.IN_PORT, self.STOPPED)
-
-    def _is_stopped(self, state, speed):
-        if speed <= self.stopped_begin_speed:
-            return True
-        elif speed >= self.stopped_end_speed:
-            return False
-        else:
-            return state == self.STOPPED
-
-    def _anchorage_distance(self, loc, anchorages):
-        closest = None
-        min_dist = inf
-        for anch in sorted(anchorages, key=lambda x: x.s2id):
-            dist = distance(loc, anch.mean_location)
-            if dist < min_dist:
-                min_dist = dist
-                closest = anch
-        return closest, min_dist
-
-    def _compute_state(self, is_in_port, is_stopped):
-        if is_in_port:
-            if is_stopped:
-                return self.STOPPED
-            else:
-                return self.IN_PORT
-        else:
-            return self.AT_SEA
-
-
 class CreateInOutEvents(beam.PTransform, InOutEventsBase):
+    """Turns each vessel's port state transitions into port events.
+
+    Input: (vessel_id, records) pairs of VisitLocationRecord.
+    Output: (vessel_id, events) pairs of VisitEvent.
+
+    Walks each vessel's records in time order through InOutEventsBase's state machine
+    (AT_SEA, IN_PORT, STOPPED), emitting PORT_ENTRY, PORT_EXIT, PORT_STOP_BEGIN and
+    PORT_STOP_END on state changes. In port, a gap of at least `min_gap_minutes` before a
+    record that may end a gap emits PORT_GAP_END at that record and PORT_GAP_BEGIN at
+    `min_gap_minutes` after the previous one. A vessel still in port at the end of the
+    range, with no record for at least `min_gap_minutes` before the range's last
+    possible timestamp (just before the exclusive `end_time`), gets a PORT_GAP_BEGIN.
+
+    Every event is located at the last anchorage the vessel was in port at.
+    """
+
     def __init__(
         self,
-        anchorage_entry_dist,
-        anchorage_exit_dist,
-        stopped_begin_speed,
-        stopped_end_speed,
-        min_gap_minutes,
-        end_time,
-    ):
+        anchorage_entry_dist: float,
+        anchorage_exit_dist: float,
+        stopped_begin_speed: float,
+        stopped_end_speed: float,
+        min_gap_minutes: float,
+        end_time: datetime,
+    ) -> None:
+        super().__init__()
         self.anchorage_entry_dist = anchorage_entry_dist
         self.anchorage_exit_dist = anchorage_exit_dist
         self.stopped_begin_speed = stopped_begin_speed
         self.stopped_end_speed = stopped_end_speed
         self.min_gap = timedelta(minutes=min_gap_minutes)
         self.end_time = end_time
-        self.last_possible_timestamp = end_time + timedelta(days=1) - timedelta(microseconds=1)
+        self.last_possible_timestamp = end_time - timedelta(microseconds=1)
         assert self.min_gap < timedelta(
             days=1
         ), "min gap must be under one day in current implementation"
 
-    def _build_event(self, active_port_rcd, rcd, event_type, last_timestamp):
+    def _build_event(self, active_port_rcd, rcd, event_type: str, last_timestamp) -> VisitEvent:
+        """Builds an event of `rcd`'s vessel, at the anchorage of `active_port_rcd`."""
         ssvid, vessel_id, seg_id = rcd.identifier
         return VisitEvent(
             anchorage_id=active_port_rcd.port_s2id,
@@ -116,7 +66,11 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
             last_timestamp=last_timestamp,
         )
 
-    def _yield_gap_beg(self, gap_end_rcd, last_timestamp, active_port_rcd):
+    def _yield_gap_beg(
+        self, gap_end_rcd, last_timestamp, active_port_rcd
+    ) -> Iterator[VisitEvent]:
+        """Yields the PORT_GAP_BEGIN, min_gap after `last_timestamp`, of a gap ending at
+        `gap_end_rcd`."""
         evt_timestamp = last_timestamp + self.min_gap
         assert evt_timestamp <= gap_end_rcd.timestamp
         rcd = PseudoRcd(
@@ -126,7 +80,10 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
         )
         yield self._build_event(active_port_rcd, rcd, self.EVT_GAP_BEG, last_timestamp)
 
-    def _create_in_out_events(self, records):
+    def _create_in_out_events(
+        self, records: Iterable[VisitLocationRecord]
+    ) -> Iterator[VisitEvent]:
+        """Yields the events of one vessel's records (see the class docstring)."""
         records = sorted(records, key=lambda x: x.timestamp)
         rcd = None
         last_state = None
@@ -160,9 +117,11 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
             psuedo_rcd = rcd._replace(timestamp=self.last_possible_timestamp)
             yield from self._yield_gap_beg(psuedo_rcd, last_timestamp, active_port_rcd)
 
+    # No type hints: Beam would infer coders from them (see core.py).
     def create_in_out_events(self, grouped_records):
+        """Returns (vessel_id, events) for a (vessel_id, records) pair."""
         identity, records = grouped_records
         return identity, list(self._create_in_out_events(records))
 
-    def expand(self, grouped_records):
+    def expand(self, grouped_records: beam.PCollection) -> beam.PCollection:
         return grouped_records | beam.Map(self.create_in_out_events)

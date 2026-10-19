@@ -1,0 +1,144 @@
+import dataclasses
+import datetime
+from dataclasses import dataclass
+from types import SimpleNamespace
+from typing import Any, Callable
+
+import apache_beam as beam
+
+from gfw.common.beam.pipeline.base import Pipeline
+from gfw.common.beam.pipeline.dag import LinearDag
+from gfw.common.beam.pipeline.hooks import create_table_hook
+from gfw.common.beam.transforms import ReadFromBigQuery, WriteToBigQueryWrapper
+from gfw.common.bigquery.helper import BigQueryHelper
+from gfw.common.datetime import datetime_from_date
+from gfw.common.query import Query
+
+from pipe_anchorages import common as cmn
+from pipe_anchorages.hooks import update_table_metadata_hook
+from pipe_anchorages.pipelines.port_visits.config import PortVisitsConfig
+from pipe_anchorages.pipelines.port_visits.table_config import (
+    PortVisitsTableConfig,
+    PortVisitsTableDescription,
+)
+from pipe_anchorages.pipelines.port_visits.transforms.core import DetectPortVisits
+from pipe_anchorages.version import __version__
+
+
+@dataclass
+class PortStateTransitionsQuery(Query):
+    """Port state transitions in [start_date, end_date), joined to each segment's
+    vessel_id, optionally excluding the segments `bad_segs` (a subquery) returns.
+
+    Its fields are the template's variables (see template_vars).
+    """
+
+    source_port_state_transitions: str
+    source_segment_info: str
+    start_date: datetime.date
+    end_date: datetime.date
+    bad_segs: str = None
+
+    template_filename = "port_state_transitions.sql.j2"
+
+    @property
+    def template_vars(self) -> dict:
+        return dataclasses.asdict(self)
+
+
+def run(
+    config: SimpleNamespace,
+    unknown_unparsed_args: tuple = (),
+    unknown_parsed_args: dict = None,
+    read_from_bigquery_factory: Callable = None,
+    write_to_bigquery_factory: Callable = None,
+    bq_client_factory: Callable = None,
+    **kwargs: Any,
+) -> None:
+    config = PortVisitsConfig.from_namespace(config)
+
+    if read_from_bigquery_factory is None:
+        read_from_bigquery_factory = ReadFromBigQuery.get_client_factory(
+            mocked=config.mock_bq_clients
+        )
+    if write_to_bigquery_factory is None:
+        write_to_bigquery_factory = WriteToBigQueryWrapper.get_client_factory(
+            mocked=config.mock_bq_clients
+        )
+    if bq_client_factory is None:
+        bq_client_factory = BigQueryHelper.get_client_factory(mocked=config.mock_bq_clients)
+
+    # Ensure that S2 Cell sizes are large enough that we don't miss ports.
+    anchorage_visit_max_distance = max(
+        config.anchorage_entry_dist_km, config.anchorage_exit_dist_km
+    )
+    assert anchorage_visit_max_distance * cmn.VISIT_SAFETY_FACTOR < 2 * cmn.approx_visit_cell_size
+
+    end_time = datetime_from_date(config.end_date)
+
+    table_config = PortVisitsTableConfig(
+        table_id=config.bq_out_port_visits,
+        description=PortVisitsTableDescription(
+            version=__version__,
+            relevant_params={
+                "bq_in_port_state_transitions": config.bq_in_port_state_transitions,
+                "bq_in_segment_info": config.bq_in_segment_info,
+                "start_date": config.start_date,
+                "end_date": config.end_date,
+                "bad_segs": config.bad_segs,
+                "max_inter_seg_dist_nm": config.max_inter_seg_dist_nm,
+                "anchorage_entry_dist_km": config.anchorage_entry_dist_km,
+                "anchorage_exit_dist_km": config.anchorage_exit_dist_km,
+                "stopping_speed_knots": config.stopping_speed_knots,
+                "starting_speed_knots": config.starting_speed_knots,
+                "min_anchorage_gap_minutes": config.min_anchorage_gap_minutes,
+            },
+        ),
+    )
+
+    dag = LinearDag(
+        sources=[
+            ReadFromBigQuery.from_query(
+                PortStateTransitionsQuery(
+                    source_port_state_transitions=config.bq_in_port_state_transitions,
+                    source_segment_info=config.bq_in_segment_info,
+                    start_date=config.start_date,
+                    end_date=config.end_date,
+                    bad_segs=config.bad_segs,
+                ).with_env(config.jinja_env),
+                label="ReadPortStateTransitions",
+                read_from_bigquery_factory=read_from_bigquery_factory,
+                read_from_bigquery_kwargs={"bigquery_job_labels": config.labels},
+            ),
+        ],
+        core=DetectPortVisits(
+            anchorage_entry_dist_km=config.anchorage_entry_dist_km,
+            anchorage_exit_dist_km=config.anchorage_exit_dist_km,
+            stopping_speed_knots=config.stopping_speed_knots,
+            starting_speed_knots=config.starting_speed_knots,
+            min_anchorage_gap_minutes=config.min_anchorage_gap_minutes,
+            max_inter_seg_dist_nm=config.max_inter_seg_dist_nm,
+            end_time=end_time,
+        ),
+        sinks=(
+            WriteToBigQueryWrapper(
+                table=table_config.table_id,
+                schema=table_config.schema,
+                write_to_bigquery_factory=write_to_bigquery_factory,
+                write_disposition=beam.io.BigQueryDisposition.WRITE_TRUNCATE,
+                create_disposition=beam.io.BigQueryDisposition.CREATE_NEVER,
+            ),
+        ),
+    )
+
+    pipeline = Pipeline(
+        dag=dag,
+        pre_hooks=[create_table_hook(table_config, mock=config.mock_bq_clients)],
+        post_hooks=[update_table_metadata_hook(table_config, config.labels, bq_client_factory)],
+        unparsed_args=config.unknown_unparsed_args,
+        labels=config.labels,
+        **config.unknown_parsed_args,
+        **kwargs,
+    )
+
+    pipeline.run()

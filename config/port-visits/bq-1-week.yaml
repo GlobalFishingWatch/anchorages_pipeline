@@ -3,7 +3,7 @@ bq_in_port_state_transitions: "world-fishing-827.machine_learning_dev_ttl_120d.p
 bq_in_segment_info: "world-fishing-827.pipe_production_v20201001.segment_info"
 bq_out_port_visits: "world-fishing-827.scratch_tomas_ttl30d.port_visits"
 start_date: "2018-01-01"
-end_date: "2018-01-07"
+end_date: "2018-01-08"
 bad_segs: >-
   (SELECT DISTINCT seg_id FROM world-fishing-827.gfw_research.pipe_v20201001_segs
   WHERE overlapping_and_short)

@@ -1,0 +1,18 @@
+SELECT
+    vids.ssvid,
+    vids.vessel_id,
+    vids.seg_id,
+    records.* EXCEPT (timestamp, identifier),
+    CAST(UNIX_MICROS(timestamp) AS FLOAT64) / 1000000 AS timestamp
+FROM
+    `{{ source_port_state_transitions }}` records
+JOIN
+    `{{ source_segment_info }}` vids
+ON
+    records.identifier = vids.seg_id
+WHERE
+    DATE(timestamp) >= '{{ start_date }}'
+    AND DATE(timestamp) < '{{ end_date }}'
+{% if bad_segs %}
+    AND seg_id NOT IN (SELECT seg_id FROM {{ bad_segs }})
+{% endif %}
