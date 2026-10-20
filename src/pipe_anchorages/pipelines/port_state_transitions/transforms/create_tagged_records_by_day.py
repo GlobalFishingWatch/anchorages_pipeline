@@ -1,16 +1,20 @@
 import apache_beam as beam
 
-from pipe_anchorages.records import VesselInfoRecord, VesselLocationRecord
+from pipe_anchorages.records import VesselRecord
 
 
 class CreateTaggedRecordsByDay(beam.PTransform):
-    """Groups each vessel's records by day, deduplicated and tagged with their destination.
+    """Groups each vessel's records by day, deduplicated and with an empty destination.
 
-    Input: (identifier, record) pairs of VesselInfoRecord and VesselLocationRecord.
-    Output: ((identifier, date), records) pairs of VesselLocationRecord, sorted by timestamp,
-    keeping one record per timestamp. Each location record gets the destination of the last
-    info record before it that day (empty if there was none).
+    Input: (identifier, record) pairs of `record_type`, one record type per input.
+    Output: ((identifier, date), records) pairs, sorted by timestamp, keeping one record per
+    timestamp. The records go through the GroupByKey in the form of record_type's to_shuffle
+    and from_shuffle.
     """
+
+    def __init__(self, record_type: type[VesselRecord]) -> None:
+        super().__init__()
+        self.record_type = record_type
 
     # No type hints on the methods Beam maps: it would infer coders from them.
     def add_date_to_key(self, item):
@@ -18,23 +22,15 @@ class CreateTaggedRecordsByDay(beam.PTransform):
         return (identity, str(value.timestamp.date())), value
 
     def to_shuffle(self, item):
-        """Compacts location records for the GroupByKey (see VesselLocationRecord.to_shuffle).
-
-        Other records go through unchanged: port-state-transitions doesn't produce them.
-        """
+        """Converts the record to the form it goes through the GroupByKey in."""
         key, value = item
-        if isinstance(value, VesselLocationRecord):
-            return key, value.to_shuffle()
-        return key, value
+        return key, value.to_shuffle()
 
     def from_shuffle(self, item):
-        """Rebuilds the records to_shuffle compacted; the key's identifier is theirs."""
+        """Rebuilds the records to_shuffle converted; the key's identifier is theirs."""
         key, values = item
         identity, _ = key
-        return key, [
-            VesselLocationRecord.from_shuffle(identity, v) if type(v) is tuple else v
-            for v in values
-        ]
+        return key, [self.record_type.from_shuffle(identity, v) for v in values]
 
     def order_by_timestamp(self, item):
         key, records = item
@@ -52,17 +48,13 @@ class CreateTaggedRecordsByDay(beam.PTransform):
         return (key, sink)
 
     def tag_records(self, item):
+        """Gives each record an empty destination.
+
+        Port-state-transitions has no info records to take a destination from: its rows have
+        destination=None, so CreateVesselRecords drops the ones without a position as invalid.
+        """
         ident, records = item
-        dest = ""
-        tagged = []
-        for rcd in records:
-            if isinstance(rcd, VesselInfoRecord):
-                dest = rcd.destination
-            elif isinstance(rcd, VesselLocationRecord):
-                tagged.append(rcd._replace(destination=dest))
-            else:
-                raise RuntimeError("unknown type {}".format(type(rcd)))
-        return (ident, tagged)
+        return (ident, [rcd._replace(destination="") for rcd in records])
 
     def expand(self, vessel_records: beam.PCollection) -> beam.PCollection:
         return (

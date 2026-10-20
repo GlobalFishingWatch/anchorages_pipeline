@@ -19,6 +19,19 @@ def has_destination(msg):
 
 
 class VesselRecord(object):
+    def to_shuffle(self):
+        """Returns the record in the form it goes through a GroupByKey whose key holds its
+        identifier: the record itself.
+
+        Record types that Beam encodes slowly override it, and from_shuffle, with a compact form.
+        """
+        return self
+
+    @staticmethod
+    def from_shuffle(identifier, value):
+        """Rebuilds the record of `identifier` from what to_shuffle returned: the record itself."""
+        return value
+
     @staticmethod
     def tagged_from_msg(msg):
 

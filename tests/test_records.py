@@ -80,3 +80,20 @@ def test_a_position_message_becomes_a_vessel_location_record():
 def test_a_vessel_location_record_survives_pickling():
     (md, obj) = VesselRecord.tagged_from_msg(examples_msgs[0])
     assert pickle.loads(pickle.dumps(obj)) == obj
+
+
+def test_a_record_goes_through_the_shuffle_as_is_by_default():
+    record = InvalidRecord(
+        identifier="seg-1", timestamp=datetime.datetime(2021, 4, 26, 6, 0, 12, tzinfo=pytz.UTC)
+    )
+
+    assert InvalidRecord.from_shuffle("seg-1", record.to_shuffle()) is record
+
+
+def test_a_vessel_location_record_goes_through_the_shuffle_compacted_and_back():
+    (md, obj) = VesselRecord.tagged_from_msg(examples_msgs[0])
+
+    fields = obj.to_shuffle()
+
+    assert type(fields) is tuple
+    assert VesselLocationRecord.from_shuffle(obj.identifier, fields) == obj
