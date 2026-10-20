@@ -62,7 +62,8 @@ class SmartThinRecords(beam.PTransform, InOutEventsBase):
     def thin(self, grouped_records, anchorage_map):
         """Returns the records to keep of one segment-day, sorted by timestamp.
 
-        `anchorage_map` maps each S2 token to the anchorages within reach of that cell.
+        `anchorage_map` maps each S2 token to the AnchorageArrays of the anchorages within reach
+        of that cell.
         """
         # This mirrors the implementation of _create_in_out_events in
         # CreateInOutEvents and possibly we should try to combine them
@@ -76,7 +77,8 @@ class SmartThinRecords(beam.PTransform, InOutEventsBase):
         active_port = None
         for i, rcd in enumerate(records):
             s2id = rcd.location.S2CellId(cmn.VISITS_S2_SCALE).to_token()
-            port, dist = self._anchorage_distance(rcd.location, anchorage_map.get(s2id, []))
+            arrays = anchorage_map.get(s2id)
+            port, dist = arrays.nearest(rcd.location) if arrays is not None else (None, math.inf)
 
             rcd = VisitLocationRecord(
                 identifier=rcd.identifier,
