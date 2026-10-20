@@ -22,6 +22,14 @@ def test_a_query_row_becomes_a_named_anchorage_location_with_no_names():
     )
 
 
+def test_the_query_row_is_not_modified():
+    row = anchorage_location()
+
+    NamedAnchorageLocation.from_msg(row)
+
+    assert row == anchorage_location()
+
+
 def test_the_vessel_counts_are_kept_as_lists_of_that_length():
     anchorage = named_anchorage()
 

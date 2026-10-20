@@ -24,6 +24,8 @@ class NamedAnchorageLocation(
     @staticmethod
     def from_msg(msg):
         """Builds a NamedAnchorageLocation, with no names yet, from an anchorage locations row."""
+        # A copy: Beam's elements mustn't be modified, other transforms may read them too.
+        msg = msg.copy()
         msg["mean_location"] = cmn.LatLon(msg.pop("lat"), msg.pop("lon"))
         msg["rms_drift_radius"] = msg.pop("drift_radius")
         msg["vessels"] = [None] * msg.pop("unique_stationary_ssvid")
