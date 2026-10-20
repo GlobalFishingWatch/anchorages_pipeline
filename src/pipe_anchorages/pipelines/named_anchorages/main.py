@@ -108,7 +108,9 @@ def run(
 
     pipeline = Pipeline(
         dag=dag,
-        pre_hooks=[create_table_hook(table_config, mock=config.mock_bq_clients)],
+        pre_hooks=[
+            create_table_hook(table_config, labels=config.labels, mock=config.mock_bq_clients)
+        ],
         post_hooks=[update_table_metadata_hook(table_config, config.labels, bq_client_factory)],
         unparsed_args=config.unknown_unparsed_args,
         labels=config.labels,
