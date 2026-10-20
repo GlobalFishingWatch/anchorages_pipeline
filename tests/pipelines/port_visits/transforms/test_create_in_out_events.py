@@ -89,6 +89,16 @@ def test_records_are_processed_in_time_order():
     assert events_of(records) == [("PORT_ENTRY", at(10)), ("PORT_EXIT", at(20))]
 
 
+def test_records_of_different_segments_with_the_same_timestamp_are_processed_by_seg_id():
+    # At 10, seg-1 is in port and seg-2 at sea: seg-1 goes first, whatever the input order.
+    in_port = record(10, **IN_PORT, seg_id="seg-1")
+    at_sea = record(10, **AT_SEA, seg_id="seg-2")
+    expected = [("PORT_ENTRY", at(10)), ("PORT_EXIT", at(10))]
+
+    assert events_of([record(0, **AT_SEA), in_port, at_sea]) == expected
+    assert events_of([record(0, **AT_SEA), at_sea, in_port]) == expected
+
+
 def test_a_long_gap_in_port_ending_at_a_possible_gap_end_yields_gap_events():
     records = [
         record(0, **AT_SEA), record(10, **IN_PORT),
