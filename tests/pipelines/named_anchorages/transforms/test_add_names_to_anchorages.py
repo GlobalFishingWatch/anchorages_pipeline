@@ -10,6 +10,7 @@ from .factories import (
     POINTE_NOIRE_LON,
     PORT_INFO_CONFIG,
     named_anchorage,
+    renamed_overrides,
 )
 
 SHAPEFILE = "EEZ_Land_v3_202030.shp"
@@ -74,3 +75,13 @@ def test_an_anchorage_in_china_keeps_the_name_the_overrides_give_it():
     anchorage = named_anchorage(lat=31.23, lon=121.49)
 
     assert names(add_names(anchorage)) == ("SHANGHAI", None, "CHN", "anchorage_overrides")
+
+
+def test_an_anchorage_in_china_keeps_the_name_of_overrides_under_another_name(tmp_path):
+    config = dict(PORT_INFO_CONFIG, override_path=renamed_overrides(tmp_path))
+    transform = AddNamesToAnchorages(SHAPEFILE, config)
+    anchorage = named_anchorage(lat=31.23, lon=121.49)
+
+    named = transform.add_iso3(transform.add_best_label(anchorage))
+
+    assert names(named) == ("SHANGHAI", None, "CHN", "overrides_2026")

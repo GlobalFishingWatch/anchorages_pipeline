@@ -53,6 +53,16 @@ def test_only_the_anchorages_the_overrides_label_remove_are_removed():
     anchorage = named_anchorage()
     removed = anchorage._replace(label="REMOVE", label_source="anchorage_overrides")
 
-    assert not is_not_removed(removed)
-    assert is_not_removed(anchorage._replace(label="REMOVE", label_source="top_destination"))
-    assert is_not_removed(anchorage._replace(label="PORT", label_source="anchorage_overrides"))
+    assert not is_not_removed(removed, "anchorage_overrides")
+    assert is_not_removed(
+        anchorage._replace(label="REMOVE", label_source="top_destination"), "anchorage_overrides"
+    )
+    assert is_not_removed(
+        anchorage._replace(label="PORT", label_source="anchorage_overrides"), "anchorage_overrides"
+    )
+
+
+def test_the_anchorages_removed_by_overrides_under_another_name_are_removed():
+    removed = named_anchorage()._replace(label="REMOVE", label_source="overrides_2026")
+
+    assert not is_not_removed(removed, "overrides_2026")

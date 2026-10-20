@@ -6,7 +6,7 @@ from pipe_anchorages.assets.data import EEZ
 from pipe_anchorages.core.named_anchorage_location import NamedAnchorageLocation
 from pipe_anchorages.nearest_port import Port
 from pipe_anchorages.port_info_finder import PortInfoFinder
-from pipe_anchorages.port_info_finder import normalize_label
+from pipe_anchorages.port_info_finder import list_source, normalize_label
 from pipe_anchorages.shapefile_to_iso3 import get_iso3_finder
 
 
@@ -33,6 +33,7 @@ class AddNamesToAnchorages(beam.PTransform):
     def __init__(self, shapefile_path: str, config: dict) -> None:
         self.config = config
         self.shapefile_path = shapefile_path
+        self.overrides_source = list_source(config["override_path"])
 
     @property
     def port_info_finder(self) -> PortInfoFinder:
@@ -76,7 +77,7 @@ class AddNamesToAnchorages(beam.PTransform):
             iso3 = named_anchorage.iso3
         # If the anchorage is in China, just use the s2id as the anchorage ID because
         # unless from anchorage overrides, because Chinese anchorage IDs are so unreliable.
-        if iso3 == "CHN" and named_anchorage.label_source != "anchorage_overrides":
+        if iso3 == "CHN" and named_anchorage.label_source != self.overrides_source:
             named_anchorage = named_anchorage._replace(
                 label=named_anchorage.s2id, label_source="china_s2id_override"
             )

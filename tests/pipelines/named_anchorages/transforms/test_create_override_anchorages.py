@@ -9,6 +9,7 @@ from .factories import (
     POINTE_NOIRE_LON,
     POINTE_NOIRE_S2ID,
     REMOVED_S2ID,
+    renamed_overrides,
 )
 
 OVERRIDES = "anchorage_overrides.csv"
@@ -32,6 +33,16 @@ def test_an_override_becomes_an_anchorage_with_its_names_and_no_stats():
     assert pointe_noire.total_visits is None
     assert pointe_noire.vessels == frozenset()
     assert pointe_noire.fishing_vessels == frozenset()
+
+
+def test_the_label_source_is_the_overrides_file_name(tmp_path):
+    transform = CreateOverrideAnchorages(renamed_overrides(tmp_path), used_s2ids=None)
+
+    (pointe_noire,) = [
+        a for a in transform.create_override_anchorages(None, []) if a.s2id == POINTE_NOIRE_S2ID
+    ]
+
+    assert pointe_noire.label_source == "overrides_2026"
 
 
 def test_every_override_is_created_including_the_one_to_remove():

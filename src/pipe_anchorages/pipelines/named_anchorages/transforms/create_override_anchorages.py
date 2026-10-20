@@ -1,4 +1,3 @@
-import os
 from importlib.resources import files
 
 import apache_beam as beam
@@ -6,7 +5,7 @@ import apache_beam as beam
 from pipe_anchorages.assets.data import port_lists
 from pipe_anchorages.core.named_anchorage_location import NamedAnchorageLocation
 from pipe_anchorages.get_override_list import get_override_list
-from pipe_anchorages.port_info_finder import normalize_label
+from pipe_anchorages.port_info_finder import list_source, normalize_label
 
 
 class CreateOverrideAnchorages(beam.PTransform):
@@ -14,7 +13,8 @@ class CreateOverrideAnchorages(beam.PTransform):
     whose s2id isn't in `used_s2ids` (a side input, see FindUsedS2ids).
 
     They take the override's location, names and iso3, have no stats, and their label_source is
-    the list's file name ("anchorage_overrides"). Applied to the pipeline, not to a PCollection.
+    the list's file name, without extension (see list_source). Applied to the pipeline, not to a
+    PCollection.
     """
 
     def __init__(self, override_path: str, used_s2ids: beam.pvalue.AsSideInput) -> None:
@@ -43,7 +43,7 @@ class CreateOverrideAnchorages(beam.PTransform):
                     active_ssvid_days=None,
                     label=normalize_label(row["label"]),
                     sublabel=normalize_label(row["sublabel"]),
-                    label_source=os.path.splitext(os.path.basename(self.override_path))[0],
+                    label_source=list_source(self.override_path),
                     iso3=row["iso3"],
                 )
 

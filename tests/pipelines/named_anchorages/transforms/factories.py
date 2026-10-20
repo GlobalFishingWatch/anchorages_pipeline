@@ -1,5 +1,9 @@
 """Builders for the records these transforms work on."""
 
+import shutil
+from importlib.resources import files
+
+from pipe_anchorages.assets.data import port_lists
 from pipe_anchorages.core.named_anchorage_location import NamedAnchorageLocation
 
 KM_PER_DEGREE_LAT = 111.2
@@ -50,3 +54,10 @@ def anchorage_location(s2id="s2id-1", lat=HIGH_SEAS_LAT, lon=HIGH_SEAS_LON, top_
 def named_anchorage(**kwargs):
     """A NamedAnchorageLocation with no names yet, from an anchorage_location(**kwargs) row."""
     return NamedAnchorageLocation.from_msg(anchorage_location(**kwargs))
+
+
+def renamed_overrides(directory, name="overrides_2026.csv"):
+    """The path of a copy of anchorage_overrides.csv named `name`, in `directory`."""
+    path = directory / name
+    shutil.copy(files(port_lists).joinpath("anchorage_overrides.csv"), path)
+    return str(path)

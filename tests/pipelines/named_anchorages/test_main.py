@@ -17,8 +17,9 @@ RUNNER = "PrismRunner"
 # A few rows of the real anchorage_overrides.csv, so the pipeline doesn't push its 60410 through
 # Beam: TONGYEONG and REMOVE, which the input has, POINTE NOIRE, which it doesn't, and two OLIB
 # rows in the same S2 cell. The pipeline adds every override whose s2id isn't among its input's,
-# and drops the one labelled REMOVE.
-ANCHORAGE_OVERRIDES = str(pathlib.Path(__file__).parent / "anchorage_overrides.csv")
+# and drops the one labelled REMOVE. Its name isn't anchorage_overrides.csv, so the test also
+# checks that the overrides' names are recognized by their own file's name.
+ANCHORAGE_OVERRIDES = str(pathlib.Path(__file__).parent / "overrides_excerpt.csv")
 N_OVERRIDES = 5
 
 
@@ -114,7 +115,7 @@ def check_named_anchorages(rows):
     assert names(by_s2id["east-china-sea"]) == (
         "east-china-sea", None, "CHN", "china_s2id_override"
     )
-    assert names(by_s2id["356ec741"]) == ("TONGYEONG", None, "KOR", "anchorage_overrides")
+    assert names(by_s2id["356ec741"]) == ("TONGYEONG", None, "KOR", "overrides_excerpt")
     assert "10000001" not in by_s2id
 
     # The input's stats are kept, and the overrides' anchorages have none.
@@ -123,7 +124,7 @@ def check_named_anchorages(rows):
     assert by_s2id["thunder-bay"]["unique_stationary_fishing_ssvid"] == 1
     assert by_s2id["356ec741"]["total_visits"] == 10
     assert names(by_s2id["1a5e4eaf"]) == (
-        "POINTE NOIRE", "POINTE NOIRE OFFSHORE", "COG", "anchorage_overrides"
+        "POINTE NOIRE", "POINTE NOIRE OFFSHORE", "COG", "overrides_excerpt"
     )
     assert by_s2id["1a5e4eaf"]["total_visits"] is None
 

@@ -3,6 +3,7 @@ from typing import Sequence
 import apache_beam as beam
 
 from pipe_anchorages.core.named_anchorage_location import NamedAnchorageLocation
+from pipe_anchorages.port_info_finder import list_source
 
 from .add_names_to_anchorages import AddNamesToAnchorages
 from .create_override_anchorages import CreateOverrideAnchorages
@@ -33,9 +34,10 @@ def named_anchorage_to_msg(anchorage):
     }
 
 
-def is_not_removed(anchorage):
-    """False for the anchorages the overrides remove (label REMOVE)."""
-    return not (anchorage.label == "REMOVE" and anchorage.label_source == "anchorage_overrides")
+def is_not_removed(anchorage, overrides_source):
+    """False for the anchorages the overrides remove (label REMOVE, label_source
+    `overrides_source`)."""
+    return not (anchorage.label == "REMOVE" and anchorage.label_source == overrides_source)
 
 
 class NameAnchorages(beam.PTransform):
@@ -90,6 +92,6 @@ class NameAnchorages(beam.PTransform):
         return (
             (existing_anchorages, new_anchorages)
             | beam.Flatten()
-            | "DropRemoved" >> beam.Filter(is_not_removed)
+            | "DropRemoved" >> beam.Filter(is_not_removed, list_source(self.anchorage_overrides))
             | "ToMsg" >> beam.Map(named_anchorage_to_msg)
         )
