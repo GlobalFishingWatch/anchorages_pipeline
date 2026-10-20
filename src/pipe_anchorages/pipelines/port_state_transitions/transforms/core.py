@@ -2,6 +2,7 @@ import apache_beam as beam
 
 from pipe_anchorages import common as cmn
 from pipe_anchorages.core.namedtuples import datetime_to_s
+from pipe_anchorages.records import VesselLocationRecord
 
 from .anchorage_arrays import to_anchorage_arrays
 from .create_tagged_anchorages import CreateTaggedAnchorages
@@ -65,7 +66,7 @@ class FindPortStateTransitions(beam.PTransform):
         return (
             xs
             | cmn.CreateVesselRecords(destination=None)
-            | CreateTaggedRecordsByDay()
+            | CreateTaggedRecordsByDay(record_type=VesselLocationRecord)
             | "ThinRecords" >> SmartThinRecords(
                 anchorages=anchorages,
                 anchorage_entry_dist=self.anchorage_entry_dist_km,

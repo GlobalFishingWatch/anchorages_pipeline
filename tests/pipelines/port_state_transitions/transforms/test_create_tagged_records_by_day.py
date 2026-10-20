@@ -1,10 +1,9 @@
-import pytest
-
 from pipe_anchorages.pipelines.port_state_transitions.transforms.create_tagged_records_by_day import (  # noqa: E501
     CreateTaggedRecordsByDay,
 )
+from pipe_anchorages.records import VesselLocationRecord
 
-from .factories import at, info, position
+from .factories import at, position
 
 NEXT_DAY = 24 * 60
 
@@ -12,15 +11,18 @@ NEXT_DAY = 24 * 60
 def group(records):
     """Runs CreateTaggedRecordsByDay's steps on `records` without Beam.
 
-    Groups the records by key as its GroupByKey does. Returns {(identifier, date): records}.
+    Groups the records by key as its GroupByKey does, between to_shuffle and from_shuffle.
+    Returns {(identifier, date): records}.
     """
-    target = CreateTaggedRecordsByDay()
+    target = CreateTaggedRecordsByDay(record_type=VesselLocationRecord)
     groups = {}
     for record in records:
-        key, value = target.add_date_to_key((record.identifier, record))
+        key, value = target.to_shuffle(target.add_date_to_key((record.identifier, record)))
         groups.setdefault(key, []).append(value)
     items = [
-        target.tag_records(target.dedup_by_timestamp(target.order_by_timestamp(item)))
+        target.tag_records(
+            target.dedup_by_timestamp(target.order_by_timestamp(target.from_shuffle(item)))
+        )
         for item in groups.items()
     ]
     return dict(items)
@@ -58,13 +60,3 @@ def test_positions_get_an_empty_destination():
     (rcds,) = group(records).values()
 
     assert [r.destination for r in rcds] == ["", ""]
-
-
-def test_info_records_make_the_grouping_fail():
-    # Documents current behavior: records are sorted by (timestamp, speed, location) before the
-    # destinations are tagged, and info records have neither, so tagging positions with the
-    # destination of the info records before them can't happen.
-    records = [position(0, 1.0, 5.0), info(5, "BUENOS AIRES"), position(10, 1.0, 5.0)]
-
-    with pytest.raises(AttributeError, match="speed"):
-        group(records)

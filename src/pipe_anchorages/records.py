@@ -1,6 +1,9 @@
+import datetime
 from collections import namedtuple
 
-from .core.namedtuples import s_to_datetime
+from .core.namedtuples import epoch, s_to_datetime
+
+_MICROSECOND = datetime.timedelta(microseconds=1)
 
 
 def is_location_message(msg):
@@ -16,6 +19,19 @@ def has_destination(msg):
 
 
 class VesselRecord(object):
+    def to_shuffle(self):
+        """Returns the record in the form it goes through a GroupByKey whose key holds its
+        identifier: the record itself.
+
+        Record types that Beam encodes slowly override it, and from_shuffle, with a compact form.
+        """
+        return self
+
+    @staticmethod
+    def from_shuffle(identifier, value):
+        """Rebuilds the record of `identifier` from what to_shuffle returned: the record itself."""
+        return value
+
     @staticmethod
     def tagged_from_msg(msg):
 
@@ -79,4 +95,33 @@ class VesselLocationRecord(
             location=latlon,
             speed=msg["speed"],
             destination=None,
+        )
+
+    def to_shuffle(self):
+        """Returns the record's fields as a plain tuple, without its identifier.
+
+        For a GroupByKey whose key holds the identifier: Beam encodes a tuple of primitives with
+        its fast coder, but pickles a namedtuple value (~3x larger and ~10x slower). The
+        timestamp travels as integer microseconds, so from_shuffle rebuilds it exactly.
+        """
+        return (
+            (self.timestamp - epoch) // _MICROSECOND,
+            self.location.lat,
+            self.location.lon,
+            self.speed,
+            self.destination,
+        )
+
+    @staticmethod
+    def from_shuffle(identifier, fields):
+        """Rebuilds the record of `identifier` from the tuple to_shuffle returned."""
+        from .common import LatLon
+
+        micros, lat, lon, speed, destination = fields
+        return VesselLocationRecord(
+            identifier=identifier,
+            timestamp=epoch + micros * _MICROSECOND,
+            location=LatLon(lat, lon),
+            speed=speed,
+            destination=destination,
         )

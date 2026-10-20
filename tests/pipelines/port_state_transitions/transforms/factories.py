@@ -3,7 +3,7 @@
 import datetime
 
 from pipe_anchorages.common import LatLon
-from pipe_anchorages.records import VesselInfoRecord, VesselLocationRecord
+from pipe_anchorages.records import VesselLocationRecord
 
 T0 = datetime.datetime(2024, 1, 2, tzinfo=datetime.timezone.utc)
 
@@ -27,8 +27,3 @@ def position(minutes, km, speed, seg_id="seg-1"):
         speed=speed,
         destination=None,
     )
-
-
-def info(minutes, destination, seg_id="seg-1"):
-    """A message of segment `seg_id` with a destination and no position."""
-    return VesselInfoRecord(identifier=seg_id, timestamp=at(minutes), destination=destination)
