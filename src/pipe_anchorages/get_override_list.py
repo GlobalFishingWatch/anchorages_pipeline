@@ -1,16 +1,16 @@
 from . import common as cmn
 import csv
 
-_cached = None
+_cache = {}
 
 
 def get_override_list(path):
-    global _cached
-    if _cached is None:
-        _cached = []
+    if path not in _cache:
+        rows = []
         with open(path) as csvfile:
             for x in csv.DictReader(csvfile):
                 x["latLon"] = cmn.LatLon(float(x["latitude"]), float(x["longitude"]))
                 x["s2id"] = x["latLon"].S2CellId(scale=cmn.ANCHORAGES_S2_SCALE).to_token()
-                _cached.append(x)
-    return _cached
+                rows.append(x)
+        _cache[path] = rows
+    return _cache[path]

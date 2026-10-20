@@ -34,6 +34,11 @@ def normalize_label(lbl):
     return unidecode.unidecode(six.ensure_text(lbl)).upper()
 
 
+def list_source(path):
+    """The label_source of the names from the list at `path`: its file name, without extension."""
+    return os.path.splitext(os.path.basename(path))[0]
+
+
 class PortInfoFinder(object):
     """object that finds the nearest port to a location
 
@@ -96,7 +101,7 @@ class PortInfoFinder(object):
 
         """
         for path in self.port_finder_paths:
-            source = os.path.splitext(os.path.basename(path))[0]
+            source = list_source(path)
             finder = get_port_finder(files(port_lists).joinpath(path))
             port, distance = finder.find_nearest_port_and_distance(loc)
             if distance <= self.sublabel_distance_km:

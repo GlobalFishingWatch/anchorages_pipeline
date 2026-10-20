@@ -1,0 +1,16 @@
+SELECT
+    s2id,
+    lat,
+    lon,
+    total_visits,
+    drift_radius,
+    top_destination,
+    unique_stationary_ssvid,
+    unique_stationary_fishing_ssvid,
+    unique_active_ssvid,
+    unique_total_ssvid,
+    active_ssvid_days,
+    stationary_ssvid_days,
+    stationary_fishing_ssvid_days
+FROM
+    `{{ source_anchorage_locations }}`
