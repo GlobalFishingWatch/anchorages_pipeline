@@ -157,13 +157,18 @@ def test_run_names_the_anchorage_locations_and_adds_the_overrides(bq_clients, bq
     assert [f["name"] for f in write["schema"]["fields"]] == [
         f["name"] for f in schemas.get_schema("named_anchorages.json")
     ]
-    # The output table is described after writing it.
-    (client,) = bq_clients
-    (updated, fields), _ = client.update_table.call_args
+    # The output table is created before writing and described after it, both labeled.
+    labels = {"environment": "development", "stage": "anchorages"}
+    create_client, update_client = bq_clients
+    (created,), create_kwargs = create_client.create_table.call_args
+    assert created.table_id == "named_anchorages"
+    assert created.labels == labels
+    assert create_kwargs["exists_ok"] is True
+    (updated, fields), _ = update_client.update_table.call_args
     assert fields == ["description", "labels"]
     assert "NAMED ANCHORAGES" in updated.description
     assert "project.dataset.anchorage_locations" in updated.description
-    assert updated.labels == {"environment": "development", "stage": "anchorages"}
+    assert updated.labels == labels
 
 
 def test_output_table_is_not_partitioned():
