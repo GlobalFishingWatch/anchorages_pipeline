@@ -1,51 +1,9 @@
 from apache_beam import Map, PTransform, io
-from apache_beam.transforms.window import TimestampedValue
-from pipe_anchorages.core.namedtuples import epoch
-from pipe_anchorages.schema.message_schema import message_schema
 from pipe_anchorages.schema.named_anchorage import build as build_named_anchorage_schema
 from pipe_anchorages.utils.ver import get_pipe_ver
 
 
 def cloud_to_labels(ll): return {x.split("=")[0]: x.split("=")[1] for x in ll}
-
-
-class MessageSink(PTransform):
-    def __init__(self, table, key="timestamp"):
-        self.table = table
-        self.key = key
-
-    def extract_latlon(self, x):
-        x = x.copy()
-        lonlat = x.pop("location")
-        x["lon"] = lonlat.lon
-        x["lat"] = lonlat.lat
-        return x
-
-    def as_dict(self, x):
-        return x._asdict()
-
-    def encode_datetimes_to_s(self, x):
-        for field in [self.key]:
-            if x[field] is not None:
-                x[field] = (x[field] - epoch).total_seconds()
-        return x
-
-    def expand(self, xs):
-        sink = io.WriteToBigQuery(
-            self.table,
-            schema=message_schema,
-            write_disposition=io.BigQueryDisposition.WRITE_APPEND,
-            create_disposition=io.BigQueryDisposition.CREATE_NEVER,
-        )
-
-        return (
-            xs
-            | Map(self.as_dict)
-            | Map(self.encode_datetimes_to_s)
-            | Map(self.extract_latlon)
-            | Map(lambda x: TimestampedValue(x, x[self.key]))
-            | sink
-        )
 
 
 class NamedAnchorageSink(PTransform):

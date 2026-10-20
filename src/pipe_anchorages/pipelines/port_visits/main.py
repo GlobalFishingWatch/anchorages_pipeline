@@ -8,14 +8,13 @@ import apache_beam as beam
 
 from gfw.common.beam.pipeline.base import Pipeline
 from gfw.common.beam.pipeline.dag import LinearDag
-from gfw.common.beam.pipeline.hooks import create_table_hook
+from gfw.common.beam.pipeline.hooks import create_table_hook, update_table_metadata_hook
 from gfw.common.beam.transforms import ReadFromBigQuery, WriteToBigQueryWrapper
 from gfw.common.bigquery.helper import BigQueryHelper
 from gfw.common.datetime import datetime_from_date
 from gfw.common.query import Query
 
 from pipe_anchorages import common as cmn
-from pipe_anchorages.hooks import update_table_metadata_hook
 from pipe_anchorages.pipelines.port_visits.config import PortVisitsConfig
 from pipe_anchorages.pipelines.port_visits.table_config import (
     PortVisitsTableConfig,
@@ -133,8 +132,16 @@ def run(
 
     pipeline = Pipeline(
         dag=dag,
-        pre_hooks=[create_table_hook(table_config, mock=config.mock_bq_clients)],
-        post_hooks=[update_table_metadata_hook(table_config, config.labels, bq_client_factory)],
+        pre_hooks=[
+            create_table_hook(
+                table_config, labels=config.labels, bq_client_factory=bq_client_factory
+            )
+        ],
+        post_hooks=[
+            update_table_metadata_hook(
+                table_config, labels=config.labels, bq_client_factory=bq_client_factory
+            )
+        ],
         unparsed_args=config.unknown_unparsed_args,
         labels=config.labels,
         **config.unknown_parsed_args,

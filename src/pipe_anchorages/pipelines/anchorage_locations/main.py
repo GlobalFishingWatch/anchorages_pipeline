@@ -1,6 +1,4 @@
-import dataclasses
 import datetime
-from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any, Callable
 
@@ -8,37 +6,18 @@ import apache_beam as beam
 
 from gfw.common.beam.pipeline.base import Pipeline
 from gfw.common.beam.pipeline.dag import LinearDag
-from gfw.common.beam.pipeline.hooks import create_table_hook
+from gfw.common.beam.pipeline.hooks import create_table_hook, update_table_metadata_hook
 from gfw.common.beam.transforms import ReadFromBigQuery, WriteToBigQueryWrapper
 from gfw.common.bigquery.helper import BigQueryHelper
-from gfw.common.query import Query
 
-from pipe_anchorages.hooks import update_table_metadata_hook
 from pipe_anchorages.pipelines.anchorage_locations.config import AnchorageLocationsConfig
 from pipe_anchorages.pipelines.anchorage_locations.table_config import (
     AnchorageLocationsTableConfig,
     AnchorageLocationsTableDescription,
 )
 from pipe_anchorages.pipelines.anchorage_locations.transforms.core import FindAnchorageLocations
+from pipe_anchorages.queries import MessagesQuery
 from pipe_anchorages.version import __version__
-
-
-@dataclass
-class MessagesQuery(Query):
-    """Position messages in [start_date, end_date), one row per position.
-
-    Its fields are the template's variables (see template_vars).
-    """
-
-    source_messages: str
-    start_date: datetime.date
-    end_date: datetime.date
-
-    template_filename = "messages.sql.j2"
-
-    @property
-    def template_vars(self) -> dict:
-        return dataclasses.asdict(self)
 
 
 def run(
@@ -88,6 +67,7 @@ def run(
                     source_messages=config.bq_in_messages,
                     start_date=config.start_date,
                     end_date=config.end_date,
+                    ident_field="ssvid",
                 ).with_env(config.jinja_env),
                 label="ReadMessages",
                 read_from_bigquery_factory=read_from_bigquery_factory,
@@ -116,8 +96,16 @@ def run(
 
     pipeline = Pipeline(
         dag=dag,
-        pre_hooks=[create_table_hook(table_config, mock=config.mock_bq_clients)],
-        post_hooks=[update_table_metadata_hook(table_config, config.labels, bq_client_factory)],
+        pre_hooks=[
+            create_table_hook(
+                table_config, labels=config.labels, bq_client_factory=bq_client_factory
+            )
+        ],
+        post_hooks=[
+            update_table_metadata_hook(
+                table_config, labels=config.labels, bq_client_factory=bq_client_factory
+            )
+        ],
         unparsed_args=config.unknown_unparsed_args,
         labels=config.labels,
         **config.unknown_parsed_args,

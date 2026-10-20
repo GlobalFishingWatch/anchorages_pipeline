@@ -146,11 +146,16 @@ def test_run_detects_a_visit_with_entry_stop_and_exit(bq_clients, bq_client_fact
         f["name"] for f in schemas.get_schema("port_visits.json")
     ]
     # The output table is described after writing it.
-    (client,) = bq_clients
-    (updated, fields), _ = client.update_table.call_args
+    labels = {"environment": "development", "stage": "anchorages"}
+    create_client, update_client = bq_clients
+    (created,), create_kwargs = create_client.create_table.call_args
+    assert created.table_id == "port_visits"
+    assert created.labels == labels
+    assert create_kwargs["exists_ok"] is True
+    (updated, fields), _ = update_client.update_table.call_args
     assert fields == ["description", "labels"]
     assert "PORT VISITS" in updated.description
-    assert updated.labels == {"environment": "development", "stage": "anchorages"}
+    assert updated.labels == labels
 
 
 def test_output_table_layout():

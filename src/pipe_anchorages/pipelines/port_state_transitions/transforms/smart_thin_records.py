@@ -3,39 +3,47 @@ from __future__ import absolute_import, division, print_function
 import datetime
 import math
 from datetime import timedelta
-from typing import NamedTuple, Optional
 
 import apache_beam as beam
 from pipe_anchorages import common as cmn
 
-from ..common import LatLon
-from .in_out_events import InOutEventsBase
-
-
-class VisitLocationRecord(NamedTuple):
-    identifier: str
-    timestamp: datetime.datetime
-    location: LatLon
-    speed: float
-    is_possible_gap_end: bool
-    port_s2id: Optional[str]
-    port_dist: Optional[float]
-    port_lon: Optional[float]
-    port_lat: Optional[float]
+from pipe_anchorages.core.visit_location_record import VisitLocationRecord
+from pipe_anchorages.transforms.in_out_events import InOutEventsBase
 
 
 class SmartThinRecords(beam.PTransform, InOutEventsBase):
+    """Keeps, from each segment-day's positions, the ones port-visits needs.
+
+    Input: ((seg_id, date), records) pairs of VesselLocationRecord, sorted by timestamp.
+    Output: VisitLocationRecord, one per kept position.
+
+    Walks each segment-day's records in time order through InOutEventsBase's state machine
+    (AT_SEA, IN_PORT, STOPPED) and keeps a record if it is:
+
+    * on either side of a state transition (entering or exiting port, or stopping or starting
+      to move while in port);
+    * on either side of a gap of at least `min_gap_minutes`;
+    * the first or last record of the segment-day.
+
+    Each kept record carries the nearest anchorage within reach (its S2 cell and the
+    neighbouring ones at cmn.VISITS_S2_SCALE), even when the vessel isn't in port.
+    Records that may end a gap (the first of the day, or the one after a gap) are flagged with
+    `is_possible_gap_end`, so port-visits can tell gaps across day boundaries.
+
+    `start_date` and `end_date` are only checked to be dates; the processing doesn't use them.
+    """
+
     def __init__(
         self,
-        anchorages,
-        anchorage_entry_dist,
-        anchorage_exit_dist,
-        stopped_begin_speed,
-        stopped_end_speed,
-        min_gap_minutes,
-        start_date,
-        end_date,
-    ):
+        anchorages: beam.PCollection,
+        anchorage_entry_dist: float,
+        anchorage_exit_dist: float,
+        stopped_begin_speed: float,
+        stopped_end_speed: float,
+        min_gap_minutes: float,
+        start_date: datetime.date,
+        end_date: datetime.date,
+    ) -> None:
         self.anchorages = anchorages
         self.anchorage_entry_dist = anchorage_entry_dist
         self.anchorage_exit_dist = anchorage_exit_dist
@@ -50,7 +58,12 @@ class SmartThinRecords(beam.PTransform, InOutEventsBase):
         assert isinstance(end_date, datetime.date)
         self.end_date = end_date
 
+    # No type hints: Beam maps this method, and would infer coders from them.
     def thin(self, grouped_records, anchorage_map):
+        """Returns the records to keep of one segment-day, sorted by timestamp.
+
+        `anchorage_map` maps each S2 token to the anchorages within reach of that cell.
+        """
         # This mirrors the implementation of _create_in_out_events in
         # CreateInOutEvents and possibly we should try to combine them
         # at some point
@@ -113,6 +126,6 @@ class SmartThinRecords(beam.PTransform, InOutEventsBase):
         active = [x for x in active if x is not None]
         return sorted(active, key=lambda x: x.timestamp)
 
-    def expand(self, grouped_records):
+    def expand(self, grouped_records: beam.PCollection) -> beam.PCollection:
         anchorage_map = beam.pvalue.AsDict(self.anchorages)
         return grouped_records | beam.FlatMap(self.thin, anchorage_map=anchorage_map)

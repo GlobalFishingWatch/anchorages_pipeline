@@ -6,7 +6,7 @@ import apache_beam as beam
 from pipe_anchorages import common as cmn
 from pipe_anchorages.core.namedtuples import _datetime_to_s
 from pipe_anchorages.core.visit_event import VisitEvent
-from pipe_anchorages.transforms.smart_thin_records import VisitLocationRecord
+from pipe_anchorages.core.visit_location_record import VisitLocationRecord
 
 from .create_in_out_events import CreateInOutEvents
 from .create_port_visits import CreatePortVisits
