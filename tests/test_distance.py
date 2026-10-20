@@ -1,3 +1,6 @@
+import numpy as np
+import pytest
+
 from pipe_anchorages import common
 from pipe_anchorages import distance
 
@@ -30,3 +33,15 @@ def test_distances():
         if key.startswith("Ocean"):
             continue
         assert distance.distance(phx, locations[key]) == distances[key]
+
+
+def test_the_vectorized_distances_agree_with_distance():
+    lat_rad = np.radians([loc.lat for loc in locations.values()])
+    lon_rad = np.radians([loc.lon for loc in locations.values()])
+
+    for a in locations.values():
+        km = distance.distances(a, lat_rad, lon_rad, np.cos(lat_rad))
+
+        assert list(km) == pytest.approx(
+            [distance.distance(a, b) for b in locations.values()], abs=1e-9
+        )
