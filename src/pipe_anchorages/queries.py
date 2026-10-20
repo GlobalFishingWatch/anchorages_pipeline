@@ -18,7 +18,7 @@ class MessagesQuery(Query):
     source_messages: str
     start_date: datetime.date
     end_date: datetime.date
-    ident_field: str = "ssvid"
+    ident_field: str
     include_destination: bool = True
     ssvid_filter: str = None
 

@@ -6,6 +6,7 @@ def test_messages_query_renders_by_ssvid_without_ssvid_filter():
         source_messages="SOURCE_TABLE",
         start_date="2016-01-01",
         end_date="2016-01-02",
+        ident_field="ssvid",
     )
     expected = """
 SELECT

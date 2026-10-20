@@ -68,6 +68,7 @@ def run(
                     source_messages=config.bq_in_messages,
                     start_date=config.start_date,
                     end_date=config.end_date,
+                    ident_field="ssvid",
                 ).with_env(config.jinja_env),
                 label="ReadMessages",
                 read_from_bigquery_factory=read_from_bigquery_factory,
