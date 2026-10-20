@@ -161,12 +161,24 @@ def test_run_keeps_the_positions_around_port_state_transitions(bq_clients, bq_cl
     assert [f["name"] for f in write["schema"]["fields"]] == [
         f["name"] for f in schemas.get_schema("port_state_transitions.json")
     ]
-    # The output table is described after writing it.
-    (client,) = bq_clients
-    (updated, fields), _ = client.update_table.call_args
+    # The output table is created and the processed range cleared before writing, and the
+    # table is described after it, all labeled.
+    labels = {"environment": "development", "stage": "anchorages"}
+    create_client, delete_client, update_client = bq_clients
+    (created,), create_kwargs = create_client.create_table.call_args
+    assert created.table_id == "port_state_transitions"
+    assert created.labels == labels
+    assert create_kwargs["exists_ok"] is True
+    (delete_query,), delete_kwargs = delete_client.query.call_args
+    assert delete_query == (
+        "DELETE FROM `project.dataset.port_state_transitions` "
+        "WHERE DATE(timestamp) >= '2024-01-01' AND DATE(timestamp) < '2024-01-07'"
+    )
+    assert delete_kwargs["job_config"].labels == labels
+    (updated, fields), _ = update_client.update_table.call_args
     assert fields == ["description", "labels"]
     assert "PORT STATE TRANSITIONS" in updated.description
-    assert updated.labels == {"environment": "development", "stage": "anchorages"}
+    assert updated.labels == labels
 
 
 def test_output_table_layout():

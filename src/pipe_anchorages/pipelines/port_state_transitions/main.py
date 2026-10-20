@@ -7,13 +7,16 @@ import apache_beam as beam
 
 from gfw.common.beam.pipeline.base import Pipeline
 from gfw.common.beam.pipeline.dag import LinearDag
-from gfw.common.beam.pipeline.hooks import create_table_hook, delete_events_hook
+from gfw.common.beam.pipeline.hooks import (
+    create_table_hook,
+    delete_events_hook,
+    update_table_metadata_hook,
+)
 from gfw.common.beam.transforms import ReadFromBigQuery, WriteToBigQueryWrapper
 from gfw.common.bigquery.helper import BigQueryHelper
 from gfw.common.query import Query
 
 from pipe_anchorages import common as cmn
-from pipe_anchorages.hooks import update_table_metadata_hook
 from pipe_anchorages.pipelines.port_state_transitions.config import PortStateTransitionsConfig
 from pipe_anchorages.pipelines.port_state_transitions.table_config import (
     PortStateTransitionsTableConfig,
@@ -145,16 +148,22 @@ def run(
     pipeline = Pipeline(
         dag=dag,
         pre_hooks=[
-            create_table_hook(table_config, labels=config.labels, mock=config.mock_bq_clients),
+            create_table_hook(
+                table_config, labels=config.labels, bq_client_factory=bq_client_factory
+            ),
             delete_events_hook(
                 table_config,
                 start_date=config.start_date,
                 end_date=config.end_date,
                 labels=config.labels,
-                mock=config.mock_bq_clients,
+                bq_client_factory=bq_client_factory,
             ),
         ],
-        post_hooks=[update_table_metadata_hook(table_config, config.labels, bq_client_factory)],
+        post_hooks=[
+            update_table_metadata_hook(
+                table_config, labels=config.labels, bq_client_factory=bq_client_factory
+            )
+        ],
         unparsed_args=config.unknown_unparsed_args,
         labels=config.labels,
         **config.unknown_parsed_args,

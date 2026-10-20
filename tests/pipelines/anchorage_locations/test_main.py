@@ -143,9 +143,14 @@ def test_run_finds_the_anchorage_where_vessels_stay(fishing_ssvids, bq_clients, 
     assert [f["name"] for f in write["schema"]["fields"]] == [
         f["name"] for f in schemas.get_schema("anchorage_locations.json")
     ]
-    # The output table is described after writing it.
-    (update_client,) = bq_clients
+    # The output table is created before writing and described after it, both labeled.
+    labels = {"environment": "development", "stage": "anchorages"}
+    create_client, update_client = bq_clients
+    (created,), create_kwargs = create_client.create_table.call_args
+    assert created.table_id == "anchorage_locations"
+    assert created.labels == labels
+    assert create_kwargs["exists_ok"] is True
     (updated, fields), _ = update_client.update_table.call_args
     assert fields == ["description", "labels"]
     assert "ANCHORAGE POINTS" in updated.description
-    assert updated.labels == {"environment": "development", "stage": "anchorages"}
+    assert updated.labels == labels
