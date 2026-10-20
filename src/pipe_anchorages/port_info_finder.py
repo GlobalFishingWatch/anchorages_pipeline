@@ -11,7 +11,6 @@ Use `python -m pipe_anchorages.port_info_finder --help` to see full options.
 
 """
 
-from __future__ import absolute_import, print_function, division
 import os
 import unidecode
 import six
@@ -39,7 +38,7 @@ def list_source(path):
     return os.path.splitext(os.path.basename(path))[0]
 
 
-class PortInfoFinder(object):
+class PortInfoFinder:
     """object that finds the nearest port to a location
 
     Parameters

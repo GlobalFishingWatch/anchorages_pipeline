@@ -11,7 +11,7 @@ def get_iso3_finder(shapefile_path):
     return _cache[shapefile_path]
 
 
-class Iso3Finder(object):
+class Iso3Finder:
     def __init__(self, shapefile_path):
         self.shapes = []
         self.iso3s = []

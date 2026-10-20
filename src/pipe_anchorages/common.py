@@ -1,10 +1,7 @@
-from __future__ import absolute_import, division, print_function
-
 from collections import namedtuple
 
 import apache_beam as beam
 import s2sphere
-import six
 
 from .records import InvalidRecord, VesselRecord
 
@@ -24,7 +21,7 @@ class CreateVesselRecords(beam.PTransform):
     def is_valid(self, item):
         ident, rcd = item
         assert isinstance(rcd, VesselRecord), type(rcd)
-        return not isinstance(rcd, InvalidRecord) and isinstance(ident, six.string_types)
+        return not isinstance(rcd, InvalidRecord) and isinstance(ident, str)
 
     def add_defaults(self, x):
         for k, v in self.defaults.items():

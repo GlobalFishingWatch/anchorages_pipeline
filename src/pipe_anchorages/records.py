@@ -18,7 +18,7 @@ def has_destination(msg):
     return msg["destination"] not in ("", None)
 
 
-class VesselRecord(object):
+class VesselRecord:
     def to_shuffle(self):
         """Returns the record in the form it goes through a GroupByKey whose key holds its
         identifier: the record itself.
