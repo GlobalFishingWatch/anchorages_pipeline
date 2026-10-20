@@ -1,8 +1,6 @@
-import math
-
 import numpy as np
 
-from pipe_anchorages.distance import EARTH_RADIUS
+from pipe_anchorages.distance import distances
 
 
 class AnchorageArrays:
@@ -10,8 +8,9 @@ class AnchorageArrays:
 
     Built once per S2 cell in the side input, so that finding a position's nearest anchorage
     is one vectorized haversine over all of them, instead of a pure-Python loop per anchorage.
-    The anchorages are sorted by s2id and argmin returns the first minimum, so ties resolve as
-    the loop did. Distances can differ from pipe_anchorages.distance.distance in the last bits.
+    The anchorages are sorted by s2id and argmin returns the first minimum, so ties resolve to
+    the lowest s2id, as the loop this replaces did. The distances come from
+    pipe_anchorages.distance.distances, and can differ from distance()'s in the last bits.
     """
 
     __slots__ = ("anchorages", "lat_rad", "lon_rad", "cos_lat")
@@ -24,15 +23,9 @@ class AnchorageArrays:
 
     def nearest(self, loc):
         """Returns the nearest anchorage to `loc` and its distance in km."""
-        lat = math.radians(loc.lat)
-        lon = math.radians(loc.lon)
-        h = (
-            np.sin((lat - self.lat_rad) / 2) ** 2
-            + math.cos(lat) * self.cos_lat * np.sin((lon - self.lon_rad) / 2) ** 2
-        )
-        distances = 2 * EARTH_RADIUS * np.arcsin(np.sqrt(np.minimum(h, 1)))
-        i = int(np.argmin(distances))
-        return self.anchorages[i], float(distances[i])
+        km = distances(loc, self.lat_rad, self.lon_rad, self.cos_lat)
+        i = int(np.argmin(km))
+        return self.anchorages[i], float(km[i])
 
 
 # No type hints: Beam maps it, and would infer coders from them.

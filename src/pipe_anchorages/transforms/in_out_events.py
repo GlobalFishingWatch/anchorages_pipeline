@@ -1,4 +1,3 @@
-from pipe_anchorages.distance import distance, inf
 
 
 class InOutEventsBase:
@@ -48,16 +47,6 @@ class InOutEventsBase:
             return False
         else:
             return state == self.STOPPED
-
-    def _anchorage_distance(self, loc, anchorages):
-        closest = None
-        min_dist = inf
-        for anch in sorted(anchorages, key=lambda x: x.s2id):
-            dist = distance(loc, anch.mean_location)
-            if dist < min_dist:
-                min_dist = dist
-                closest = anch
-        return closest, min_dist
 
     def _compute_state(self, is_in_port, is_stopped):
         if is_in_port:
