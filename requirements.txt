@@ -76,7 +76,7 @@ frozenlist==1.8.0
     #   aiosignal
 future==1.0.0
     # via s2sphere
-gfw-common==0.20.2
+gfw-common==0.21.0
     # via pipe-anchorages (pyproject.toml)
 google-api-core==2.40.0
     # via
@@ -101,7 +101,7 @@ google-api-core==2.40.0
     #   google-cloud-storage
     #   google-cloud-videointelligence
     #   google-cloud-vision
-google-apitools==0.5.35
+google-apitools==0.5.31
     # via apache-beam
 google-auth==2.59.1
     # via
@@ -479,6 +479,8 @@ tenacity==9.1.4
     # via google-genai
 typing-extensions==4.16.0
     # via
+    #   aiohttp
+    #   aiosignal
     #   anyio
     #   apache-beam
     #   google-cloud-aiplatform

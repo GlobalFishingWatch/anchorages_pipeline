@@ -145,11 +145,12 @@ def run(
     pipeline = Pipeline(
         dag=dag,
         pre_hooks=[
-            create_table_hook(table_config, mock=config.mock_bq_clients),
+            create_table_hook(table_config, labels=config.labels, mock=config.mock_bq_clients),
             delete_events_hook(
                 table_config,
                 start_date=config.start_date,
                 end_date=config.end_date,
+                labels=config.labels,
                 mock=config.mock_bq_clients,
             ),
         ],
