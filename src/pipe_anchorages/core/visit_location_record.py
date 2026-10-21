@@ -1,5 +1,5 @@
 import datetime
-from typing import NamedTuple, Optional
+from typing import NamedTuple, Optional, Tuple
 
 from pipe_anchorages.common import LatLon
 from pipe_anchorages.core.namedtuples import epoch
@@ -34,16 +34,16 @@ class VisitLocationRecord(NamedTuple):
         return seg_id
 
     def to_shuffle(self) -> tuple:
-        """Returns port-visits' record as a plain tuple, without the vessel_id.
+        """Returns port-visits' record as a plain tuple, without the ssvid.
 
-        For port-visits' GroupByKey by vessel_id, whose key holds it: Beam encodes a tuple of
-        primitives with its fast coder, but pickles a NamedTuple value (~3x larger and ~10x
-        slower). The timestamp travels as integer microseconds, so from_shuffle rebuilds the
-        record exactly.
+        For port-visits' GroupByKey, whose key holds (ssvid, vessel_id): most of what this saves
+        is the ssvid, which would otherwise be written into every shuffled value. Encoding the
+        tuple with Beam's fast coder for primitives instead of pickling the NamedTuple is the
+        smaller half. The timestamp travels as integer microseconds, so from_shuffle rebuilds
+        the record exactly.
         """
-        ssvid, _, seg_id = self.identifier
+        _, _, seg_id = self.identifier
         return (
-            ssvid,
             seg_id,
             (self.timestamp - epoch) // _MICROSECOND,
             self.location.lat,
@@ -57,10 +57,14 @@ class VisitLocationRecord(NamedTuple):
         )
 
     @classmethod
-    def from_shuffle(cls, vessel_id: str, fields: tuple) -> "VisitLocationRecord":
-        """Rebuilds the record of `vessel_id` from the tuple to_shuffle returned."""
-        (ssvid, seg_id, micros, lat, lon, speed, is_possible_gap_end,
+    def from_shuffle(cls, key: Tuple[str, str], fields: tuple) -> "VisitLocationRecord":
+        """Rebuilds the record of `key` from the tuple to_shuffle returned.
+
+        The key is (ssvid, vessel_id); the tuple carries the seg_id the key omits.
+        """
+        (seg_id, micros, lat, lon, speed, is_possible_gap_end,
          port_s2id, port_dist, port_lon, port_lat) = fields
+        ssvid, vessel_id = key
         return cls(
             identifier=(ssvid, vessel_id, seg_id),
             timestamp=epoch + micros * _MICROSECOND,

@@ -92,8 +92,10 @@ def test_a_record_goes_through_the_shuffle_as_is_by_default():
 
 def test_a_vessel_location_record_goes_through_the_shuffle_compacted_and_back():
     (md, obj) = VesselRecord.tagged_from_msg(examples_msgs[0])
+    key = (obj.identifier, "2021-04-26")
 
     fields = obj.to_shuffle()
 
     assert type(fields) is tuple
-    assert VesselLocationRecord.from_shuffle(obj.identifier, fields) == obj
+    identifier, _date = key
+    assert VesselLocationRecord.from_shuffle(identifier, fields) == obj
