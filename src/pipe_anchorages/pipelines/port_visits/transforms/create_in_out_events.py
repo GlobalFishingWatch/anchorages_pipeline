@@ -17,12 +17,12 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
     Input: (vessel_id, records) pairs of VisitLocationRecord.
     Output: (vessel_id, events) pairs of VisitEvent.
 
-    Walks each vessel's records in time order through InOutEventsBase's state machine
-    (AT_SEA, IN_PORT, STOPPED), emitting PORT_ENTRY, PORT_EXIT, PORT_STOP_BEGIN and
-    PORT_STOP_END on state changes. In port, a gap of at least `min_gap_minutes` before a
-    record that may end a gap emits PORT_GAP_END at that record and PORT_GAP_BEGIN at
-    `min_gap_minutes` after the previous one. A vessel still in port at the end of the
-    range, with no record for at least `min_gap_minutes` before the range's last
+    Walks each vessel's records in time order (by seg_id for the same timestamp) through
+    InOutEventsBase's state machine (AT_SEA, IN_PORT, STOPPED), emitting PORT_ENTRY,
+    PORT_EXIT, PORT_STOP_BEGIN and PORT_STOP_END on state changes. In port, a gap of at least
+    `min_gap_minutes` before a record that may end a gap emits PORT_GAP_END at that record and
+    PORT_GAP_BEGIN at `min_gap_minutes` after the previous one. A vessel still in port at the
+    end of the range, with no record for at least `min_gap_minutes` before the range's last
     possible timestamp (just before the exclusive `end_time`), gets a PORT_GAP_BEGIN.
 
     Every event is located at the last anchorage the vessel was in port at.
@@ -84,7 +84,9 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
         self, records: Iterable[VisitLocationRecord]
     ) -> Iterator[VisitEvent]:
         """Yields the events of one vessel's records (see the class docstring)."""
-        records = sorted(records, key=lambda x: x.timestamp)
+        # Ties on timestamp, between records of different segments, break by seg_id: a segment
+        # has at most one record per timestamp, so the order doesn't depend on Beam's.
+        records = sorted(records, key=lambda x: (x.timestamp, x.seg_id))
         rcd = None
         last_state = None
         active_port_rcd = None

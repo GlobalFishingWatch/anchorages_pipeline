@@ -25,6 +25,14 @@ class VisitLocationRecord(NamedTuple):
     port_lon: Optional[float]
     port_lat: Optional[float]
 
+    @property
+    def seg_id(self) -> str:
+        """The record's segment: its identifier, or the identifier's seg_id in port-visits."""
+        if isinstance(self.identifier, str):
+            return self.identifier
+        _, _, seg_id = self.identifier
+        return seg_id
+
     def to_shuffle(self) -> tuple:
         """Returns port-visits' record as a plain tuple, without the vessel_id.
 
