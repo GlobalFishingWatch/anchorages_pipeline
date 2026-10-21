@@ -1,26 +1,9 @@
 # Query parameters.
-#
-# 1-day run over the current production v5 inputs, to measure PIPELINE-4691's change on a real
-# Dataflow job. Same day (2026-10-01), same inputs and settings as the PIPELINE-4667/4668 runs, so
-# the baseline is the one #168 already published (billable shuffle 0.475 GB): no second run is
-# needed, since #168's "this branch" is the very commit this change sits on.
-#
-# bq_in_port_state_transitions is the port-state-transitions output. v5 produces it as
-# port_visits_v1.raw_port_events (via thin_port_messages) and port-visits reads it back; this
-# points at production's own table, which holds 5,858,623 rows for 2026-10-01. Repoint it at a
-# scratch table to measure an upstream change at the same time.
-#
-# bq_out_port_visits is scratch, so the run cannot touch production's port_visits table.
 bq_in_port_state_transitions: "gfw-int-ais-datalake.port_visits_v1.raw_port_events"
 bq_in_segment_info: "global-fishing-watch.pipe_ais_v3_published.segment_info"
 bq_out_port_visits: "world-fishing-827.scratch_tomas_ttl30d.port_visits_1d_4691"
-
-# end_date is exclusive: this covers 2026-10-01 only.
 start_date: "2026-10-01"
 end_date: "2026-10-02"
-
-# Production's own bad_segs, as the v5 DAG passes it. The previous version of this file pointed
-# at pipe_v20201001_segs, which no longer matches what production excludes.
 bad_segs: >-
   (SELECT DISTINCT seg_id FROM gfw-int-ais-datalake.summarized_positions_v1.segs_activity
   WHERE overlapping_and_short)
