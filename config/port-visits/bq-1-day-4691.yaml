@@ -1,0 +1,30 @@
+# Query parameters.
+bq_in_port_state_transitions: "gfw-int-ais-datalake.port_visits_v1.raw_port_events"
+bq_in_segment_info: "global-fishing-watch.pipe_ais_v3_published.segment_info"
+bq_out_port_visits: "world-fishing-827.scratch_tomas_ttl30d.port_visits_1d_4691"
+start_date: "2026-10-01"
+end_date: "2026-10-02"
+bad_segs: >-
+  (SELECT DISTINCT seg_id FROM gfw-int-ais-datalake.summarized_positions_v1.segs_activity
+  WHERE overlapping_and_short)
+
+# Apache Beam / Dataflow options:
+project: world-fishing-827
+runner: DataflowRunner
+max_num_workers: 100
+disk_size_gb: 50
+region: us-central1
+subnetwork: regions/us-central1/subnetworks/gfw-internal-us-central1
+service_account_email: engineering-development@world-fishing-827.iam.gserviceaccount.com
+temp_location: "gs://gfw-dataflow-temp-staging-ttl-7/port-visits/temp"
+staging_location: "gs://gfw-dataflow-temp-staging-ttl-7/port-visits/staging"
+setup_file: "./setup.py"
+experiments: ["use_runner_v2"]
+job_name: port-visits-1-day-4691
+
+# Labels for cost tracking (label values: lowercase letters, digits, '_' and '-').
+labels:
+  environment: development
+  resource_creator: tomas-link
+  project: ais
+  stage: anchorages

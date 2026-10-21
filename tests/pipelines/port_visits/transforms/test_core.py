@@ -6,6 +6,8 @@ from pipe_anchorages.core.visit_event import VisitEvent
 from pipe_anchorages.pipelines.port_visits.transforms.core import (
     event_to_msg,
     from_msg,
+    record_to_shuffle,
+    records_from_shuffle,
     visit_to_msg,
 )
 
@@ -38,10 +40,10 @@ def event(event_type, minutes):
     )
 
 
-def test_from_msg_keys_the_record_by_vessel_id():
-    vessel_id, rcd = from_msg(row())
+def test_from_msg_keys_the_record_by_its_ssvid_and_vessel_id():
+    key, rcd = from_msg(row())
 
-    assert vessel_id == "vessel-1"
+    assert key == ("111", "vessel-1")
     assert rcd.identifier == ("111", "vessel-1", "seg-1")
     assert rcd.timestamp == T0
     assert rcd.location == LatLon(-34.59, -58.4)
@@ -52,6 +54,26 @@ def test_from_msg_puts_records_with_no_anchorage_nearby_infinitely_far():
     _, rcd = from_msg(row(port_dist=None))
 
     assert rcd.port_dist == math.inf
+
+
+def test_the_shuffled_value_carries_no_ssvid():
+    """Keying by (ssvid, vessel_id): ssvid is written once per group, not per record."""
+    key, rcd = from_msg(row())
+
+    shuffled = record_to_shuffle((key, rcd))
+
+    assert shuffled[0] == key
+    assert "111" not in shuffled[1]
+
+
+def test_records_come_back_from_the_shuffle_unchanged():
+    key, rcd = from_msg(row())
+
+    # records_from_shuffle takes a group, as GroupByKey's output does.
+    _, shuffled_value = record_to_shuffle((key, rcd))
+    _, rebuilt = records_from_shuffle((key, [shuffled_value]))
+
+    assert rebuilt == [rcd]
 
 
 def test_from_msg_does_not_modify_the_row():

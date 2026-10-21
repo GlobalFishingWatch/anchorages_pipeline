@@ -15,10 +15,11 @@ from .create_port_visits import CreatePortVisits
 # No type hints on the functions Beam maps: it would infer coders from them, and the
 # registered PortVisitCoder can't encode a visit's events.
 def from_msg(x):
-    """Converts a query row into a (vessel_id, VisitLocationRecord) pair.
+    """Converts a query row into a ((ssvid, vessel_id), VisitLocationRecord) pair.
 
-    The record's identifier is (ssvid, vessel_id, seg_id), and a missing port_dist
-    (no anchorage nearby) becomes infinity.
+    The record's identifier is (ssvid, vessel_id, seg_id); the key holds the first two, so
+    ssvid needs no place in the shuffled value, and a missing port_dist (no anchorage nearby)
+    becomes infinity.
     """
     x_new = x.copy()
     x_new["timestamp"] = datetime.datetime.fromtimestamp(x_new["timestamp"], datetime.UTC)
@@ -30,24 +31,24 @@ def from_msg(x):
     port_dist = x_new.pop("port_dist")
     if port_dist is None:
         port_dist = math.inf
-    return vessel_id, VisitLocationRecord(
+    return (ssvid, vessel_id), VisitLocationRecord(
         identifier=ident, location=loc, port_dist=port_dist, **x_new
     )
 
 
 def record_to_shuffle(item):
-    """Compacts a (vessel_id, record) pair for the GroupByKey.
+    """Compacts a ((ssvid, vessel_id), record) pair for the GroupByKey.
 
     See VisitLocationRecord.to_shuffle.
     """
-    vessel_id, record = item
-    return vessel_id, record.to_shuffle()
+    key, record = item
+    return key, record.to_shuffle()
 
 
 def records_from_shuffle(item):
-    """Rebuilds a vessel's records after the GroupByKey; the key is their vessel_id."""
-    vessel_id, values = item
-    return vessel_id, [VisitLocationRecord.from_shuffle(vessel_id, v) for v in values]
+    """Rebuilds a vessel's records after the GroupByKey, from its (ssvid, vessel_id) key."""
+    key, values = item
+    return key, [VisitLocationRecord.from_shuffle(key, v) for v in values]
 
 
 def event_to_msg(x: VisitEvent) -> dict:
