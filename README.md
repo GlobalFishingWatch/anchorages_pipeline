@@ -32,7 +32,9 @@ AIS or VMS.
 - [Introduction](#introduction)
 - [How it works](#how-it-works)
 - [Development](#development)
-- [Usage](#usage) * [Using the CLI](#using-the-cli) * [Config files](#config-files)
+- [Usage](#usage)
+  * [Using the CLI](#using-the-cli)
+  * [Config files](#config-files)
 - [References](#references)
 
 ## Introduction
