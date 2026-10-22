@@ -1,36 +1,24 @@
 import apache_beam as beam
 
-from pipe_anchorages.records import VesselRecord
+from pipe_anchorages.transforms.shrink_group_by import ShrinkGroupBy
 
 
 class CreateTaggedRecordsByDay(beam.PTransform):
     """Groups each vessel's records by day, deduplicated and with an empty destination.
 
-    Input: (identifier, record) pairs of `record_type`, one record type per input.
+    Input: records of `record_type`, one record type per input.
     Output: ((identifier, date), records) pairs, sorted by timestamp, keeping one record per
-    timestamp. The records go through the GroupByKey in the form of record_type's to_shuffle
-    and from_shuffle.
+    timestamp. The records go through the GroupByKey shrunken by ShrinkGroupBy.
     """
 
-    def __init__(self, record_type: type[VesselRecord]) -> None:
+    def __init__(self, record_type: type, keys=("identifier",)) -> None:
         super().__init__()
         self.record_type = record_type
+        self.keys = keys
 
     # No type hints on the methods Beam maps: it would infer coders from them.
-    def add_date_to_key(self, item):
-        identity, value = item
-        return (identity, str(value.timestamp.date())), value
-
-    def to_shuffle(self, item):
-        """Converts the record to the form it goes through the GroupByKey in."""
-        key, value = item
-        return key, value.to_shuffle()
-
-    def from_shuffle(self, item):
-        """Rebuilds the records to_shuffle converted; the key's identifier is theirs."""
-        key, values = item
-        identity, _ = key
-        return key, [self.record_type.from_shuffle(identity, v) for v in values]
+    def record_date(self, record):
+        return str(record.timestamp.date())
 
     def order_by_timestamp(self, item):
         key, records = item
@@ -59,10 +47,12 @@ class CreateTaggedRecordsByDay(beam.PTransform):
     def expand(self, vessel_records: beam.PCollection) -> beam.PCollection:
         return (
             vessel_records
-            | beam.Map(self.add_date_to_key)
-            | "ToShuffle" >> beam.Map(self.to_shuffle)
-            | beam.GroupByKey()
-            | "FromShuffle" >> beam.Map(self.from_shuffle)
+            | ShrinkGroupBy(
+                *self.keys,
+                record_type=self.record_type,
+                elements="Positions",
+                date=self.record_date,
+            )
             | beam.Map(self.order_by_timestamp)
             | beam.Map(self.dedup_by_timestamp)
             | beam.Map(self.tag_records)

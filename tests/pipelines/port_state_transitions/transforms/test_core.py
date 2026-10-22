@@ -9,7 +9,9 @@ from .factories import PORT_LAT, PORT_LON, T0, at
 
 def test_record_to_msg_flattens_the_location_and_converts_the_timestamp_to_seconds():
     record = VisitLocationRecord(
-        identifier="seg-1",
+        ssvid=None,
+        vessel_id=None,
+        seg_id="seg-1",
         timestamp=at(10),
         location=LatLon(-34.5, -58.3),
         speed=5.0,

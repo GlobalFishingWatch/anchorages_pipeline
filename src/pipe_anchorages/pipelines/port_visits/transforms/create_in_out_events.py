@@ -9,7 +9,7 @@ from pipe_anchorages.core.visit_event import VisitEvent
 from pipe_anchorages.transforms.in_out_events import InOutEventsBase
 from pipe_anchorages.core.visit_location_record import VisitLocationRecord
 
-PseudoRcd = namedtuple("PseudoRcd", ["location", "timestamp", "identifier"])
+PseudoRcd = namedtuple("PseudoRcd", ["location", "timestamp", "ssvid", "vessel_id", "seg_id"])
 
 
 class CreateInOutEvents(beam.PTransform, InOutEventsBase):
@@ -53,16 +53,15 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
 
     def _build_event(self, active_port_rcd, rcd, event_type: str, last_timestamp) -> VisitEvent:
         """Builds an event of `rcd`'s vessel, at the anchorage of `active_port_rcd`."""
-        ssvid, vessel_id, seg_id = rcd.identifier
         return VisitEvent(
             anchorage_id=active_port_rcd.port_s2id,
             lat=active_port_rcd.port_lat,
             lon=active_port_rcd.port_lon,
             vessel_lat=rcd.location.lat,
             vessel_lon=rcd.location.lon,
-            ssvid=ssvid,
-            seg_id=seg_id,
-            vessel_id=vessel_id,
+            ssvid=rcd.ssvid,
+            seg_id=rcd.seg_id,
+            vessel_id=rcd.vessel_id,
             timestamp=rcd.timestamp,
             event_type=event_type,
             last_timestamp=last_timestamp,
@@ -78,7 +77,9 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
         rcd = PseudoRcd(
             location=cmn.LatLon(None, None),
             timestamp=evt_timestamp,
-            identifier=gap_end_rcd.identifier,
+            ssvid=gap_end_rcd.ssvid,
+            vessel_id=gap_end_rcd.vessel_id,
+            seg_id=gap_end_rcd.seg_id,
         )
         yield self._build_event(active_port_rcd, rcd, self.EVT_GAP_BEG, last_timestamp)
 

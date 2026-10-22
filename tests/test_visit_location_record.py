@@ -1,12 +1,17 @@
+"""The visit location record's shape: the segment is always known, the vessel not always."""
+
 import datetime
 
 from pipe_anchorages.common import LatLon
 from pipe_anchorages.core.visit_location_record import VisitLocationRecord
 
 
-def visit_location_record(identifier):
+def visit_location_record(ssvid, vessel_id, seg_id="seg-1"):
+    """A position, with the vessel's identifiers when they are known."""
     return VisitLocationRecord(
-        identifier=identifier,
+        ssvid=ssvid,
+        vessel_id=vessel_id,
+        seg_id=seg_id,
         timestamp=datetime.datetime(2024, 1, 2, tzinfo=datetime.timezone.utc),
         location=LatLon(-34.6, -58.4),
         speed=5.0,
@@ -18,13 +23,13 @@ def visit_location_record(identifier):
     )
 
 
-def test_the_seg_id_of_a_port_visits_record_is_the_last_part_of_its_identifier():
-    record = visit_location_record(("111", "vessel-1", "seg-1"))
+def test_a_record_carries_its_vessel_and_its_segment():
+    record = visit_location_record("111", "vessel-1", seg_id="seg-2")
 
-    assert record.seg_id == "seg-1"
+    assert (record.ssvid, record.vessel_id, record.seg_id) == ("111", "vessel-1", "seg-2")
 
 
-def test_the_seg_id_of_a_port_state_transitions_record_is_its_identifier():
-    record = visit_location_record("seg-1")
+def test_a_record_of_a_segment_carries_no_vessel():
+    record = visit_location_record(None, None)
 
-    assert record.seg_id == "seg-1"
+    assert (record.ssvid, record.vessel_id, record.seg_id) == (None, None, "seg-1")

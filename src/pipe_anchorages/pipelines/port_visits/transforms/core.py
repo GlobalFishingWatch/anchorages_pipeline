@@ -7,6 +7,7 @@ from pipe_anchorages import common as cmn
 from pipe_anchorages.core.namedtuples import _datetime_to_s
 from pipe_anchorages.core.visit_event import VisitEvent
 from pipe_anchorages.core.visit_location_record import VisitLocationRecord
+from pipe_anchorages.transforms.shrink_group_by import ShrinkGroupBy
 
 from .create_in_out_events import CreateInOutEvents
 from .create_port_visits import CreatePortVisits
@@ -15,40 +16,28 @@ from .create_port_visits import CreatePortVisits
 # No type hints on the functions Beam maps: it would infer coders from them, and the
 # registered PortVisitCoder can't encode a visit's events.
 def from_msg(x):
-    """Converts a query row into a ((ssvid, vessel_id), VisitLocationRecord) pair.
+    """Converts a query row into a VisitLocationRecord.
 
-    The record's identifier is (ssvid, vessel_id, seg_id); the key holds the first two, so
-    ssvid needs no place in the shuffled value, and a missing port_dist (no anchorage nearby)
-    becomes infinity.
+    A missing port_dist (no anchorage nearby) becomes infinity.
     """
     x_new = x.copy()
     x_new["timestamp"] = datetime.datetime.fromtimestamp(x_new["timestamp"], datetime.UTC)
     ssvid = x_new.pop("ssvid")
     seg_id = x_new.pop("seg_id")
     vessel_id = x_new.pop("vessel_id")
-    ident = (ssvid, vessel_id, seg_id)
     loc = cmn.LatLon(x_new.pop("lat"), x_new.pop("lon"))
     port_dist = x_new.pop("port_dist")
     if port_dist is None:
         port_dist = math.inf
-    return (ssvid, vessel_id), VisitLocationRecord(
-        identifier=ident, location=loc, port_dist=port_dist, **x_new
+    record = VisitLocationRecord(
+        ssvid=ssvid,
+        vessel_id=vessel_id,
+        seg_id=seg_id,
+        location=loc,
+        port_dist=port_dist,
+        **x_new,
     )
-
-
-def record_to_shuffle(item):
-    """Compacts a ((ssvid, vessel_id), record) pair for the GroupByKey.
-
-    See VisitLocationRecord.to_shuffle.
-    """
-    key, record = item
-    return key, record.to_shuffle()
-
-
-def records_from_shuffle(item):
-    """Rebuilds a vessel's records after the GroupByKey, from its (ssvid, vessel_id) key."""
-    key, values = item
-    return key, [VisitLocationRecord.from_shuffle(key, v) for v in values]
+    return record
 
 
 def event_to_msg(x: VisitEvent) -> dict:
@@ -73,7 +62,7 @@ def visit_to_msg(x):
 class DetectPortVisits(beam.PTransform):
     """Turns port state transitions (query rows) into port visit table records (row dicts).
 
-    Groups the inline chain (from_msg -> record_to_shuffle -> GroupByKey -> records_from_shuffle ->
+    Groups the inline chain (from_msg -> ShrinkGroupBy ->
     CreateInOutEvents -> CreatePortVisits -> visit_to_msg) into one composite PTransform, since
     LinearDag's core slot takes exactly one transform.
 
@@ -103,9 +92,9 @@ class DetectPortVisits(beam.PTransform):
         return (
             xs
             | "FromMsg" >> beam.Map(from_msg)
-            | "ToShuffle" >> beam.Map(record_to_shuffle)
-            | "GroupByVesselId" >> beam.GroupByKey()
-            | "FromShuffle" >> beam.Map(records_from_shuffle)
+            | ShrinkGroupBy(
+                "ssvid", "vessel_id", record_type=VisitLocationRecord, elements="Transitions",
+            )
             | CreateInOutEvents(
                 anchorage_entry_dist=self.anchorage_entry_dist_km,
                 anchorage_exit_dist=self.anchorage_exit_dist_km,

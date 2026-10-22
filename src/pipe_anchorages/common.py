@@ -1,9 +1,8 @@
-from collections import namedtuple
-
 import apache_beam as beam
-import s2sphere
 
+from .core.latlon import LatLon as LatLon  # noqa: F401 (re-exported)
 from .records import InvalidRecord, VesselRecord
+
 
 # Around (0.5 km)^2
 ANCHORAGES_S2_SCALE = 14
@@ -36,15 +35,3 @@ class CreateVesselRecords(beam.PTransform):
             | beam.Map(VesselRecord.tagged_from_msg)
             | beam.Filter(self.is_valid)
         )
-
-
-class LatLon(namedtuple("LatLon", ["lat", "lon"])):
-
-    __slots__ = ()
-
-    def S2CellId(self, scale=None):
-        ll = s2sphere.LatLng.from_degrees(self.lat, self.lon)
-        cellid = s2sphere.CellId.from_lat_lng(ll)
-        if scale is not None:
-            cellid = cellid.parent(scale)
-        return cellid
