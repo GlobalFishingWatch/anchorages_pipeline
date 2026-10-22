@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="https://codecov.io/gh/GlobalFishingWatch/pipe-anchorages" >
-     <img alt="Coverage" src="https://codecov.io/gh/GlobalFishingWatch/pipe-anchorages/graph/badge.svg?token=FSPWG081MD"/>
+     <img alt="Coverage" src="https://codecov.io/github/globalfishingwatch/pipe-anchorages/branch/main/graph/badge.svg?token=FSPWG081MD"/>
   </a>
   <a>
     <img alt="Python versions" src="https://img.shields.io/badge/python-3.12%20%7C%203.13-blue">
