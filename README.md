@@ -95,9 +95,9 @@ flowchart TD
     AVI{{"<b>anchorages-visited-info</b><br/>cross-reference other event types"}}
 
     subgraph OTHER["<b>Other GFW pipelines</b>"]
-        LOI[("<b>product_events_loitering</b><br/>(pipe-loitering)")]
-        ENC[("<b>product_events_encounter</b><br/>(pipe-encounters)")]
-        GAP[("<b>product_events_gap</b><br/>(pipe-gaps)")]
+        LOI[("<b>product_events</b><br/><b>loitering</b><br/>(pipe-loitering)")]
+        ENC[("<b>product_events</b><br/><b>encounter</b><br/>(pipe-encounters)")]
+        GAP[("<b>product_events</b><br/><b>gap</b><br/>(pipe-gaps)")]
     end
 
     AP ==> NA ==> TM ==> PV ==> CV
