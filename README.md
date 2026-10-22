@@ -1,6 +1,9 @@
 <h1 align="center" style="border-bottom: none;"> pipe-anchorages </h1>
 
 <p align="center">
+  <a href="https://github.com/GlobalFishingWatch/pipe-anchorages/actions/workflows/ci.yaml" >
+    <img src="https://github.com/GlobalFishingWatch/pipe-anchorages/actions/workflows/ci.yaml/badge.svg"/>
+  </a>
   <a href="https://codecov.io/gh/GlobalFishingWatch/pipe-anchorages" >
      <img alt="Coverage" src="https://codecov.io/github/globalfishingwatch/pipe-anchorages/branch/main/graph/badge.svg?token=FSPWG081MD"/>
   </a>
@@ -73,6 +76,14 @@ plus one side stage that cross-references the results against other GFW pipeline
 </div>
 
 ```mermaid
+---
+config:
+  look: classic
+  layout: dagre
+  flowchart:
+    wrappingWidth: 400
+    padding: 8
+---
 flowchart TD
     AP{{"<b>anchorage-locations</b><br/>cluster stationary positions"}}
     NA{{"<b>named-anchorages</b><br/>assign names"}}
