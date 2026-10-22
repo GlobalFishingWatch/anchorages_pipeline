@@ -5,6 +5,7 @@ import pytest
 from pipe_anchorages.pipelines.port_visits.transforms.create_in_out_events import (
     CreateInOutEvents,
 )
+from pipe_anchorages.pipelines.port_visits.transforms.create_port_visits import CreatePortVisits
 
 from .factories import PORT_LAT, PORT_LON, at, record
 
@@ -89,14 +90,77 @@ def test_records_are_processed_in_time_order():
     assert events_of(records) == [("PORT_ENTRY", at(10)), ("PORT_EXIT", at(20))]
 
 
-def test_records_of_different_segments_with_the_same_timestamp_are_processed_by_seg_id():
-    # At 10, seg-1 is in port and seg-2 at sea: seg-1 goes first, whatever the input order.
+def test_of_records_at_the_same_timestamp_the_one_of_the_largest_segment_is_kept():
+    # seg-a is the vessel's track; seg-b is a single point at 10, at sea. Walking both would
+    # yield an entry and an exit at 10 and a second entry at 20.
+    track = [record(0, **AT_SEA, seg_id="seg-a"), record(10, **IN_PORT, seg_id="seg-a"),
+             record(20, **IN_PORT, seg_id="seg-a"), record(30, **AT_SEA, seg_id="seg-a")]
+    single_point = record(10, **AT_SEA, seg_id="seg-b")
+    expected = [("PORT_ENTRY", at(10)), ("PORT_EXIT", at(30))]
+
+    assert events_of([*track, single_point]) == expected
+    assert events_of([single_point, *reversed(track)]) == expected
+
+
+def test_of_records_of_equally_large_segments_the_lowest_seg_id_is_kept():
+    # Both single points: seg-1 wins (seg_ids compare as strings, so seg-10 would beat seg-2).
     in_port = record(10, **IN_PORT, seg_id="seg-1")
     at_sea = record(10, **AT_SEA, seg_id="seg-2")
-    expected = [("PORT_ENTRY", at(10)), ("PORT_EXIT", at(10))]
+    track = [record(0, **AT_SEA, seg_id="seg-0"), record(20, **AT_SEA, seg_id="seg-3")]
+    expected = [("PORT_ENTRY", at(10)), ("PORT_EXIT", at(20))]
 
-    assert events_of([record(0, **AT_SEA), in_port, at_sea]) == expected
-    assert events_of([record(0, **AT_SEA), at_sea, in_port]) == expected
+    assert events_of([*track, in_port, at_sea]) == expected
+    assert events_of([*track, at_sea, in_port]) == expected
+
+
+def test_a_burst_of_single_points_at_one_instant_yields_at_most_one_transition():
+    # A feed burst: four single-point segments at 10 alternating between port and sea.
+    track = [record(0, **AT_SEA, seg_id="seg-a"), record(20, **IN_PORT, seg_id="seg-a"),
+             record(30, **AT_SEA, seg_id="seg-a")]
+    burst = [record(10, **(IN_PORT if i % 2 else AT_SEA), seg_id=f"seg-b-{i}")
+             for i in range(1, 5)]
+
+    assert events_of([*track, *burst]) == [("PORT_ENTRY", at(10)), ("PORT_EXIT", at(30))]
+
+
+def test_a_lone_single_point_segment_is_kept():
+    # E.g. a vessel in port that only pings now and then: its single point is not a tie.
+    records = [record(0, **AT_SEA, seg_id="seg-a"), record(10, **IN_PORT, seg_id="seg-b"),
+               record(20, **AT_SEA, seg_id="seg-a")]
+
+    assert events_of(records) == [("PORT_ENTRY", at(10)), ("PORT_EXIT", at(20))]
+
+
+def test_a_gap_ending_at_a_tied_instant_still_yields_gap_events():
+    track = [
+        record(0, **AT_SEA, seg_id="seg-a"), record(10, **IN_PORT, seg_id="seg-a"),
+        record(130, **IN_PORT, is_possible_gap_end=True, seg_id="seg-a"),
+        record(140, **AT_SEA, seg_id="seg-a"),
+    ]
+    single_point = record(130, **AT_SEA, is_possible_gap_end=True, seg_id="seg-b")
+
+    assert events_of([*track, single_point], min_gap_minutes=60) == [
+        ("PORT_ENTRY", at(10)),
+        ("PORT_GAP_END", at(130)),
+        ("PORT_GAP_BEGIN", at(70)),
+        ("PORT_EXIT", at(140)),
+    ]
+
+
+def test_a_burst_at_one_instant_yields_unique_visit_ids():
+    # Before one record per instant, each entry/exit pair at 10 became a zero-duration visit
+    # with the same first event, hence the same visit_id.
+    track = [record(0, **AT_SEA, seg_id="seg-a"), record(20, **AT_SEA, seg_id="seg-a")]
+    burst = [record(10, **(IN_PORT if i % 2 else AT_SEA), seg_id=f"seg-b-{i}")
+             for i in range(1, 7)]
+    _, events = create().create_in_out_events(("vessel-1", [*track, *burst]))
+
+    visits = list(CreatePortVisits(max_interseg_dist_nm=60.0).create_port_visits(
+        (("111", "vessel-1"), events)
+    ))
+
+    assert len(visits) == 1
+    assert len({v.visit_id for v in visits}) == len(visits)
 
 
 def test_a_long_gap_in_port_ending_at_a_possible_gap_end_yields_gap_events():

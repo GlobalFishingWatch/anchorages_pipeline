@@ -1,5 +1,6 @@
-from collections import namedtuple
+from collections import Counter, namedtuple
 from datetime import datetime, timedelta
+from itertools import groupby
 from typing import Iterable, Iterator
 
 import apache_beam as beam
@@ -17,13 +18,14 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
     Input: (vessel_id, records) pairs of VisitLocationRecord.
     Output: (vessel_id, events) pairs of VisitEvent.
 
-    Walks each vessel's records in time order (by seg_id for the same timestamp) through
-    InOutEventsBase's state machine (AT_SEA, IN_PORT, STOPPED), emitting PORT_ENTRY,
-    PORT_EXIT, PORT_STOP_BEGIN and PORT_STOP_END on state changes. In port, a gap of at least
-    `min_gap_minutes` before a record that may end a gap emits PORT_GAP_END at that record and
-    PORT_GAP_BEGIN at `min_gap_minutes` after the previous one. A vessel still in port at the
-    end of the range, with no record for at least `min_gap_minutes` before the range's last
-    possible timestamp (just before the exclusive `end_time`), gets a PORT_GAP_BEGIN.
+    Walks each vessel's records in time order, keeping one record per timestamp (see
+    `_one_record_per_instant`), through InOutEventsBase's state machine (AT_SEA, IN_PORT,
+    STOPPED), emitting PORT_ENTRY, PORT_EXIT, PORT_STOP_BEGIN and PORT_STOP_END on state
+    changes. In port, a gap of at least `min_gap_minutes` before a record that may end a gap
+    emits PORT_GAP_END at that record and PORT_GAP_BEGIN at `min_gap_minutes` after the
+    previous one. A vessel still in port at the end of the range, with no record for at least
+    `min_gap_minutes` before the range's last possible timestamp (just before the exclusive
+    `end_time`), gets a PORT_GAP_BEGIN.
 
     Every event is located at the last anchorage the vessel was in port at.
     """
@@ -80,13 +82,36 @@ class CreateInOutEvents(beam.PTransform, InOutEventsBase):
         )
         yield self._build_event(active_port_rcd, rcd, self.EVT_GAP_BEG, last_timestamp)
 
+    @staticmethod
+    def _one_record_per_instant(
+        records: Iterable[VisitLocationRecord],
+    ) -> list[VisitLocationRecord]:
+        """Returns `records` in time order, keeping one record per timestamp.
+
+        A vessel can have records of several segments at the same instant, e.g. when a feed
+        delivers many messages stamped with the same second and the segmenter opens a
+        single-point segment for each of them. Walking all of them through the state machine
+        flips the vessel in and out of port at that instant, which yields zero-duration visits
+        and duplicate visit_ids. Of the records at one instant, this keeps the one of the
+        segment with the most records in the vessel's history, so an established track wins
+        over single points; ties break by seg_id (as strings, so "-10" sorts before "-2"),
+        which keeps the result independent of the order Beam delivers the records in.
+
+        A segment has at most one record per timestamp, so records without a tie are kept
+        as they are, including lone single-point segments.
+        """
+        records = list(records)
+        records_per_segment = Counter(x.seg_id for x in records)
+        records = sorted(
+            records, key=lambda x: (x.timestamp, -records_per_segment[x.seg_id], x.seg_id)
+        )
+        return [next(tied) for _, tied in groupby(records, key=lambda x: x.timestamp)]
+
     def _create_in_out_events(
         self, records: Iterable[VisitLocationRecord]
     ) -> Iterator[VisitEvent]:
         """Yields the events of one vessel's records (see the class docstring)."""
-        # Ties on timestamp, between records of different segments, break by seg_id: a segment
-        # has at most one record per timestamp, so the order doesn't depend on Beam's.
-        records = sorted(records, key=lambda x: (x.timestamp, x.seg_id))
+        records = self._one_record_per_instant(records)
         rcd = None
         last_state = None
         active_port_rcd = None
