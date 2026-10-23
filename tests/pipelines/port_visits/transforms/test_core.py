@@ -1,35 +1,13 @@
-import math
-
-from pipe_anchorages.common import LatLon
 from pipe_anchorages.core.port_visit import PortVisit
 from pipe_anchorages.core.visit_event import VisitEvent
 from pipe_anchorages.core.visit_location_record import VisitLocationRecord
 from pipe_anchorages.transforms.shrink_group_by import ShrinkGroupBy
 from pipe_anchorages.pipelines.port_visits.transforms.core import (
     event_to_msg,
-    from_msg,
     visit_to_msg,
 )
 
-from .factories import T0, at
-
-
-def row(**overrides):
-    """A row shaped like the query's output."""
-    return dict(
-        ssvid="111",
-        vessel_id="vessel-1",
-        seg_id="seg-1",
-        lat=-34.59,
-        lon=-58.4,
-        speed=5.0,
-        is_possible_gap_end=False,
-        port_s2id="a1",
-        port_dist=1.0,
-        port_lon=-58.4,
-        port_lat=-34.6,
-        timestamp=T0.timestamp(),
-    ) | overrides
+from .factories import at, record
 
 
 def event(event_type, minutes):
@@ -40,24 +18,9 @@ def event(event_type, minutes):
     )
 
 
-def test_from_msg_builds_the_record_from_the_row():
-    rcd = from_msg(row())
-
-    assert (rcd.ssvid, rcd.vessel_id, rcd.seg_id) == ("111", "vessel-1", "seg-1")
-    assert rcd.timestamp == T0
-    assert rcd.location == LatLon(-34.59, -58.4)
-    assert (rcd.port_s2id, rcd.port_dist, rcd.speed) == ("a1", 1.0, 5.0)
-
-
-def test_from_msg_puts_records_with_no_anchorage_nearby_infinitely_far():
-    rcd = from_msg(row(port_dist=None))
-
-    assert rcd.port_dist == math.inf
-
-
 def test_the_shuffled_value_carries_no_ssvid():
     """Keying by (ssvid, vessel_id): ssvid is written once per group, not per record."""
-    rcd = from_msg(row())
+    rcd = record(0, port_dist=1.0, speed=5.0)
     shrink_gbk = ShrinkGroupBy("ssvid", "vessel_id", record_type=VisitLocationRecord)
 
     _, shuffled = shrink_gbk.shrink(rcd)
@@ -66,21 +29,13 @@ def test_the_shuffled_value_carries_no_ssvid():
 
 
 def test_records_come_back_from_the_shuffle_unchanged():
-    rcd = from_msg(row())
+    rcd = record(0, port_dist=1.0, speed=5.0)
     shrink_gbk = ShrinkGroupBy("ssvid", "vessel_id", record_type=VisitLocationRecord)
 
     key, shuffled = shrink_gbk.shrink(rcd)
     _, rebuilt = shrink_gbk.unshrink((key, [shuffled]))
 
     assert rebuilt == [rcd]
-
-
-def test_from_msg_does_not_modify_the_row():
-    original = row()
-
-    from_msg(original)
-
-    assert original == row()
 
 
 def test_event_to_msg_drops_vessel_fields_and_converts_the_timestamp():

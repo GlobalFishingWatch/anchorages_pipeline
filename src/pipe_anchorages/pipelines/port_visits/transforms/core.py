@@ -1,9 +1,5 @@
-import datetime
-import math
-
 import apache_beam as beam
 
-from pipe_anchorages import common as cmn
 from pipe_anchorages.core.namedtuples import _datetime_to_s
 from pipe_anchorages.core.visit_event import VisitEvent
 from pipe_anchorages.core.visit_location_record import VisitLocationRecord
@@ -11,33 +7,6 @@ from pipe_anchorages.transforms.shrink_group_by import ShrinkGroupBy
 
 from .create_in_out_events import CreateInOutEvents
 from .create_port_visits import CreatePortVisits
-
-
-# No type hints on the functions Beam maps: it would infer coders from them, and the
-# registered PortVisitCoder can't encode a visit's events.
-def from_msg(x):
-    """Converts a query row into a VisitLocationRecord.
-
-    A missing port_dist (no anchorage nearby) becomes infinity.
-    """
-    x_new = x.copy()
-    x_new["timestamp"] = datetime.datetime.fromtimestamp(x_new["timestamp"], datetime.UTC)
-    ssvid = x_new.pop("ssvid")
-    seg_id = x_new.pop("seg_id")
-    vessel_id = x_new.pop("vessel_id")
-    loc = cmn.LatLon(x_new.pop("lat"), x_new.pop("lon"))
-    port_dist = x_new.pop("port_dist")
-    if port_dist is None:
-        port_dist = math.inf
-    record = VisitLocationRecord(
-        ssvid=ssvid,
-        vessel_id=vessel_id,
-        seg_id=seg_id,
-        location=loc,
-        port_dist=port_dist,
-        **x_new,
-    )
-    return record
 
 
 def event_to_msg(x: VisitEvent) -> dict:
@@ -50,6 +19,8 @@ def event_to_msg(x: VisitEvent) -> dict:
     return x
 
 
+# No type hints on the functions Beam maps: it would infer coders from them, and the
+# registered PortVisitCoder can't encode a visit's events.
 def visit_to_msg(x):
     """Converts a PortVisit into a row of the output table."""
     x = x._asdict()
@@ -62,7 +33,7 @@ def visit_to_msg(x):
 class DetectPortVisits(beam.PTransform):
     """Turns port state transitions (query rows) into port visit table records (row dicts).
 
-    Groups the inline chain (from_msg -> ShrinkGroupBy ->
+    Groups the inline chain (VisitLocationRecord.from_msg -> ShrinkGroupBy ->
     CreateInOutEvents -> CreatePortVisits -> visit_to_msg) into one composite PTransform, since
     LinearDag's core slot takes exactly one transform.
 
@@ -91,7 +62,7 @@ class DetectPortVisits(beam.PTransform):
     def expand(self, xs):
         return (
             xs
-            | "FromMsg" >> beam.Map(from_msg)
+            | "FromMsg" >> beam.Map(VisitLocationRecord.from_msg)
             | ShrinkGroupBy(
                 "ssvid", "vessel_id", record_type=VisitLocationRecord, elements="Transitions",
             )
