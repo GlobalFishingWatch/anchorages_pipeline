@@ -18,7 +18,9 @@ def at(minutes):
 def record(minutes, port_dist, speed, is_possible_gap_end=False, seg_id="seg-1", port="a1"):
     """A port state transition of vessel ("111", "vessel-1"), `port_dist` km from `port`."""
     return VisitLocationRecord(
-        identifier=("111", "vessel-1", seg_id),
+        ssvid="111",
+        vessel_id="vessel-1",
+        seg_id=seg_id,
         timestamp=at(minutes),
         location=LatLon(PORT_LAT + port_dist / 100, PORT_LON),
         speed=speed,

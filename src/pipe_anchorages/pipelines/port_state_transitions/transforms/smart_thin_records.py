@@ -81,7 +81,9 @@ class SmartThinRecords(beam.PTransform, InOutEventsBase):
             port, dist = arrays.nearest(rcd.location) if arrays is not None else (None, math.inf)
 
             rcd = VisitLocationRecord(
-                identifier=rcd.identifier,
+                ssvid=None,
+                vessel_id=None,
+                seg_id=rcd.identifier,
                 timestamp=rcd.timestamp,
                 location=rcd.location,
                 speed=rcd.speed,

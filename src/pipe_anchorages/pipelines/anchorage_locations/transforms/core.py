@@ -11,8 +11,7 @@ from .create_anchorage_locations import CreateAnchorageLocations
 logger = logging.getLogger(__name__)
 
 
-def has_location_record(item):
-    _, rcd = item
+def has_location_record(rcd):
     return isinstance(rcd, VesselLocationRecord)
 
 
@@ -37,7 +36,7 @@ def encode_anchorage(anchorage) -> dict:
 class FindAnchorageLocations(beam.PTransform):
     """Turns position messages into anchorage table records (row dicts).
 
-    Groups the inline chain (CreateVesselRecords -> filter location records ->
+    Groups the inline chain (CreateVesselRecords -> filter location records -> key by identifier ->
     CreateTaggedRecords -> CreateAnchorageLocations -> encode) into one
     composite PTransform, since LinearDag's core slot takes exactly one
     transform. The fishing vessel list is NOT read here: it arrives as a side
@@ -64,6 +63,7 @@ class FindAnchorageLocations(beam.PTransform):
             xs
             | cmn.CreateVesselRecords()
             | "FilterOutInfo" >> beam.Filter(has_location_record)
+            | "KeyByIdentifier" >> beam.WithKeys(lambda rcd: rcd.identifier)
             | CreateTaggedRecords(self.min_positions)
             | CreateAnchorageLocations(
                 self.min_duration,

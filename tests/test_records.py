@@ -8,6 +8,7 @@ from pipe_anchorages.records import is_location_message, has_valid_location
 from pipe_anchorages.records import InvalidRecord
 from pipe_anchorages.records import VesselRecord
 from pipe_anchorages.records import VesselLocationRecord
+from pipe_anchorages.transforms.shrink_group_by import ShrinkGroupBy
 
 
 this_dir = os.path.dirname(__file__)
@@ -27,7 +28,7 @@ for msg in examples_msgs:
 examples_msgs[3]["lat"] = 361
 
 example_records = [
-    VesselRecord.tagged_from_msg(x)[1] for x in examples_msgs if is_location_message(x)
+    VesselRecord.from_msg(x) for x in examples_msgs if is_location_message(x)
 ]
 example_records.append
 
@@ -67,7 +68,7 @@ def test_has_valid_location():
 
 
 def test_a_position_message_becomes_a_vessel_location_record():
-    (md, obj) = VesselRecord.tagged_from_msg(examples_msgs[0])
+    obj = VesselRecord.from_msg(examples_msgs[0])
     assert obj == VesselLocationRecord(
         identifier=111219501,
         timestamp=datetime.datetime(2016, 1, 1, 5, 20, 13, tzinfo=pytz.UTC),
@@ -78,24 +79,17 @@ def test_a_position_message_becomes_a_vessel_location_record():
 
 
 def test_a_vessel_location_record_survives_pickling():
-    (md, obj) = VesselRecord.tagged_from_msg(examples_msgs[0])
+    obj = VesselRecord.from_msg(examples_msgs[0])
     assert pickle.loads(pickle.dumps(obj)) == obj
 
 
-def test_a_record_goes_through_the_shuffle_as_is_by_default():
-    record = InvalidRecord(
-        identifier="seg-1", timestamp=datetime.datetime(2021, 4, 26, 6, 0, 12, tzinfo=pytz.UTC)
-    )
+def test_a_vessel_location_record_shrinks_and_unshrinks():
+    obj = VesselRecord.from_msg(examples_msgs[0])
+    shrink_gbk = ShrinkGroupBy("identifier", record_type=VesselLocationRecord)
 
-    assert InvalidRecord.from_shuffle("seg-1", record.to_shuffle()) is record
-
-
-def test_a_vessel_location_record_goes_through_the_shuffle_compacted_and_back():
-    (md, obj) = VesselRecord.tagged_from_msg(examples_msgs[0])
-    key = (obj.identifier, "2021-04-26")
-
-    fields = obj.to_shuffle()
+    shrunk_key, fields = shrink_gbk.shrink(obj)
 
     assert type(fields) is tuple
-    identifier, _date = key
-    assert VesselLocationRecord.from_shuffle(identifier, fields) == obj
+    assert obj.identifier not in fields
+    _, rebuilt = shrink_gbk.unshrink((shrunk_key, [fields]))
+    assert rebuilt == [obj]

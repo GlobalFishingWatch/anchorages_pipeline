@@ -19,6 +19,10 @@ def record_to_msg(x):
     location = x.pop("location")
     x["lon"] = location.lon
     x["lat"] = location.lat
+    # The table's column for the segment is called identifier, and the vessel is not known here.
+    x["identifier"] = x.pop("seg_id")
+    x.pop("ssvid")
+    x.pop("vessel_id")
     return x
 
 

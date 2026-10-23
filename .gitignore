@@ -112,3 +112,6 @@ ENV/
 
 # uv
 uv.lock
+
+# Local outputs (examples, previews, benchmarks)
+workdir/

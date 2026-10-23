@@ -108,6 +108,14 @@ def test_positions_out_of_reach_of_any_anchorage_have_no_port():
     assert (kept.port_s2id, kept.port_dist, kept.port_lat, kept.port_lon) == (None,) * 4
 
 
+def test_the_kept_positions_know_their_segment_but_not_their_vessel():
+    """port-state-transitions works on a segment: it has no vessel to name."""
+    (kept,) = thin([position(0, **AT_SEA)])
+
+    assert kept.seg_id == "seg-1"
+    assert (kept.ssvid, kept.vessel_id) == (None, None)
+
+
 def test_between_entry_and_exit_distances_a_vessel_keeps_its_previous_state():
     between = dict(km=3.5, speed=5.0)
     records = [

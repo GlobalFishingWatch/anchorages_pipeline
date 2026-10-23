@@ -2,6 +2,7 @@ from pipe_anchorages.pipelines.port_state_transitions.transforms.create_tagged_r
     CreateTaggedRecordsByDay,
 )
 from pipe_anchorages.records import VesselLocationRecord
+from pipe_anchorages.transforms.shrink_group_by import ShrinkGroupBy
 
 from .factories import at, position
 
@@ -11,17 +12,24 @@ NEXT_DAY = 24 * 60
 def group(records):
     """Runs CreateTaggedRecordsByDay's steps on `records` without Beam.
 
-    Groups the records by key as its GroupByKey does, between to_shuffle and from_shuffle.
+    Groups the records by key as its GroupByKey does, between shrink and unshrink.
     Returns {(identifier, date): records}.
     """
     target = CreateTaggedRecordsByDay(record_type=VesselLocationRecord)
+    shrink_gbk = ShrinkGroupBy(
+        "identifier", record_type=VesselLocationRecord, date=target.record_date,
+    )
     groups = {}
     for record in records:
-        key, value = target.to_shuffle(target.add_date_to_key((record.identifier, record)))
-        groups.setdefault(key, []).append(value)
+        key, shrunken = shrink_gbk.shrink(record)
+        groups.setdefault(key, []).append(shrunken)
     items = [
         target.tag_records(
-            target.dedup_by_timestamp(target.order_by_timestamp(target.from_shuffle(item)))
+            target.dedup_by_timestamp(
+                target.order_by_timestamp(
+                    shrink_gbk.unshrink(item)
+                )
+            )
         )
         for item in groups.items()
     ]
