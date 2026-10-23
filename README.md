@@ -1,8 +1,11 @@
 <h1 align="center" style="border-bottom: none;"> pipe-anchorages </h1>
 
 <p align="center">
+  <a href="https://github.com/GlobalFishingWatch/pipe-anchorages/actions/workflows/ci.yaml" >
+    <img src="https://github.com/GlobalFishingWatch/pipe-anchorages/actions/workflows/ci.yaml/badge.svg"/>
+  </a>
   <a href="https://codecov.io/gh/GlobalFishingWatch/pipe-anchorages" >
-     <img alt="Coverage" src="https://codecov.io/gh/GlobalFishingWatch/pipe-anchorages/graph/badge.svg?token=FSPWG081MD"/>
+     <img alt="Coverage" src="https://codecov.io/github/globalfishingwatch/pipe-anchorages/branch/main/graph/badge.svg?token=FSPWG081MD"/>
   </a>
   <a>
     <img alt="Python versions" src="https://img.shields.io/badge/python-3.12%20%7C%203.13-blue">
@@ -29,7 +32,9 @@ AIS or VMS.
 - [Introduction](#introduction)
 - [How it works](#how-it-works)
 - [Development](#development)
-- [Usage](#usage) * [Using the CLI](#using-the-cli) * [Config files](#config-files)
+- [Usage](#usage)
+  * [Using the CLI](#using-the-cli)
+  * [Config files](#config-files)
 - [References](#references)
 
 ## Introduction
@@ -73,6 +78,14 @@ plus one side stage that cross-references the results against other GFW pipeline
 </div>
 
 ```mermaid
+---
+config:
+  look: classic
+  layout: dagre
+  flowchart:
+    wrappingWidth: 400
+    padding: 8
+---
 flowchart TD
     AP{{"<b>anchorage-locations</b><br/>cluster stationary positions"}}
     NA{{"<b>named-anchorages</b><br/>assign names"}}
@@ -82,9 +95,9 @@ flowchart TD
     AVI{{"<b>anchorages-visited-info</b><br/>cross-reference other event types"}}
 
     subgraph OTHER["<b>Other GFW pipelines</b>"]
-        LOI[("loitering events<br/>(pipe-loitering)")]
-        ENC[("encounter events<br/>(pipe-encounters)")]
-        GAP[("gap events<br/>(pipe-gaps)")]
+        LOI[("<b>product_events</b><br/><b>loitering</b><br/>(pipe-loitering)")]
+        ENC[("<b>product_events</b><br/><b>encounter</b><br/>(pipe-encounters)")]
+        GAP[("<b>product_events</b><br/><b>gap</b><br/>(pipe-gaps)")]
     end
 
     AP ==> NA ==> TM ==> PV ==> CV
