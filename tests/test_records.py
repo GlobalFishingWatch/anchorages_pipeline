@@ -28,7 +28,7 @@ for msg in examples_msgs:
 examples_msgs[3]["lat"] = 361
 
 example_records = [
-    VesselRecord.tagged_from_msg(x)[1] for x in examples_msgs if is_location_message(x)
+    VesselRecord.from_msg(x) for x in examples_msgs if is_location_message(x)
 ]
 example_records.append
 
@@ -68,7 +68,7 @@ def test_has_valid_location():
 
 
 def test_a_position_message_becomes_a_vessel_location_record():
-    (md, obj) = VesselRecord.tagged_from_msg(examples_msgs[0])
+    obj = VesselRecord.from_msg(examples_msgs[0])
     assert obj == VesselLocationRecord(
         identifier=111219501,
         timestamp=datetime.datetime(2016, 1, 1, 5, 20, 13, tzinfo=pytz.UTC),
@@ -79,12 +79,12 @@ def test_a_position_message_becomes_a_vessel_location_record():
 
 
 def test_a_vessel_location_record_survives_pickling():
-    (md, obj) = VesselRecord.tagged_from_msg(examples_msgs[0])
+    obj = VesselRecord.from_msg(examples_msgs[0])
     assert pickle.loads(pickle.dumps(obj)) == obj
 
 
 def test_a_vessel_location_record_shrinks_and_unshrinks():
-    (md, obj) = VesselRecord.tagged_from_msg(examples_msgs[0])
+    obj = VesselRecord.from_msg(examples_msgs[0])
     shrink_gbk = ShrinkGroupBy("identifier", record_type=VesselLocationRecord)
 
     shrunk_key, fields = shrink_gbk.shrink(obj)

@@ -22,17 +22,17 @@ class VesselRecord:
     """Base class for vessel records created from messages."""
 
     @staticmethod
-    def tagged_from_msg(msg):
+    def from_msg(msg):
+        """Builds the record a message makes: a location, an info, or an invalid record.
 
-        # `ident` is some sort of vessel identifier
-        ident = msg["ident"]
-
+        Each subclass overrides it with its own constructor; this one picks which.
+        """
         if is_location_message(msg) and has_valid_location(msg):
-            return (ident, VesselLocationRecord.from_msg(msg))
+            return VesselLocationRecord.from_msg(msg)
         elif has_destination(msg):
-            return (ident, VesselInfoRecord.from_msg(msg))
+            return VesselInfoRecord.from_msg(msg)
         else:
-            return (ident, InvalidRecord.from_msg(msg))
+            return InvalidRecord.from_msg(msg)
 
 
 class InvalidRecord(namedtuple("InvalidRecord", ["identifier", "timestamp"]), VesselRecord):

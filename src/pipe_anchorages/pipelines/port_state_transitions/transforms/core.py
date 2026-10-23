@@ -70,7 +70,6 @@ class FindPortStateTransitions(beam.PTransform):
         return (
             xs
             | cmn.CreateVesselRecords(destination=None)
-            | "DropIdentifier" >> beam.Values()
             | CreateTaggedRecordsByDay(record_type=VesselLocationRecord)
             | "ThinRecords" >> SmartThinRecords(
                 anchorages=anchorages,

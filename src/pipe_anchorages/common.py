@@ -17,10 +17,9 @@ class CreateVesselRecords(beam.PTransform):
     def __init__(self, **defaults):
         self.defaults = defaults
 
-    def is_valid(self, item):
-        ident, rcd = item
+    def is_valid(self, rcd):
         assert isinstance(rcd, VesselRecord), type(rcd)
-        return not isinstance(rcd, InvalidRecord) and isinstance(ident, str)
+        return not isinstance(rcd, InvalidRecord) and isinstance(rcd.identifier, str)
 
     def add_defaults(self, x):
         for k, v in self.defaults.items():
@@ -32,6 +31,6 @@ class CreateVesselRecords(beam.PTransform):
         return (
             ais_source
             | beam.Map(self.add_defaults)
-            | beam.Map(VesselRecord.tagged_from_msg)
+            | beam.Map(VesselRecord.from_msg)
             | beam.Filter(self.is_valid)
         )
